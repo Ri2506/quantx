@@ -60,7 +60,7 @@ class AssistantCreditLimiter:
         plan_name = str(plan.get("name", "")).lower()
         if subscription_status in {"active", "trial"}:
             return "pro"
-        if plan_name in {"starter", "pro", "elite"}:
+        if plan_name in {"starter", "pro"}:
             return "pro"
         return "free"
 

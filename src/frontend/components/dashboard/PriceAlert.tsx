@@ -266,7 +266,7 @@ export default function PriceAlert({
 
       {/* Help Text */}
       <p className="text-xs text-text-muted text-center mt-3">
-        Get notified via email, Telegram, or push when price crosses your alert
+        Get notified via email or push when price crosses your alert
       </p>
     </motion.div>
   )

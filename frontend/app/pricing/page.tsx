@@ -8,7 +8,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { motion } from 'framer-motion'
-import { Check, Zap, Shield, Crown, Star, ArrowRight, Loader2 } from 'lucide-react'
+import { Check, Zap, Shield, Star, ArrowRight, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import Card3D from '@/components/ui/Card3D'
 import ScrollReveal from '@/components/ui/ScrollReveal'
@@ -129,7 +129,7 @@ function PricingCard({
     { label: 'Equity trading', included: plan.equity_trading },
     { label: 'Futures trading', included: plan.futures_trading },
     { label: 'Options trading', included: plan.options_trading },
-    { label: 'Telegram alerts', included: plan.telegram_alerts },
+    { label: 'Push notifications', included: plan.telegram_alerts },
     { label: 'Priority support', included: plan.priority_support },
     { label: 'API access', included: plan.api_access },
   ]
@@ -163,7 +163,6 @@ function PricingCard({
           {plan.name === 'free' && <Zap className="w-5 h-5 text-text-secondary" />}
           {plan.name === 'starter' && <Zap className="w-5 h-5 text-neon-cyan" />}
           {plan.name === 'pro' && <Shield className="w-5 h-5 text-neon-gold" />}
-          {plan.name === 'elite' && <Crown className="w-5 h-5 text-neon-purple" />}
           <h3 className="text-xl font-bold">{plan.display_name}</h3>
         </div>
         <p className={`text-sm ${isPopular ? 'text-neon-cyan/80' : 'text-text-secondary'}`}>
@@ -448,7 +447,7 @@ export default function SubscriptionPage() {
         </ScrollReveal>
 
         {/* Pricing Grid */}
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-7xl mx-auto">
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl mx-auto">
           {plans.map((plan, i) => (
             <motion.div
               key={plan.id}

@@ -28,7 +28,6 @@ import {
   Check,
   Zap,
   Shield,
-  BarChart3,
   Sparkles,
 } from 'lucide-react'
 
@@ -77,7 +76,7 @@ const plans = [
     features: [
       '20 signals per day',
       'Advanced technical analysis',
-      'Email + Telegram alerts',
+      'Push notifications',
       '30-day trade history',
       'Portfolio analytics',
     ],
@@ -100,21 +99,6 @@ const plans = [
     ],
     icon: Shield,
     recommended: true,
-  },
-  {
-    id: 'elite',
-    name: 'Elite',
-    price: 4999,
-    description: 'For professional traders',
-    features: [
-      'Everything in Pro',
-      'F&O signals',
-      'Custom scanners',
-      'API access',
-      'Dedicated support',
-      'Portfolio analysis',
-    ],
-    icon: BarChart3,
   },
 ]
 

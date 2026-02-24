@@ -53,7 +53,7 @@ export interface UserProfile {
   last_active?: string
 }
 
-export type SubscriptionTier = 'free' | 'starter' | 'pro' | 'elite'
+export type SubscriptionTier = 'free' | 'starter' | 'pro'
 
 // ============================================================================
 // TRADING SIGNALS

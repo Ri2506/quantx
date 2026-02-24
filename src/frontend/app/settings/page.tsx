@@ -78,8 +78,8 @@ export default function SettingsPage() {
     email_signals: true,
     email_trades: true,
     push_enabled: false,
-    telegram_enabled: false,
-    telegram_chat_id: '',
+    push_signals: false,
+    push_trades: false,
   })
 
   // Load profile data
@@ -107,8 +107,8 @@ export default function SettingsPage() {
         email_signals: true,
         email_trades: true,
         push_enabled: false,
-        telegram_enabled: !!profile.telegram_chat_id,
-        telegram_chat_id: profile.telegram_chat_id || '',
+        push_signals: !!profile.push_enabled,
+        push_trades: !!profile.push_enabled,
       })
     }
   }, [profile])
@@ -200,7 +200,7 @@ export default function SettingsPage() {
     try {
       await api.user.updateProfile({
         notifications_enabled: notificationForm.notifications_enabled,
-        telegram_chat_id: notificationForm.telegram_enabled ? notificationForm.telegram_chat_id : null,
+        push_enabled: notificationForm.push_signals || notificationForm.push_trades,
       })
       await refreshProfile()
       setMessage({ type: 'success', text: 'Notification settings updated!' })
@@ -730,39 +730,43 @@ export default function SettingsPage() {
                           </div>
                         </div>
 
-                        {/* Telegram */}
+                        {/* Push Notifications */}
                         <div className="p-4 bg-background-elevated rounded-xl space-y-3">
                           <div className="flex items-center justify-between">
                             <div>
-                              <h3 className="font-medium text-text-primary">Telegram Notifications</h3>
-                              <p className="text-xs text-text-muted">Get instant alerts on Telegram</p>
+                              <h3 className="font-medium text-text-primary">Push — Signal Alerts</h3>
+                              <p className="text-xs text-text-muted">Get push notifications for new signals</p>
                             </div>
                             <button
-                              onClick={() => setNotificationForm({ ...notificationForm, telegram_enabled: !notificationForm.telegram_enabled })}
+                              onClick={() => setNotificationForm({ ...notificationForm, push_signals: !notificationForm.push_signals })}
                               className={`w-10 h-5 rounded-full transition-colors ${
-                                notificationForm.telegram_enabled ? 'bg-primary' : 'bg-background-elevated/80'
+                                notificationForm.push_signals ? 'bg-primary' : 'bg-background-elevated/80'
                               }`}
                             >
                               <div className={`w-4 h-4 rounded-full bg-white transition-transform ${
-                                notificationForm.telegram_enabled ? 'translate-x-5' : 'translate-x-0.5'
+                                notificationForm.push_signals ? 'translate-x-5' : 'translate-x-0.5'
                               }`} />
                             </button>
                           </div>
-                          {notificationForm.telegram_enabled && (
+                        </div>
+
+                        <div className="p-4 bg-background-elevated rounded-xl space-y-3">
+                          <div className="flex items-center justify-between">
                             <div>
-                              <label className="block text-xs text-text-muted mb-1">Telegram Chat ID</label>
-                              <input
-                                type="text"
-                                value={notificationForm.telegram_chat_id}
-                                onChange={(e) => setNotificationForm({ ...notificationForm, telegram_chat_id: e.target.value })}
-                                className="w-full px-3 py-2 bg-background-primary border border-border/50 rounded-lg text-text-primary text-sm focus:outline-none focus:border-primary"
-                                placeholder="Your Telegram chat ID"
-                              />
-                              <p className="text-xs text-text-muted mt-1">
-                                Message @swingai_bot on Telegram to get your chat ID
-                              </p>
+                              <h3 className="font-medium text-text-primary">Push — Trade Updates</h3>
+                              <p className="text-xs text-text-muted">Get push notifications for trade executions</p>
                             </div>
-                          )}
+                            <button
+                              onClick={() => setNotificationForm({ ...notificationForm, push_trades: !notificationForm.push_trades })}
+                              className={`w-10 h-5 rounded-full transition-colors ${
+                                notificationForm.push_trades ? 'bg-primary' : 'bg-background-elevated/80'
+                              }`}
+                            >
+                              <div className={`w-4 h-4 rounded-full bg-white transition-transform ${
+                                notificationForm.push_trades ? 'translate-x-5' : 'translate-x-0.5'
+                              }`} />
+                            </button>
+                          </div>
                         </div>
                       </>
                     )}

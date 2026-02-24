@@ -87,7 +87,7 @@ def verify_subscription_access(
 
     Args:
         profile: User profile dict
-        required_plan: Required plan name (free, starter, pro, elite)
+        required_plan: Required plan name (free, starter, pro)
 
     Returns:
         True if user has access
@@ -95,7 +95,7 @@ def verify_subscription_access(
     Raises:
         HTTPException: If subscription is invalid or insufficient
     """
-    plan_hierarchy = {"free": 0, "starter": 1, "pro": 2, "elite": 3}
+    plan_hierarchy = {"free": 0, "starter": 1, "pro": 2}
 
     user_plan = profile.get("subscription_plan", "free")
     user_level = plan_hierarchy.get(user_plan, 0)

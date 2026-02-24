@@ -51,13 +51,15 @@ CREATE TABLE IF NOT EXISTS public.subscription_plans (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Insert default plans
+-- Insert default plans (3 tiers: Free, Starter, Pro)
 INSERT INTO public.subscription_plans (name, display_name, description, price_monthly, price_quarterly, price_yearly, max_signals_per_day, max_positions, max_capital, signal_only, semi_auto, full_auto, equity_trading, futures_trading, options_trading, telegram_alerts, priority_support, api_access, sort_order) VALUES
-('free', 'Free', 'Get started with basic signals', 0, 0, 0, 3, 2, 100000, TRUE, FALSE, FALSE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE, 1),
-('starter', 'Starter', 'Perfect for beginners', 99900, 269900, 999900, 10, 5, 500000, TRUE, TRUE, FALSE, TRUE, FALSE, FALSE, TRUE, FALSE, FALSE, 2),
-('pro', 'Pro', 'For serious traders', 199900, 539900, 1999900, 25, 10, 2500000, TRUE, TRUE, TRUE, TRUE, TRUE, FALSE, TRUE, TRUE, FALSE, 3),
-('elite', 'Elite', 'Full F&O + API access', 499900, 1349900, 4999900, 50, 20, 10000000, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, 4)
+('free', 'Free', 'Get started with basic signals', 0, 0, 0, 5, 3, 10000000, TRUE, FALSE, FALSE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE, 1),
+('starter', 'Starter', 'For beginners starting their trading journey', 49900, 129900, 399900, 20, 5, 50000000, TRUE, TRUE, FALSE, TRUE, FALSE, FALSE, FALSE, FALSE, FALSE, 2),
+('pro', 'Pro', 'For serious traders who want full edge', 149900, 399900, 1199900, -1, 15, -1, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, TRUE, 3)
 ON CONFLICT (name) DO NOTHING;
+
+-- Remove elite plan if it exists
+DELETE FROM public.subscription_plans WHERE name = 'elite';
 
 -- ============================================================================
 -- 2. USER PROFILES (Extended)

@@ -391,17 +391,19 @@ CREATE TABLE IF NOT EXISTS subscription_plans (
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Insert default plans
+-- Insert default plans (3 tiers: Free, Starter, Pro)
 INSERT INTO subscription_plans (id, name, display_name, description, price_monthly, price_quarterly, price_yearly, max_signals_per_day, max_positions, max_capital, signal_only, semi_auto, full_auto, equity_trading, futures_trading, options_trading, telegram_alerts, priority_support, api_access)
-VALUES 
-    ('free', 'free', 'Free', 'Basic access with limited signals', 0, 0, 0, 2, 2, 10000000, true, false, false, true, false, false, false, false, false),
-    ('starter', 'starter', 'Starter', 'For beginners starting their trading journey', 49900, 129900, 399900, 5, 5, 50000000, true, true, false, true, false, false, true, false, false),
-    ('pro', 'pro', 'Pro', 'For serious traders who want edge', 149900, 399900, 1199900, 15, 10, 200000000, true, true, true, true, true, true, true, true, false),
-    ('elite', 'elite', 'Elite', 'For professional traders & HNIs', 299900, 799900, 2499900, -1, 25, -1, true, true, true, true, true, true, true, true, true)
+VALUES
+    ('free', 'free', 'Free', 'Get started with basic signals', 0, 0, 0, 5, 3, 10000000, true, false, false, true, false, false, false, false, false),
+    ('starter', 'starter', 'Starter', 'For beginners starting their trading journey', 49900, 129900, 399900, 20, 5, 50000000, true, true, false, true, false, false, false, false, false),
+    ('pro', 'pro', 'Pro', 'For serious traders who want full edge', 149900, 399900, 1199900, -1, 15, -1, true, true, true, true, true, true, true, true, true)
 ON CONFLICT (id) DO UPDATE SET
     price_monthly = EXCLUDED.price_monthly,
     price_quarterly = EXCLUDED.price_quarterly,
     price_yearly = EXCLUDED.price_yearly;
+
+-- Remove elite plan if it exists from previous migration
+DELETE FROM subscription_plans WHERE id = 'elite';
 
 -- ============================================================================
 -- 20. GRANT PERMISSIONS
