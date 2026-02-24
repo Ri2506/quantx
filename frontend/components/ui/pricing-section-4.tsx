@@ -1,57 +1,71 @@
 "use client";
 
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { Sparkles as SparklesComp } from "@/components/ui/sparkles";
-import { TimelineContent } from "@/components/ui/timeline-animation";
-import { VerticalCutReveal } from "@/components/ui/vertical-cut-reveal";
-import { cn } from "@/components/ui/index";
-import { motion } from "framer-motion";
-import { useRef, useState } from "react";
+import { cn } from "@/lib/utils";
+import { motion, AnimatePresence } from "framer-motion";
+import { useState } from "react";
+import { Check, Zap, Crown, Sparkles } from "lucide-react";
+import Link from "next/link";
+import ScrollReveal from "@/components/ui/ScrollReveal";
 
 const plans = [
   {
-    name: "Basic",
-    description:
-      "Essential intelligence for disciplined swing traders",
-    price: 9999,
-    yearlyPrice: 99990,
-    buttonText: "Start 7-Day Free Trial",
+    name: "Free",
+    description: "Get started with AI-powered trading signals",
+    price: 0,
+    yearlyPrice: 0,
+    buttonText: "Get Started Free",
     buttonVariant: "outline" as const,
-    includes: [
-      "Basic tier includes:",
-      "Up to 10 high-conviction signals daily",
-      "NSE top 200 stock coverage",
-      "Probability-scored entry points",
-      "Risk-defined stop & target levels",
-      "Real-time signal notifications",
-      "Email & mobile app alerts",
+    icon: Sparkles,
+    accent: "neon-cyan",
+    features: [
+      "5 signals per day",
+      "3 active positions",
+      "View-only mode",
+      "Email notifications",
+      "Basic analytics",
+      "NSE top 50 coverage",
+      "Community support",
+    ],
+  },
+  {
+    name: "Starter",
+    description: "For active traders who want an edge",
+    price: 499,
+    yearlyPrice: 4990,
+    buttonText: "Start 7-Day Free Trial",
+    buttonVariant: "default" as const,
+    popular: true,
+    icon: Zap,
+    accent: "neon-green",
+    features: [
+      "20 signals per day",
+      "5 active positions",
+      "Semi-auto execution",
+      "Email + Push notifications",
+      "Advanced analytics",
+      "NSE top 200 coverage",
       "Paper trading mode",
-      "Performance analytics dashboard",
-      "7-day trade history",
+      "Priority support",
     ],
   },
   {
     name: "Pro",
-    description:
-      "Complete institutional-grade trading intelligence",
-    price: 29999,
-    yearlyPrice: 299990,
+    description: "Full institutional-grade intelligence",
+    price: 1499,
+    yearlyPrice: 14990,
     buttonText: "Start 7-Day Free Trial",
     buttonVariant: "default" as const,
-    popular: true,
-    includes: [
-      "Everything in Basic, plus:",
-      "Unlimited premium signals",
-      "NSE 500 + BSE full coverage",
-      "Advanced regime detection",
-      "Multi-timeframe analysis",
-      "WhatsApp instant alerts",
-      "Custom risk parameters",
-      "Portfolio optimization engine",
-      "1-click broker integration (Zerodha, Upstox, Angel One)",
-      "30-day detailed trade logs",
-      "API access for automation",
-      "Priority customer support",
+    icon: Crown,
+    accent: "neon-purple",
+    features: [
+      "Unlimited signals",
+      "15 active positions",
+      "Full-auto execution",
+      "All notification channels",
+      "Portfolio optimization",
+      "NSE 500 + BSE coverage",
+      "Broker integration",
+      "API access",
       "Dedicated account manager",
     ],
   },
@@ -65,247 +79,210 @@ const PricingSwitch = ({
   onSwitch: (value: boolean) => void;
 }) => {
   return (
-    <div className="flex justify-center">
-      <div className="relative z-10 mx-auto flex w-fit rounded-full bg-background-elevated border border-border p-1">
+    <div className="flex items-center justify-center gap-4">
+      <div className="relative z-10 flex rounded-full bg-background-elevated/80 border border-white/[0.06] p-1">
         <button
           type="button"
           onClick={() => onSwitch(false)}
-          aria-pressed={!isYearly}
           className={cn(
-            "relative z-10 w-fit h-10  rounded-full sm:px-6 px-3 sm:py-2 py-1 font-medium transition-colors",
-            !isYearly ? "text-text-primary" : "text-text-secondary",
+            "relative z-10 rounded-full px-5 py-2.5 text-sm font-medium transition-colors",
+            !isYearly ? "text-space-void" : "text-text-secondary hover:text-text-primary"
           )}
         >
           {!isYearly && (
             <motion.span
-              layoutId={"switch"}
-              className="pointer-events-none absolute top-0 left-0 h-10 w-full rounded-full border-4 border-primary bg-primary shadow-[0_0_24px_rgba(var(--primary),0.35)]"
+              layoutId="pricing-switch"
+              className="absolute inset-0 rounded-full bg-gradient-to-r from-neon-cyan to-neon-green"
               transition={{ type: "spring", stiffness: 500, damping: 30 }}
             />
           )}
           <span className="relative">Monthly</span>
         </button>
-
         <button
           type="button"
           onClick={() => onSwitch(true)}
-          aria-pressed={isYearly}
           className={cn(
-            "relative z-10 w-fit h-10 flex-shrink-0 rounded-full sm:px-6 px-3 sm:py-2 py-1 font-medium transition-colors",
-            isYearly ? "text-text-primary" : "text-text-secondary",
+            "relative z-10 rounded-full px-5 py-2.5 text-sm font-medium transition-colors",
+            isYearly ? "text-space-void" : "text-text-secondary hover:text-text-primary"
           )}
         >
           {isYearly && (
             <motion.span
-              layoutId={"switch"}
-              className="pointer-events-none absolute top-0 left-0 h-10 w-full rounded-full border-4 border-primary bg-primary shadow-[0_0_24px_rgba(var(--primary),0.35)]"
+              layoutId="pricing-switch"
+              className="absolute inset-0 rounded-full bg-gradient-to-r from-neon-cyan to-neon-green"
               transition={{ type: "spring", stiffness: 500, damping: 30 }}
             />
           )}
-          <span className="relative flex items-center gap-2">Yearly</span>
+          <span className="relative flex items-center gap-1.5">
+            Yearly
+            <span className="rounded-full bg-neon-green/20 px-2 py-0.5 text-[10px] font-bold text-neon-green">
+              -17%
+            </span>
+          </span>
         </button>
       </div>
     </div>
   );
 };
 
-export default function PricingSection6() {
+export default function PricingSection() {
   const [isYearly, setIsYearly] = useState(false);
-  const pricingRef = useRef<HTMLDivElement>(null);
-
-  const revealVariants = {
-    visible: (i: number) => ({
-      y: 0,
-      opacity: 1,
-      filter: "blur(0px)",
-      transition: {
-        delay: i * 0.4,
-        duration: 0.5,
-      },
-    }),
-    hidden: {
-      filter: "blur(10px)",
-      y: -20,
-      opacity: 0,
-    },
-  };
-
-  const togglePricingPeriod = (value: boolean) => setIsYearly(value);
 
   const formatPrice = (value: number) =>
-    new Intl.NumberFormat("en-IN", { maximumFractionDigits: 0 }).format(value);
+    value === 0 ? "0" : new Intl.NumberFormat("en-IN", { maximumFractionDigits: 0 }).format(value);
 
   return (
-    <div
-      className="min-h-screen mx-auto relative bg-background-primary overflow-x-hidden"
-      ref={pricingRef}
-    >
-      <TimelineContent
-        animationNum={4}
-        timelineRef={pricingRef}
-        customVariants={revealVariants}
-        className="absolute top-0 h-96 w-screen overflow-hidden [mask-image:radial-gradient(circle_at_50%_50%,white,transparent)]"
-      >
-        <div className="absolute bottom-0 left-0 right-0 top-0 bg-[linear-gradient(to_right,rgba(var(--text-primary),0.12)_1px,transparent_1px),linear-gradient(to_bottom,rgba(var(--text-primary),0.04)_1px,transparent_1px)] bg-[size:70px_80px]" />
-        <SparklesComp
-          density={1800}
-          direction="bottom"
-          speed={1}
-          color="rgb(var(--sparkles-color))"
-          className="absolute inset-x-0 bottom-0 h-full w-full [mask-image:radial-gradient(circle_at_50%_50%,white,transparent_85%)]"
-        />
-      </TimelineContent>
-      <TimelineContent
-        animationNum={5}
-        timelineRef={pricingRef}
-        customVariants={revealVariants}
-        className="absolute left-0 top-[-114px] w-full h-[113.625vh] flex flex-col items-start justify-start content-start flex-none flex-nowrap gap-2.5 overflow-hidden p-0 z-0"
-      >
-        <div className="framer-1i5axl2">
-          <div
-            className="absolute left-[-568px] right-[-568px] top-0 h-[2053px] flex-none rounded-full"
-            style={{
-              border: "200px solid rgb(var(--accent))",
-              filter: "blur(92px)",
-              WebkitFilter: "blur(92px)",
-            }}
-            data-border="true"
-            data-framer-name="Ellipse 1"
-          ></div>
-          <div
-            className="absolute left-[-568px] right-[-568px] top-0 h-[2053px] flex-none rounded-full"
-            style={{
-              border: "200px solid rgb(var(--primary))",
-              filter: "blur(92px)",
-              WebkitFilter: "blur(92px)",
-            }}
-            data-border="true"
-            data-framer-name="Ellipse 2"
-          ></div>
-        </div>
-      </TimelineContent>
+    <div className="relative px-6 py-32">
+      {/* Background glow */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[600px] bg-neon-cyan/[0.04] rounded-full blur-[120px]" />
+        <div className="absolute top-1/3 right-1/4 w-[400px] h-[400px] bg-neon-purple/[0.06] rounded-full blur-[100px]" />
+      </div>
 
-      <article className="text-center mb-6 pt-32 max-w-3xl mx-auto space-y-2 relative z-50">
-        <h2 className="text-4xl font-medium text-text-primary">
-          <VerticalCutReveal
-            splitBy="words"
-            staggerDuration={0.15}
-            staggerFrom="first"
-            reverse={true}
-            containerClassName="justify-center "
-            transition={{
-              type: "spring",
-              stiffness: 250,
-              damping: 40,
-              delay: 0,
-            }}
-          >
-            Plans built for serious swing traders
-          </VerticalCutReveal>
-        </h2>
+      <div className="container mx-auto relative z-10">
+        {/* Header */}
+        <ScrollReveal>
+          <div className="text-center mb-6">
+            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-neon-green/20 bg-neon-green/5 px-5 py-2">
+              <Crown className="h-4 w-4 text-neon-green" />
+              <span className="text-xs font-semibold uppercase tracking-wider text-neon-green">
+                Simple Pricing
+              </span>
+            </div>
+            <h2 className="text-4xl font-bold md:text-5xl mb-4">
+              <span className="text-text-primary">Plans for Every </span>
+              <span className="gradient-text-professional">Trader</span>
+            </h2>
+            <p className="mx-auto max-w-2xl text-lg text-text-secondary">
+              Start free, upgrade when you&apos;re ready. All plans include core AI signal intelligence.
+            </p>
+          </div>
+        </ScrollReveal>
 
-        <TimelineContent
-          as="p"
-          animationNum={0}
-          timelineRef={pricingRef}
-          customVariants={revealVariants}
-          className="text-text-secondary"
-        >
-          Join 2,400+ serious traders. Save 17% with annual commitment.
-        </TimelineContent>
+        {/* Toggle */}
+        <ScrollReveal delay={0.1}>
+          <div className="mb-16">
+            <PricingSwitch isYearly={isYearly} onSwitch={setIsYearly} />
+          </div>
+        </ScrollReveal>
 
-        <TimelineContent
-          as="div"
-          animationNum={1}
-          timelineRef={pricingRef}
-          customVariants={revealVariants}
-        >
-          <PricingSwitch isYearly={isYearly} onSwitch={togglePricingPeriod} />
-        </TimelineContent>
-      </article>
+        {/* Pricing Cards */}
+        <div className="grid gap-6 md:grid-cols-3 max-w-6xl mx-auto items-start">
+          {plans.map((plan, index) => (
+            <ScrollReveal key={plan.name} delay={index * 0.1}>
+              <motion.div
+                whileHover={{ y: -8 }}
+                transition={{ type: "spring", stiffness: 300, damping: 20 }}
+                className={cn(
+                  "relative rounded-2xl overflow-hidden transition-all duration-300",
+                  plan.popular
+                    ? "ring-2 ring-neon-green/40 shadow-[0_0_60px_-12px_rgba(0,255,136,0.25)]"
+                    : "ring-1 ring-white/[0.06]"
+                )}
+              >
+                {/* Popular badge */}
+                {plan.popular && (
+                  <div className="absolute top-0 left-0 right-0 bg-gradient-to-r from-neon-cyan via-neon-green to-neon-cyan py-1.5 text-center z-10">
+                    <span className="text-xs font-bold uppercase tracking-wider text-space-void">
+                      Most Popular
+                    </span>
+                  </div>
+                )}
 
-      <div
-        className="absolute top-0 left-[10%] right-[10%] w-[80%] h-full z-0"
-        style={{
-          backgroundImage: `
-        radial-gradient(circle at center, rgba(var(--accent), 0.35) 0%, transparent 70%)
-      `,
-          opacity: 0.6,
-          mixBlendMode: "multiply",
-        }}
-      />
-
-      <div className="grid md:grid-cols-2 max-w-4xl gap-6 py-6 mx-auto px-6">
-        {plans.map((plan, index) => (
-          <TimelineContent
-            key={plan.name}
-            as="div"
-            animationNum={2 + index}
-            timelineRef={pricingRef}
-            customVariants={revealVariants}
-          >
-            <Card
-              className={`relative text-text-primary border-border ${
-                plan.popular
-                  ? "bg-background-elevated shadow-[0px_-13px_180px_0px_rgba(var(--accent),0.35)] z-20 border-accent/40"
-                  : "bg-background-surface z-10 border-border/60"
-              }`}
-            >
-              <CardHeader className="text-left ">
-                <div className="flex justify-between">
-                  <h3 className="text-3xl mb-2">{plan.name}</h3>
-                </div>
-                <div className="flex items-baseline">
-                  <span className="text-4xl font-semibold ">₹</span>
-                  <motion.span
-                    key={`${plan.name}-${isYearly ? "yearly" : "monthly"}`}
-                    initial={{ opacity: 0, y: 8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.35 }}
-                    className="text-4xl font-semibold"
-                  >
-                    {formatPrice(isYearly ? plan.yearlyPrice : plan.price)}
-                  </motion.span>
-                  <span className="text-text-secondary ml-1">
-                    /{isYearly ? "year" : "month"}
-                  </span>
-                </div>
-                <p className="text-sm text-text-secondary mb-4">{plan.description}</p>
-              </CardHeader>
-
-              <CardContent className="pt-0">
-                <button
-                  className={`btn-tv-gradient btn-press w-full mb-6 p-4 text-xl rounded-xl ${
-                    plan.popular
-                      ? "shadow-[0_18px_40px_rgba(var(--primary),0.25)] border border-primary"
-                      : plan.buttonVariant === "outline"
-                        ? "shadow-[0_18px_40px_rgba(0,0,0,0.2)] border border-border"
-                        : ""
-                  }`}
+                <div
+                  className={cn(
+                    "glass-card-neu p-8",
+                    plan.popular ? "pt-14" : ""
+                  )}
+                  style={{ borderRadius: "inherit" }}
                 >
-                  {plan.buttonText}
-                </button>
+                  {/* Plan icon + name */}
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className={cn(
+                      "flex h-10 w-10 items-center justify-center rounded-xl",
+                      plan.accent === "neon-cyan" && "bg-neon-cyan/15",
+                      plan.accent === "neon-green" && "bg-neon-green/15",
+                      plan.accent === "neon-purple" && "bg-neon-purple/15",
+                    )}>
+                      <plan.icon className={cn(
+                        "h-5 w-5",
+                        plan.accent === "neon-cyan" && "text-neon-cyan",
+                        plan.accent === "neon-green" && "text-neon-green",
+                        plan.accent === "neon-purple" && "text-neon-purple",
+                      )} />
+                    </div>
+                    <h3 className="text-xl font-bold text-text-primary">{plan.name}</h3>
+                  </div>
 
-                <div className="space-y-3 pt-4 border-t border-border/70">
-                  <h4 className="font-medium text-base mb-3">
-                    {plan.includes[0]}
-                  </h4>
-                  <ul className="space-y-2">
-                    {plan.includes.slice(1).map((feature, featureIndex) => (
-                      <li
-                        key={featureIndex}
-                        className="flex items-center gap-2"
+                  <p className="text-sm text-text-secondary mb-6">{plan.description}</p>
+
+                  {/* Price */}
+                  <div className="flex items-baseline gap-1 mb-8">
+                    <span className="text-lg font-medium text-text-secondary">&#8377;</span>
+                    <AnimatePresence mode="wait">
+                      <motion.span
+                        key={`${plan.name}-${isYearly}`}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        transition={{ duration: 0.25 }}
+                        className="text-5xl font-bold text-text-primary tracking-tight"
                       >
-                        <span className="h-2.5 w-2.5 bg-border rounded-full grid place-content-center"></span>
-                        <span className="text-sm text-text-secondary">{feature}</span>
-                      </li>
-                    ))}
-                  </ul>
+                        {formatPrice(isYearly ? plan.yearlyPrice : plan.price)}
+                      </motion.span>
+                    </AnimatePresence>
+                    <span className="text-sm text-text-secondary ml-1">
+                      /{isYearly ? "year" : "month"}
+                    </span>
+                  </div>
+
+                  {/* CTA Button */}
+                  <Link
+                    href={plan.price === 0 ? "/signup" : "/signup?plan=" + plan.name.toLowerCase()}
+                    className={cn(
+                      "block w-full rounded-xl py-3.5 text-center text-sm font-semibold transition-all",
+                      plan.popular
+                        ? "btn-tv-gradient btn-press shadow-[0_8px_24px_rgba(0,87,255,0.3)]"
+                        : plan.price === 0
+                          ? "bg-white/[0.06] border border-white/[0.08] text-text-primary hover:bg-white/[0.1] hover:border-white/[0.12]"
+                          : "bg-gradient-to-r from-neon-purple/20 to-neon-purple/10 border border-neon-purple/20 text-neon-purple hover:border-neon-purple/40"
+                    )}
+                  >
+                    {plan.buttonText}
+                  </Link>
+
+                  {/* Features */}
+                  <div className="mt-8 pt-8 border-t border-white/[0.06]">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-text-secondary mb-4">
+                      What&apos;s included
+                    </p>
+                    <ul className="space-y-3">
+                      {plan.features.map((feature) => (
+                        <li key={feature} className="flex items-start gap-3">
+                          <Check className={cn(
+                            "h-4 w-4 mt-0.5 shrink-0",
+                            plan.accent === "neon-cyan" && "text-neon-cyan",
+                            plan.accent === "neon-green" && "text-neon-green",
+                            plan.accent === "neon-purple" && "text-neon-purple",
+                          )} />
+                          <span className="text-sm text-text-secondary">{feature}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
                 </div>
-              </CardContent>
-            </Card>
-          </TimelineContent>
-        ))}
+              </motion.div>
+            </ScrollReveal>
+          ))}
+        </div>
+
+        {/* Bottom note */}
+        <ScrollReveal delay={0.4}>
+          <p className="text-center text-sm text-text-muted mt-12 max-w-2xl mx-auto">
+            All paid plans include a 7-day free trial. No credit card required to start.
+            Cancel anytime with no questions asked.
+          </p>
+        </ScrollReveal>
       </div>
     </div>
   );

@@ -124,18 +124,28 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="min-h-screen px-6 py-8">
+    <div className="min-h-screen px-4 md:px-6 py-6 md:py-8">
       <div className="mx-auto max-w-7xl">
         {/* Header */}
         <ScrollReveal>
-          <div className="mb-8">
-            <h1 className="mb-2 text-4xl font-bold">
-              <span className="gradient-text-professional">Market Dashboard</span>
-            </h1>
-            <p className="text-lg text-text-secondary flex items-center gap-2">
-              Real-time NSE/BSE market data powered by AI intelligence
-              <StatusDot status="live" label="Market Open" />
-            </p>
+          <div className="mb-6 md:mb-8">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+              <div>
+                <h1 className="mb-1 text-3xl md:text-4xl font-bold">
+                  <span className="gradient-text-professional">Market Dashboard</span>
+                </h1>
+                <p className="text-sm md:text-lg text-text-secondary flex items-center gap-2">
+                  Real-time NSE/BSE market data powered by AI intelligence
+                  <StatusDot status="live" label="Live" />
+                </p>
+              </div>
+              <div className="flex items-center gap-2 text-xs text-text-muted">
+                <span className="hidden sm:inline">Last updated:</span>
+                <span className="font-mono">
+                  {new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })} IST
+                </span>
+              </div>
+            </div>
           </div>
         </ScrollReveal>
 
@@ -268,7 +278,7 @@ export default function DashboardPage() {
           <ScrollReveal>
             <h2 className="mb-4 text-2xl font-bold text-text-primary">Quick Actions</h2>
           </ScrollReveal>
-          <div className="grid gap-4 md:grid-cols-4">
+          <div className="grid gap-3 md:gap-4 grid-cols-2 md:grid-cols-4">
             {[
               { href: '/screener', icon: Sparkles, label: 'AI Screener', sub: '43+ Scanners', cls: 'bg-neon-cyan/10 border-neon-cyan/20 text-neon-cyan' },
               { href: '/signals', icon: Target, label: 'AI Signals', sub: 'Live Trades', cls: 'bg-neon-green/10 border-neon-green/20 text-neon-green' },

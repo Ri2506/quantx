@@ -1,7 +1,5 @@
 // ============================================================================
 // SWINGAI - 2026 INSTITUTIONAL TRADING TERMINAL HOMEPAGE
-// Cutting-edge design with layered glow backgrounds, beam-scan effects,
-// 3D cards, mesh gradients, and animated typography
 // ============================================================================
 
 'use client'
@@ -24,16 +22,16 @@ import {
   BarChart3,
   CheckCircle,
   ChevronDown,
-  ChevronLeft,
-  ChevronRight,
   Globe,
   Lock,
+  Menu,
   Shield,
   Star,
   Target,
   Terminal,
   TrendingUp,
   Users,
+  X,
   AlertTriangle,
 } from 'lucide-react'
 
@@ -47,7 +45,6 @@ const marketData = [
 ]
 
 function LiveMarketTicker() {
-  // Static data — no interval needed for demo
   const tickerData = [...marketData, ...marketData]
 
   return (
@@ -67,6 +64,72 @@ function LiveMarketTicker() {
         ))}
       </div>
     </div>
+  )
+}
+
+// ---- Mobile Navigation ----
+function MobileNav({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <>
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            onClick={onClose}
+            className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm"
+          />
+          <motion.div
+            initial={{ x: '100%' }}
+            animate={{ x: 0 }}
+            exit={{ x: '100%' }}
+            transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+            className="fixed right-0 top-0 bottom-0 z-[70] w-80 max-w-[85vw] glass-panel border-l border-white/[0.06]"
+          >
+            <div className="flex items-center justify-between p-6 border-b border-white/[0.06]">
+              <span className="text-lg font-bold gradient-text-professional">SwingAI</span>
+              <button onClick={onClose} className="p-2 rounded-lg hover:bg-white/[0.06] transition-colors">
+                <X className="h-5 w-5 text-text-secondary" />
+              </button>
+            </div>
+            <nav className="p-6 space-y-1">
+              {[
+                { href: '#intelligence', label: 'Intelligence' },
+                { href: '#terminal', label: 'Platform' },
+                { href: '#performance', label: 'Performance' },
+                { href: '#pricing', label: 'Pricing' },
+              ].map((link) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  onClick={onClose}
+                  className="block rounded-xl px-4 py-3 text-base font-medium text-text-secondary transition-colors hover:bg-white/[0.04] hover:text-text-primary"
+                >
+                  {link.label}
+                </Link>
+              ))}
+              <div className="pt-6 border-t border-white/[0.06] mt-6 space-y-3">
+                <Link
+                  href="/login"
+                  onClick={onClose}
+                  className="block rounded-xl px-4 py-3 text-center text-base font-medium text-text-secondary transition-colors hover:bg-white/[0.04] hover:text-text-primary"
+                >
+                  Login
+                </Link>
+                <Link
+                  href="/signup"
+                  onClick={onClose}
+                  className="btn-tv-gradient btn-press block rounded-xl px-4 py-3.5 text-center text-base font-semibold"
+                >
+                  Start Free Trial
+                </Link>
+              </div>
+            </nav>
+          </motion.div>
+        </>
+      )}
+    </AnimatePresence>
   )
 }
 
@@ -97,27 +160,28 @@ function TradingTerminalPreview() {
       <div className="gradient-border relative">
         <div className="overflow-hidden rounded-[19px] bg-gradient-to-br from-[rgb(8,12,24)] to-[rgb(14,19,33)]">
           {/* Terminal Header */}
-          <div className="flex items-center justify-between border-b border-white/5 bg-background-surface/30 px-6 py-4 ">
-            <div className="flex items-center gap-4">
-              <div className="flex gap-2">
-                <div className="h-3 w-3 rounded-full bg-danger/80" />
-                <div className="h-3 w-3 rounded-full bg-warning/80" />
-                <div className="h-3 w-3 rounded-full bg-success/80" />
+          <div className="flex items-center justify-between border-b border-white/5 bg-background-surface/30 px-4 py-3 md:px-6 md:py-4">
+            <div className="flex items-center gap-3 md:gap-4">
+              <div className="flex gap-1.5 md:gap-2">
+                <div className="h-2.5 w-2.5 md:h-3 md:w-3 rounded-full bg-danger/80" />
+                <div className="h-2.5 w-2.5 md:h-3 md:w-3 rounded-full bg-warning/80" />
+                <div className="h-2.5 w-2.5 md:h-3 md:w-3 rounded-full bg-success/80" />
               </div>
-              <div className="flex items-center gap-2 text-sm font-semibold text-text-secondary">
-                <Terminal className="h-4 w-4 text-neon-cyan" />
-                <span>SwingAI Trading Terminal</span>
+              <div className="flex items-center gap-2 text-xs md:text-sm font-semibold text-text-secondary">
+                <Terminal className="h-3.5 w-3.5 md:h-4 md:w-4 text-neon-cyan" />
+                <span className="hidden sm:inline">SwingAI Trading Terminal</span>
+                <span className="sm:hidden">SwingAI</span>
               </div>
             </div>
-            <div className="flex items-center gap-2 rounded-full bg-neon-green/10 border border-neon-green/20 px-3 py-1">
+            <div className="flex items-center gap-2 rounded-full bg-neon-green/10 border border-neon-green/20 px-2.5 py-1 md:px-3">
               <span className="status-dot status-live" />
-              <span className="text-xs font-medium text-neon-green">Live Market Data</span>
+              <span className="text-[10px] md:text-xs font-medium text-neon-green">Live</span>
             </div>
           </div>
 
           {/* Terminal Content */}
-          <div className="p-6">
-            <div className="grid gap-4 lg:grid-cols-3">
+          <div className="p-4 md:p-6">
+            <div className="grid gap-3 md:gap-4 grid-cols-1 sm:grid-cols-3">
               {[
                 { label: 'Active Signals', value: '14', sub: '+5 today', pct: '82%', Icon: TrendingUp },
                 { label: 'Win Rate (30d)', value: '78.4%', sub: '+5.2%', pct: '78%', Icon: Target },
@@ -128,24 +192,24 @@ function TradingTerminalPreview() {
                   initial={{ opacity: 0, y: 20 }}
                   animate={isInView ? { opacity: 1, y: 0 } : {}}
                   transition={{ delay: 0.2 + i * 0.1 }}
-                  className="glass-card-neu rounded-xl p-5 border border-white/[0.04]"
+                  className="glass-card-neu rounded-xl p-4 md:p-5 border border-white/[0.04]"
                 >
                   <div className="mb-2 flex items-center gap-2">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-neon-cyan/20">
-                      <card.Icon className="h-4 w-4 text-neon-cyan" />
+                    <div className="flex h-7 w-7 md:h-8 md:w-8 items-center justify-center rounded-lg bg-neon-cyan/20">
+                      <card.Icon className="h-3.5 w-3.5 md:h-4 md:w-4 text-neon-cyan" />
                     </div>
-                    <div className="text-xs font-semibold uppercase tracking-wider text-text-secondary">
+                    <div className="text-[10px] md:text-xs font-semibold uppercase tracking-wider text-text-secondary">
                       {card.label}
                     </div>
                   </div>
                   <div className="flex items-baseline gap-2">
-                    <div className="text-3xl font-bold text-text-primary">{card.value}</div>
-                    <div className="flex items-center gap-1 text-xs font-semibold text-success">
+                    <div className="text-2xl md:text-3xl font-bold text-text-primary">{card.value}</div>
+                    <div className="flex items-center gap-1 text-[10px] md:text-xs font-semibold text-success">
                       <ArrowUp className="h-3 w-3" />
                       {card.sub}
                     </div>
                   </div>
-                  <div className="mt-4 h-1.5 w-full overflow-hidden rounded-full bg-white/[0.04]">
+                  <div className="mt-3 md:mt-4 h-1.5 w-full overflow-hidden rounded-full bg-white/[0.04]">
                     <motion.div
                       initial={{ width: 0 }}
                       animate={isInView ? { width: card.pct } : {}}
@@ -162,31 +226,31 @@ function TradingTerminalPreview() {
               initial={{ opacity: 0, y: 20 }}
               animate={isInView ? { opacity: 1, y: 0 } : {}}
               transition={{ delay: 0.5 }}
-              className="mt-4 overflow-hidden rounded-xl border border-neon-cyan/20 bg-gradient-to-br from-neon-cyan/5 to-transparent "
+              className="mt-4 overflow-hidden rounded-xl border border-neon-cyan/20 bg-gradient-to-br from-neon-cyan/5 to-transparent"
             >
-              <div className="border-b border-white/[0.04] bg-background-surface/30 px-5 py-3">
+              <div className="border-b border-white/[0.04] bg-background-surface/30 px-4 md:px-5 py-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <span className="status-dot status-live" />
                     <span className="text-sm font-semibold text-text-primary">Latest Signal</span>
                   </div>
-                  <div className="rounded-full bg-neon-green/10 border border-neon-green/20 px-3 py-1 text-xs font-bold text-neon-green">
+                  <div className="rounded-full bg-neon-green/10 border border-neon-green/20 px-2.5 md:px-3 py-1 text-[10px] md:text-xs font-bold text-neon-green">
                     BUY - 89% CONFIDENCE
                   </div>
                 </div>
               </div>
-              <div className="p-5">
+              <div className="p-4 md:p-5">
                 <div className="mb-4 flex items-center justify-between">
                   <div>
                     <div className="text-xs font-medium text-text-secondary">SYMBOL</div>
-                    <div className="text-2xl font-bold text-text-primary">RELIANCE</div>
+                    <div className="text-xl md:text-2xl font-bold text-text-primary">RELIANCE</div>
                   </div>
                   <div className="text-right">
                     <div className="text-xs font-medium text-text-secondary">CURRENT PRICE</div>
-                    <div className="text-2xl font-bold text-text-primary">₹2,847.50</div>
+                    <div className="text-xl md:text-2xl font-bold text-text-primary">₹2,847.50</div>
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+                <div className="grid grid-cols-2 gap-3 md:gap-4 md:grid-cols-4">
                   {[
                     { label: 'Entry Zone', value: '₹2,820-2,850', cls: 'bg-neon-cyan/10 border-neon-cyan/20 text-neon-cyan' },
                     { label: 'Target', value: '₹3,020', cls: 'bg-neon-green/10 border-neon-green/20 text-neon-green' },
@@ -194,9 +258,9 @@ function TradingTerminalPreview() {
                     { label: 'Risk:Reward', value: '1:2.57', cls: 'bg-neon-purple/10 border-neon-purple/20 text-neon-purple' },
                   ].map((item) => (
                     <div key={item.label}>
-                      <div className="mb-1 text-xs font-medium text-text-secondary">{item.label}</div>
-                      <div className={`rounded-lg border px-3 py-2 text-center ${item.cls}`}>
-                        <div className="text-sm font-bold">{item.value}</div>
+                      <div className="mb-1 text-[10px] md:text-xs font-medium text-text-secondary">{item.label}</div>
+                      <div className={`rounded-lg border px-2.5 md:px-3 py-2 text-center ${item.cls}`}>
+                        <div className="text-xs md:text-sm font-bold">{item.value}</div>
                       </div>
                     </div>
                   ))}
@@ -209,12 +273,12 @@ function TradingTerminalPreview() {
               initial={{ opacity: 0, y: 20 }}
               animate={isInView ? { opacity: 1, y: 0 } : {}}
               transition={{ delay: 0.6 }}
-              className="mt-4 rounded-xl border border-white/[0.04] bg-background-surface/30 p-4 "
+              className="mt-4 rounded-xl border border-white/[0.04] bg-background-surface/30 p-4"
             >
-              <div className="mb-3 text-xs font-semibold uppercase tracking-wider text-text-secondary">
+              <div className="mb-3 text-[10px] md:text-xs font-semibold uppercase tracking-wider text-text-secondary">
                 Price Action - Last 30 Sessions
               </div>
-              <div className="flex h-24 items-end justify-between gap-1">
+              <div className="flex h-20 md:h-24 items-end justify-between gap-0.5 md:gap-1">
                 {candleData.slice(-20).map((candle, i) => {
                   const isUp = candle.close > candle.open
                   const height = ((candle.high - candle.low) / 150) * 100
@@ -248,94 +312,66 @@ function TradingTerminalPreview() {
   )
 }
 
-// ---- Testimonial Carousel ----
+// ---- Testimonials Grid ----
 const testimonials = [
   {
     name: 'Rajesh Kumar',
     role: 'Full-Time Trader, Mumbai',
-    content: 'After 3 months of paper trading, went live with real capital. Win rate improved from my manual 48% to 64% with SwingAI signals. The risk management framework helped me cut losses faster and let winners run longer.',
+    content: 'After 3 months of paper trading, went live with real capital. Win rate improved from my manual 48% to 64% with SwingAI signals.',
+    rating: 5,
   },
   {
     name: 'Priya Sharma',
     role: 'Investment Analyst, Bangalore',
-    content: 'Use it alongside my fundamental research. The AI signals help with entry timing on stocks I already like. Not perfect—had some losses during the August volatility—but overall positive edge in my swing trades.',
+    content: 'Use it alongside my fundamental research. The AI signals help with entry timing on stocks I already like. Overall positive edge.',
+    rating: 5,
   },
   {
     name: 'Amit Verma',
     role: 'Part-Time Trader, Delhi',
-    content: 'Working full-time, can only trade in evenings. SwingAI gives 2-3 setups daily that fit my schedule. Win rate around 62% over 4 months. Portfolio up 18%, which beats my previous manual trading results.',
+    content: 'Working full-time, can only trade in evenings. SwingAI gives 2-3 setups daily. Win rate around 62% over 4 months. Portfolio up 18%.',
+    rating: 4,
   },
   {
     name: 'Sneha Patel',
     role: 'Systematic Trader, Ahmedabad',
-    content: 'The signal quality varies—some weeks are great, others just break even. But the risk parameters keep losses small. Over 5 months, net positive with manageable drawdowns. Worth the subscription for the time saved.',
+    content: 'The risk parameters keep losses small. Over 5 months, net positive with manageable drawdowns. Worth the subscription for time saved.',
+    rating: 4,
   },
 ]
 
-function TestimonialCarousel() {
-  const [activeIndex, setActiveIndex] = useState(0)
-
+function TestimonialsGrid() {
   return (
-    <div className="relative">
-      <Card3D>
-        <div className="glass-card-neu relative overflow-hidden rounded-2xl p-10">
-          <div className="glow-stroke-top" />
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={activeIndex}
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              transition={{ duration: 0.4 }}
-            >
-              <div className="mb-5 flex items-center gap-1 text-neon-gold">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <Star key={i} className="h-5 w-5 fill-current" />
+    <div className="grid gap-6 md:grid-cols-2">
+      {testimonials.map((testimonial, index) => (
+        <ScrollReveal key={testimonial.name} delay={index * 0.1}>
+          <Card3D>
+            <div className="glass-card-neu rounded-2xl p-8 h-full">
+              <div className="glow-stroke-top" />
+              <div className="flex items-center gap-1 mb-4 text-neon-gold">
+                {Array.from({ length: testimonial.rating }).map((_, i) => (
+                  <Star key={i} className="h-4 w-4 fill-current" />
+                ))}
+                {Array.from({ length: 5 - testimonial.rating }).map((_, i) => (
+                  <Star key={`empty-${i}`} className="h-4 w-4 text-white/10" />
                 ))}
               </div>
-              <p className="text-xl leading-relaxed text-text-primary">"{testimonials[activeIndex].content}"</p>
-              <div className="mt-8 flex items-center gap-4">
-                <div className="flex h-12 w-12 items-center justify-center rounded-full bg-gradient-to-br from-neon-cyan to-neon-green text-lg font-bold text-space-void">
-                  {testimonials[activeIndex].name[0]}
+              <p className="text-base leading-relaxed text-text-secondary mb-6">
+                &ldquo;{testimonial.content}&rdquo;
+              </p>
+              <div className="flex items-center gap-3 mt-auto">
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-gradient-to-br from-neon-cyan to-neon-green text-sm font-bold text-space-void">
+                  {testimonial.name[0]}
                 </div>
                 <div>
-                  <p className="font-semibold text-text-primary">{testimonials[activeIndex].name}</p>
-                  <p className="text-sm text-text-secondary">{testimonials[activeIndex].role}</p>
+                  <p className="text-sm font-semibold text-text-primary">{testimonial.name}</p>
+                  <p className="text-xs text-text-secondary">{testimonial.role}</p>
                 </div>
               </div>
-            </motion.div>
-          </AnimatePresence>
-        </div>
-      </Card3D>
-
-      <div className="mt-6 flex items-center justify-center gap-3">
-        <button
-          onClick={() => setActiveIndex((prev) => (prev - 1 + testimonials.length) % testimonials.length)}
-          className="hidden rounded-full border border-white/[0.06] bg-white/[0.02] p-2 text-text-secondary transition hover:border-neon-cyan/40 hover:text-text-primary md:flex"
-          aria-label="Previous"
-        >
-          <ChevronLeft className="h-5 w-5" />
-        </button>
-        <div className="flex items-center gap-2">
-          {testimonials.map((_, index) => (
-            <button
-              key={index}
-              onClick={() => setActiveIndex(index)}
-              className={`h-2.5 rounded-full transition-all ${
-                index === activeIndex ? 'w-8 bg-neon-cyan shadow-glow-sm' : 'w-2.5 bg-white/10'
-              }`}
-              aria-label={`Go to testimonial ${index + 1}`}
-            />
-          ))}
-        </div>
-        <button
-          onClick={() => setActiveIndex((prev) => (prev + 1) % testimonials.length)}
-          className="hidden rounded-full border border-white/[0.06] bg-white/[0.02] p-2 text-text-secondary transition hover:border-neon-cyan/40 hover:text-text-primary md:flex"
-          aria-label="Next"
-        >
-          <ChevronRight className="h-5 w-5" />
-        </button>
-      </div>
+            </div>
+          </Card3D>
+        </ScrollReveal>
+      ))}
     </div>
   )
 }
@@ -345,14 +381,14 @@ function FAQItem({ question, answer }: { question: string; answer: string }) {
   const [isOpen, setIsOpen] = useState(false)
 
   return (
-    <div className="overflow-hidden rounded-xl border border-white/[0.06] bg-white/[0.02]  transition-all hover:border-neon-cyan/20">
+    <div className="overflow-hidden rounded-xl border border-white/[0.06] bg-white/[0.02] transition-all hover:border-neon-cyan/20">
       <button
         onClick={() => setIsOpen(!isOpen)}
         className="flex w-full items-center justify-between px-6 py-5 text-left transition-colors hover:bg-white/[0.02]"
       >
-        <span className="font-semibold text-text-primary">{question}</span>
+        <span className="font-semibold text-text-primary pr-4">{question}</span>
         <motion.div animate={{ rotate: isOpen ? 180 : 0 }} transition={{ duration: 0.3 }}>
-          <ChevronDown className="h-5 w-5 text-text-secondary" />
+          <ChevronDown className="h-5 w-5 text-text-secondary shrink-0" />
         </motion.div>
       </button>
       <motion.div
@@ -396,11 +432,10 @@ const faqItems = [
 // MAIN LANDING PAGE
 // ============================================================================
 export default function LandingPage() {
-  const [mounted, setMounted] = useState(false)
   const [scrolled, setScrolled] = useState(false)
+  const [mobileNavOpen, setMobileNavOpen] = useState(false)
 
   useEffect(() => {
-    setMounted(true)
     const handleScroll = () => setScrolled(window.scrollY > 50)
     window.addEventListener('scroll', handleScroll, { passive: true })
     return () => window.removeEventListener('scroll', handleScroll)
@@ -413,7 +448,7 @@ export default function LandingPage() {
 
       {/* Content */}
       <div className="relative z-10">
-        {/* Navigation — transparent on hero, solid on scroll */}
+        {/* Navigation */}
         <nav className={`fixed top-0 z-50 w-full transition-all duration-300 ${
           scrolled
             ? 'border-b border-white/[0.06] bg-space-void/90 backdrop-blur-2xl shadow-lg'
@@ -430,20 +465,29 @@ export default function LandingPage() {
               <Link href="#pricing" className="link-animate transition hover:text-neon-cyan">Pricing</Link>
             </div>
             <div className="flex items-center gap-3">
-              <Link href="/login" className="link-animate text-sm font-medium text-text-secondary transition hover:text-text-primary">
+              <Link href="/login" className="hidden link-animate text-sm font-medium text-text-secondary transition hover:text-text-primary sm:block">
                 Login
               </Link>
               <Link
                 href="/signup"
-                className="btn-tv-gradient btn-press rounded-lg px-5 py-2.5 text-sm font-semibold"
+                className="hidden btn-tv-gradient btn-press rounded-lg px-5 py-2.5 text-sm font-semibold sm:inline-flex"
               >
                 Start Free Trial
               </Link>
+              <button
+                onClick={() => setMobileNavOpen(true)}
+                className="flex items-center justify-center rounded-lg p-2 text-text-secondary transition-colors hover:bg-white/[0.06] hover:text-text-primary md:hidden"
+                aria-label="Open menu"
+              >
+                <Menu className="h-5 w-5" />
+              </button>
             </div>
           </div>
-          {/* Market Ticker Strip — shows when scrolled */}
           {scrolled && <LiveMarketTicker />}
         </nav>
+
+        {/* Mobile Navigation Drawer */}
+        <MobileNav isOpen={mobileNavOpen} onClose={() => setMobileNavOpen(false)} />
 
         {/* Hero */}
         <HeroSection />
@@ -451,16 +495,16 @@ export default function LandingPage() {
         {/* Trust Badges */}
         <section className="relative px-6 py-8">
           <div className="container mx-auto">
-            <div className="flex flex-wrap items-center justify-center gap-4">
+            <div className="flex flex-wrap items-center justify-center gap-3 md:gap-4">
               {[
-                { icon: Lock, label: 'SSL encrypted data', color: 'text-neon-green' },
-                { icon: BarChart3, label: '2,847+ signals tracked', color: 'text-neon-cyan' },
-                { icon: CheckCircle, label: 'NSE/BSE real-time feeds', color: 'text-neon-green' },
-                { icon: Globe, label: 'Cloud infrastructure', color: 'text-neon-cyan' },
+                { icon: Lock, label: 'SSL encrypted', color: 'text-neon-green' },
+                { icon: BarChart3, label: '2,847+ signals', color: 'text-neon-cyan' },
+                { icon: CheckCircle, label: 'NSE/BSE feeds', color: 'text-neon-green' },
+                { icon: Globe, label: 'Cloud infra', color: 'text-neon-cyan' },
               ].map((badge, i) => (
                 <ScrollReveal key={badge.label} delay={i * 0.1}>
-                  <div className="flex items-center gap-2 rounded-full border border-white/[0.06] bg-white/[0.02] px-4 py-2.5 text-xs font-medium text-text-secondary ">
-                    <badge.icon className={`h-4 w-4 ${badge.color}`} />
+                  <div className="flex items-center gap-2 rounded-full border border-white/[0.06] bg-white/[0.02] px-3.5 py-2 text-[11px] md:text-xs font-medium text-text-secondary">
+                    <badge.icon className={`h-3.5 w-3.5 md:h-4 md:w-4 ${badge.color}`} />
                     <span>{badge.label}</span>
                   </div>
                 </ScrollReveal>
@@ -470,21 +514,21 @@ export default function LandingPage() {
         </section>
 
         {/* Trading Terminal Preview */}
-        <section id="terminal" className="relative px-6 py-24">
+        <section id="terminal" className="relative px-6 py-16 md:py-24">
           <div className="container mx-auto">
             <ScrollReveal>
-              <div className="mb-16 text-center">
-                <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-neon-cyan/20 bg-neon-cyan/5 px-5 py-2 ">
+              <div className="mb-12 md:mb-16 text-center">
+                <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-neon-cyan/20 bg-neon-cyan/5 px-5 py-2">
                   <Terminal className="h-4 w-4 text-neon-cyan" />
                   <span className="text-xs font-semibold uppercase tracking-wider text-neon-cyan">
                     Live Trading Terminal
                   </span>
                 </div>
-                <h2 className="mb-6 text-4xl font-bold md:text-5xl">
+                <h2 className="mb-6 text-3xl md:text-4xl lg:text-5xl font-bold">
                   <span className="gradient-text-professional">Institutional-Grade</span>{' '}
                   <span className="text-text-primary">Execution Platform</span>
                 </h2>
-                <p className="mx-auto max-w-3xl text-lg text-text-secondary">
+                <p className="mx-auto max-w-3xl text-base md:text-lg text-text-secondary">
                   Real-time signal generation, portfolio surveillance, and systematic execution
                   infrastructure in a unified professional trading terminal
                 </p>
@@ -501,21 +545,21 @@ export default function LandingPage() {
         <HowItWorksSection />
 
         {/* Testimonials */}
-        <section id="testimonials" className="relative px-6 py-32">
+        <section id="testimonials" className="relative px-6 py-24 md:py-32">
           <div className="container mx-auto">
             <ScrollReveal>
               <div className="mb-16 text-center">
-                <h2 className="mb-6 text-4xl font-bold md:text-5xl">
+                <h2 className="mb-6 text-3xl md:text-4xl lg:text-5xl font-bold">
                   <span className="text-text-primary">Trusted by</span>{' '}
                   <span className="gradient-text-professional">Systematic Traders</span>
                 </h2>
-                <p className="mx-auto max-w-3xl text-lg text-text-secondary">
+                <p className="mx-auto max-w-3xl text-base md:text-lg text-text-secondary">
                   Real performance outcomes from professional and semi-professional market participants
                 </p>
               </div>
             </ScrollReveal>
-            <div className="mx-auto max-w-4xl">
-              <TestimonialCarousel />
+            <div className="mx-auto max-w-5xl">
+              <TestimonialsGrid />
             </div>
           </div>
         </section>
@@ -530,11 +574,11 @@ export default function LandingPage() {
         </section>
 
         {/* FAQ */}
-        <section id="faq" className="relative px-6 py-32">
+        <section id="faq" className="relative px-6 py-24 md:py-32">
           <div className="container mx-auto">
             <ScrollReveal>
               <div className="mb-16 text-center">
-                <h2 className="mb-6 text-4xl font-bold text-text-primary md:text-5xl">
+                <h2 className="mb-6 text-3xl md:text-4xl lg:text-5xl font-bold text-text-primary">
                   Frequently Asked Questions
                 </h2>
               </div>
@@ -550,7 +594,7 @@ export default function LandingPage() {
         </section>
 
         {/* Risk Disclaimer */}
-        <section className="relative border-t border-white/[0.06] px-6 py-20">
+        <section className="relative border-t border-white/[0.06] px-6 py-16 md:py-20">
           <div className="container mx-auto">
             <ScrollReveal>
               <div className="mx-auto max-w-5xl">
@@ -558,7 +602,7 @@ export default function LandingPage() {
                   <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-warning/15">
                     <AlertTriangle className="h-6 w-6 text-warning" />
                   </div>
-                  <h3 className="text-2xl font-bold text-text-primary">Regulatory Risk Disclosure</h3>
+                  <h3 className="text-xl md:text-2xl font-bold text-text-primary">Regulatory Risk Disclosure</h3>
                 </div>
                 <div className="space-y-4 text-sm leading-relaxed text-text-secondary">
                   <p>
@@ -583,28 +627,28 @@ export default function LandingPage() {
         </section>
 
         {/* Final CTA */}
-        <section className="relative px-6 py-24">
+        <section className="relative px-6 py-16 md:py-24">
           <div className="container mx-auto">
             <div className="relative rounded-3xl overflow-hidden">
-              <Image src="/images/cta-aurora.webp" alt="" fill className="object-cover" loading="lazy" />
+              <div className="absolute inset-0 bg-gradient-to-br from-neon-cyan/10 via-neon-purple/5 to-neon-green/10" />
               <div className="absolute inset-0 bg-space-void/60" />
               <div className="gradient-border rounded-3xl">
-                <div className="relative overflow-hidden rounded-[19px] p-16 text-center">
+                <div className="relative overflow-hidden rounded-[19px] p-10 md:p-16 text-center">
                   <div className="relative z-10">
-                    <h2 className="mb-6 text-4xl font-bold md:text-5xl">
+                    <h2 className="mb-6 text-3xl md:text-4xl lg:text-5xl font-bold">
                       <span className="gradient-text-elegant">Deploy Institutional</span>{' '}
                       <span className="text-text-primary">Intelligence Today</span>
                     </h2>
-                    <p className="mx-auto mb-10 max-w-2xl text-lg text-text-secondary">
+                    <p className="mx-auto mb-10 max-w-2xl text-base md:text-lg text-text-secondary">
                       7-day unrestricted platform access. Cancel anytime. Zero long-term commitment required.
                     </p>
                     <Link
                       href="/signup"
-                      className="btn-tv-gradient btn-press inline-flex items-center justify-center gap-2 rounded-xl px-10 py-5 text-lg font-semibold"
+                      className="btn-tv-gradient btn-press inline-flex items-center justify-center gap-2 rounded-xl px-8 py-4 md:px-10 md:py-5 text-base md:text-lg font-semibold"
                     >
                       Start 7-Day Free Trial <ArrowRight className="h-5 w-5" />
                     </Link>
-                    <div className="mt-8 flex flex-wrap items-center justify-center gap-6 text-sm text-text-secondary">
+                    <div className="mt-8 flex flex-wrap items-center justify-center gap-4 md:gap-6 text-xs md:text-sm text-text-secondary">
                       <span className="flex items-center gap-2">
                         <Lock className="h-4 w-4 text-neon-green" /> AES-256 encryption
                       </span>
@@ -623,18 +667,18 @@ export default function LandingPage() {
         </section>
 
         {/* Footer */}
-        <footer className="border-t border-white/[0.06] px-6 py-16">
+        <footer className="border-t border-white/[0.06] px-6 py-12 md:py-16">
           <div className="container mx-auto">
-            <div className="grid gap-12 md:grid-cols-5">
-              <div className="md:col-span-2">
+            <div className="grid gap-10 md:gap-12 sm:grid-cols-2 md:grid-cols-5">
+              <div className="sm:col-span-2 md:col-span-2">
                 <p className="text-2xl font-bold gradient-text-professional">SwingAI</p>
                 <p className="mt-4 text-sm leading-relaxed text-text-secondary">
                   Institutional-grade systematic trading intelligence for the Indian equity markets.
                   Engineered by quantitative researchers for serious market participants.
                 </p>
                 <div className="mt-6 flex items-center gap-3 text-sm text-text-secondary">
-                  <Users className="h-5 w-5 text-neon-cyan" />
-                  <span>Trusted by 2,400+ systematic traders and institutions</span>
+                  <Users className="h-5 w-5 text-neon-cyan shrink-0" />
+                  <span>Trusted by 2,400+ systematic traders</span>
                 </div>
               </div>
               <div>
@@ -664,7 +708,7 @@ export default function LandingPage() {
               </div>
             </div>
             <div className="mt-12 flex flex-col gap-4 border-t border-white/[0.06] pt-8 text-xs text-text-secondary md:flex-row md:items-center md:justify-between">
-              <span>© 2025 SwingAI Technologies Private Limited. All rights reserved.</span>
+              <span>&copy; 2026 SwingAI Technologies Private Limited. All rights reserved.</span>
               <span className="text-center md:text-right">
                 Systematic trading involves substantial risk. Consult licensed advisors before investing.
               </span>
