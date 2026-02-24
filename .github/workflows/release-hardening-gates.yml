@@ -34,30 +34,8 @@ jobs:
       - name: Run backend hard gates
         run: bash scripts/qa/backend_hard_gates.sh
 
-  src-frontend-hard-gates:
-    name: src/frontend Hard Gates
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: npm
-          cache-dependency-path: src/frontend/package-lock.json
-
-      - name: Run src/frontend hard gates
-        run: bash scripts/qa/frontend_hard_gates.sh src/frontend true
-        env:
-          NEXT_PUBLIC_API_URL: https://api.swingai.app
-          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
-          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
-
-  legacy-frontend-hard-gates:
-    name: frontend Hard Gates
+  frontend-hard-gates:
+    name: Frontend Hard Gates
     runs-on: ubuntu-latest
 
     steps:
@@ -72,7 +50,11 @@ jobs:
           cache-dependency-path: frontend/package-lock.json
 
       - name: Run frontend hard gates
-        run: bash scripts/qa/frontend_hard_gates.sh frontend false
+        run: bash scripts/qa/frontend_hard_gates.sh frontend true
+        env:
+          NEXT_PUBLIC_API_URL: https://api.swingai.app
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
 
   drift-gate:
     name: Drift Gate

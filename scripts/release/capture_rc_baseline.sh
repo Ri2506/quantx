@@ -56,8 +56,7 @@ run_check "Import ComprehensiveBacktestEngine" python -c "from ml.backtest.compr
 run_check "Strategy Test Suite" pytest -q backend/tests/test_long_strategies.py backend/tests/test_signal_save_contract.py
 run_check "Backtest Harness Help" python scripts/backtest_harness.py --help
 run_check "Backend Hard Gates Script" bash scripts/qa/backend_hard_gates.sh
-run_check "Src Frontend Hard Gates" bash scripts/qa/frontend_hard_gates.sh src/frontend true
-run_check "Legacy Frontend Hard Gates" bash scripts/qa/frontend_hard_gates.sh frontend false
+run_check "Frontend Hard Gates" bash scripts/qa/frontend_hard_gates.sh frontend true
 run_check "Drift Gate" bash scripts/qa/drift_gate.sh
 
 echo "RC baseline captured at ${OUTPUT_FILE}"

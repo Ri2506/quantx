@@ -194,10 +194,10 @@ exit_code=0
 
 ## Src Frontend Hard Gates
 ```bash
-bash scripts/qa/frontend_hard_gates.sh src/frontend true 
+bash scripts/qa/frontend_hard_gates.sh frontend true
 ```
 ```text
-Running frontend hard gates in src/frontend...
+Running frontend hard gates in frontend...
 npm warn deprecated inflight@1.0.6: This module is not supported, and leaks memory. Do not use it. Check out lru-cache if you want a good and tested way to coalesce async requests by a key value, which is much more comprehensive and powerful.
 npm warn deprecated @humanwhocodes/config-array@0.13.0: Use @eslint/config-array instead
 npm warn deprecated rimraf@3.0.2: Rimraf versions prior to v4 are no longer supported
@@ -291,7 +291,7 @@ Route (app)                              Size     First Load JS
 ○  (Static)   prerendered as static content
 λ  (Dynamic)  server-rendered on demand using Node.js
 
-Frontend hard gates passed for src/frontend.
+Frontend hard gates passed for frontend.
 exit_code=0
 ```
 

@@ -17,10 +17,8 @@
 
 - [ ] Backend hard gates:
   - `bash scripts/qa/backend_hard_gates.sh`
-- [ ] src/frontend hard gates:
-  - `bash scripts/qa/frontend_hard_gates.sh src/frontend true`
-- [ ] frontend hard gates:
-  - `bash scripts/qa/frontend_hard_gates.sh frontend false`
+- [ ] Frontend hard gates:
+  - `bash scripts/qa/frontend_hard_gates.sh frontend true`
 - [ ] Drift gate:
   - `bash scripts/qa/drift_gate.sh`
 - [ ] GitHub workflow green:

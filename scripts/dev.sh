@@ -46,7 +46,7 @@ sleep 3
 # Start Frontend
 echo ""
 echo "🎨 Starting Frontend (Next.js)..."
-cd src/frontend
+cd frontend
 npm run dev &
 FRONTEND_PID=$!
 echo "   Frontend PID: $FRONTEND_PID"

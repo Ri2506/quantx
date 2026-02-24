@@ -1,6 +1,6 @@
 # SwingAI Deployment Guide
 
-This guide mirrors the repo structure in this workspace. The backend lives under `src/backend` and the frontend under `src/frontend`.
+This guide mirrors the repo structure in this workspace. The backend lives under `src/backend` and the frontend under `frontend`.
 
 ## Prerequisites
 - Supabase project (Postgres + Auth)
@@ -56,7 +56,7 @@ uvicorn src.backend.api.app:app --host 0.0.0.0 --port $PORT
 ## 3) Frontend (Vercel)
 
 1. Import the repo into Vercel.
-2. Set the root directory to `src/frontend`.
+2. Set the root directory to `frontend`.
 3. Add environment variables:
 
 ```

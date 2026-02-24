@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-DETAIL_PAGE="${ROOT_DIR}/src/frontend/app/signals/[id]/page.tsx"
+DETAIL_PAGE="${ROOT_DIR}/frontend/app/signals/[id]/page.tsx"
 
 has_match() {
   local pattern="$1"

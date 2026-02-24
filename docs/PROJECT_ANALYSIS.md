@@ -120,19 +120,19 @@ File: `src/backend/services/realtime.py`
 ## 5) Frontend deep dive
 
 ### App structure
-- Next.js App Router under `src/frontend/app/`
+- Next.js App Router under `frontend/app/`
 - Pages include dashboard, signals, trades, portfolio, analytics, screener, pricing, settings, auth flows.
 
 ### API and data fetching
-- API client: `src/frontend/lib/api.ts` (Axios + Supabase JWT)
+- API client: `frontend/lib/api.ts` (Axios + Supabase JWT)
 - React Query hooks:
-  - `src/frontend/hooks/useSignals.ts`
-  - `src/frontend/hooks/usePositions.ts`
-  - `src/frontend/hooks/useWebSocket.ts`
+  - `frontend/hooks/useSignals.ts`
+  - `frontend/hooks/usePositions.ts`
+  - `frontend/hooks/useWebSocket.ts`
 
 ### Auth flow
-- Supabase client: `src/frontend/lib/supabase.ts`
-- Auth context: `src/frontend/contexts/AuthContext.tsx`
+- Supabase client: `frontend/lib/supabase.ts`
+- Auth context: `frontend/contexts/AuthContext.tsx`
 - Dev mode: if Supabase env vars are missing, UI uses a mock user/profile.
 
 ### Realtime hooks
@@ -193,6 +193,6 @@ Files under `ml/`:
 - Signal generation: `src/backend/services/signal_generator.py`
 - Realtime: `src/backend/services/realtime.py`
 - Screener routes: `src/backend/api/screener_routes.py`
-- Frontend API client: `src/frontend/lib/api.ts`
-- Frontend auth: `src/frontend/contexts/AuthContext.tsx`
+- Frontend API client: `frontend/lib/api.ts`
+- Frontend auth: `frontend/contexts/AuthContext.tsx`
 - ML pipelines: `ml/inference/`, `ml/features/`, `ml/strategies/`

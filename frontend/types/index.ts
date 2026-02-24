@@ -44,6 +44,9 @@ export interface UserProfile {
   subscription_plan_id?: string
   broker_connected: boolean
   broker_name?: string
+  paper_trading_started_at?: string
+  live_trading_whitelisted?: boolean
+  kill_switch_active?: boolean
   total_trades: number
   winning_trades: number
   total_pnl: number
@@ -62,91 +65,91 @@ export type SubscriptionTier = 'free' | 'starter' | 'pro'
 export interface Signal {
   id: string
   symbol: string
-  exchange: 'NSE' | 'BSE'
+  exchange: 'NSE' | 'BSE' | 'NFO'
   segment: 'EQUITY' | 'FUTURES' | 'OPTIONS'
   direction: 'LONG' | 'SHORT'
   entry_price: number
   stop_loss: number
-  target: number
-  target_1?: number  // Alias for target
+  target?: number
+  target_1?: number
   target_2?: number
+  target_3?: number
   confidence: number // 0-100
   risk_reward_ratio?: number
-  risk_reward?: number  // Alias
-  position_size?: number
-  model_predictions?: ModelPredictions
-  technical_analysis?: TechnicalAnalysis
-  status: SignalStatus
-  date?: string
-  created_at?: string
-  generated_at?: string
-  valid_until?: string
-  executed_at?: string
-  exit_at?: string
-  is_premium?: boolean
+  risk_reward?: number
   catboost_score?: number
   tft_score?: number
   stockformer_score?: number
+  position_size?: number
+  model_predictions?: ModelPredictions
+  technical_analysis?: TechnicalAnalysis
   model_agreement?: number
+  strategy_names?: string[]
   reasons?: string[]
-  // Options specific fields
+  is_premium?: boolean
+  tft_prediction?: Record<string, any>
+  status: SignalStatus
+  created_at?: string
+  generated_at?: string
+  date?: string
+  valid_until?: string
+  executed_at?: string
+  exit_at?: string
+  expiry_date?: string
   strike_price?: number
   option_type?: string
-  expiry_date?: string
   lot_size?: number
 }
 
 export type SignalStatus =
   | 'active'
-  | 'executed'
   | 'triggered'
+  | 'pending'
+  | 'executed'
   | 'target_hit'
-  | 'sl_hit'
   | 'stop_loss_hit'
+  | 'sl_hit'
   | 'expired'
   | 'cancelled'
   | 'closed'
+  | 'rejected'
 
 export interface ModelPredictions {
-  catboost: {
-    prediction: string
+  catboost?: {
+    prediction: 'LONG' | 'SHORT'
     confidence: number
   }
-  tft: {
-    prediction: string
+  tft?: {
+    prediction: 'LONG' | 'SHORT'
     confidence: number
   }
-  stockformer: {
-    prediction: string
+  stockformer?: {
+    prediction: 'LONG' | 'SHORT'
     confidence: number
   }
-  ensemble_confidence: number
-  model_agreement: number // 0-1
+  ensemble_confidence?: number
+  model_agreement?: number // 0-1 or model count
 }
 
 export interface TechnicalAnalysis {
-  rsi?: number
-  macd?: {
-    macd?: number
-    value?: number  // Alias
-    signal?: number
-    histogram?: number
+  rsi: number
+  macd: {
+    macd: number
+    signal: number
+    histogram: number
   }
-  moving_averages?: {
-    sma_20?: number
-    sma_50?: number
-    sma_200?: number
-    ema_20?: number
+  moving_averages: {
+    sma_20: number
+    sma_50: number
+    sma_200: number
+    ema_20: number
   }
-  volume_analysis?: {
-    volume?: number
-    avg_volume_20d?: number
-    volume_ratio?: number
+  volume_analysis: {
+    volume: number
+    avg_volume_20d: number
+    volume_ratio: number
   }
-  volume_ratio?: number  // Alias at top level
-  support_levels?: number[]
-  resistance_levels?: number[]
-  support_resistance?: {
+  support_resistance: {
     support_levels: number[]
     resistance_levels: number[]
   }
@@ -165,25 +168,26 @@ export interface Position {
   id: string
   user_id: string
   signal_id?: string
+  trade_id?: string
   symbol: string
-  exchange: 'NSE' | 'BSE'
+  exchange: 'NSE' | 'BSE' | 'NFO'
   segment: 'EQUITY' | 'FUTURES' | 'OPTIONS'
   direction: 'LONG' | 'SHORT'
   quantity: number
   lots?: number
-  entry_price: number
-  average_price?: number  // Alias for entry_price
-  current_price?: number
+  entry_price?: number
+  average_price?: number
+  current_price: number
   stop_loss: number
   target: number
   unrealized_pnl: number
   unrealized_pnl_percentage?: number
-  unrealized_pnl_percent?: number  // Alias
-  margin_used?: number
+  unrealized_pnl_percent?: number
+  status?: 'open' | 'closed' | 'pending'
   is_active?: boolean
-  status?: 'open' | 'closed'
-  opened_at: string
+  opened_at?: string
   updated_at?: string
+  execution_mode?: 'paper' | 'live'
 }
 
 export interface Trade {
@@ -192,36 +196,36 @@ export interface Trade {
   signal_id?: string
   position_id?: string
   symbol: string
-  exchange: 'NSE' | 'BSE'
+  exchange: 'NSE' | 'BSE' | 'NFO'
   segment: 'EQUITY' | 'FUTURES' | 'OPTIONS'
   direction: 'LONG' | 'SHORT'
   quantity: number
   lots?: number
   entry_price: number
-  average_price?: number  // Alias
   exit_price?: number
   stop_loss: number
   target: number
-  realized_pnl?: number
-  net_pnl?: number  // Alias
+  status?: 'pending' | 'open' | 'closed' | 'cancelled'
   gross_pnl?: number
+  net_pnl?: number
   pnl_percent?: number
+  realized_pnl?: number
   realized_pnl_percentage?: number
-  exit_reason?: string
+  exit_reason?: ExitReason | string
   holding_duration_hours?: number
-  status?: 'pending' | 'approved' | 'open' | 'closed' | 'cancelled' | 'rejected'
+  opened_at?: string
   created_at?: string
   executed_at?: string
-  opened_at?: string
   closed_at?: string
+  execution_mode?: 'paper' | 'live'
   charges?: {
-    brokerage?: number
-    stt?: number
-    exchange_fee?: number
-    gst?: number
-    sebi_charges?: number
-    stamp_duty?: number
-    total?: number
+    brokerage: number
+    stt: number
+    exchange_fee: number
+    gst: number
+    sebi_charges: number
+    stamp_duty: number
+    total: number
   }
 }
 
@@ -248,6 +252,84 @@ export interface PortfolioSummary {
   month_pnl: number
   positions_count: number
   open_positions_value: number
+}
+
+export interface UserStats {
+  capital: number
+  total_pnl: number
+  total_trades: number
+  winning_trades: number
+  win_rate: number
+  open_positions: number
+  unrealized_pnl: number
+  today_pnl: number
+  week_pnl?: number
+  subscription_status: string
+}
+
+export interface DashboardOverview {
+  stats: UserStats
+  recent_signals: Signal[]
+  active_positions: Position[]
+  notifications_count: number
+}
+
+// ============================================================================
+// FINANCE ASSISTANT
+// ============================================================================
+
+export type AssistantTopic =
+  | 'markets'
+  | 'stocks'
+  | 'trading'
+  | 'news'
+  | 'education'
+  | 'out_of_scope'
+
+export interface AssistantSource {
+  title: string
+  url: string
+  source: string
+  published_at?: string
+}
+
+export interface AssistantMessage {
+  id: string
+  role: 'user' | 'assistant'
+  content: string
+  topic?: AssistantTopic
+  in_scope?: boolean
+  sources?: AssistantSource[]
+  created_at: string
+}
+
+export interface AssistantChatRequest {
+  message: string
+  history?: Array<{
+    role: 'user' | 'assistant'
+    content: string
+  }>
+}
+
+export interface AssistantUsage {
+  tier: 'free' | 'pro'
+  credits_limit: number
+  credits_used: number
+  credits_remaining: number
+  reset_at: string
+}
+
+export interface AssistantUsageResponse {
+  usage: AssistantUsage
+}
+
+export interface AssistantChatResponse {
+  reply: string
+  in_scope: boolean
+  topic: AssistantTopic
+  sources: AssistantSource[]
+  generated_at: string
+  usage?: AssistantUsage
 }
 
 export interface PerformanceMetrics {
@@ -294,7 +376,7 @@ export interface Watchlist {
 
 export interface WatchlistStock {
   symbol: string
-  exchange: 'NSE' | 'BSE'
+  exchange: 'NSE' | 'BSE' | 'NFO'
   added_at: string
   current_price?: number
   change_percentage?: number
@@ -305,7 +387,7 @@ export interface PriceAlert {
   id: string
   user_id: string
   symbol: string
-  exchange: 'NSE' | 'BSE'
+  exchange: 'NSE' | 'BSE' | 'NFO'
   alert_type: AlertType
   condition: AlertCondition
   value: number
@@ -341,7 +423,7 @@ export interface Scanner {
 
 export interface ScanResult {
   symbol: string
-  exchange: 'NSE' | 'BSE'
+  exchange: 'NSE' | 'BSE' | 'NFO'
   price: number
   change_percentage: number
   volume: number
@@ -370,7 +452,7 @@ export type BrokerName = 'zerodha' | 'angel_one' | 'upstox' | 'fyers' | 'iifl'
 
 export interface OrderRequest {
   symbol: string
-  exchange: 'NSE' | 'BSE'
+  exchange: 'NSE' | 'BSE' | 'NFO'
   transaction_type: 'BUY' | 'SELL'
   order_type: 'MARKET' | 'LIMIT' | 'SL' | 'SL-M'
   quantity: number
@@ -452,7 +534,7 @@ export interface TradingPreferences {
   default_order_type: 'MARKET' | 'LIMIT' | 'SL-M'
   default_product_type: 'CNC' | 'MIS' | 'NRML'
   trading_mode: TradingMode
-  default_exchange: 'NSE' | 'BSE'
+  default_exchange: 'NSE' | 'BSE' | 'NFO'
   auto_square_off_time?: string
 }
 

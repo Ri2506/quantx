@@ -3,7 +3,7 @@ set -euo pipefail
 
 if [[ $# -lt 1 ]]; then
   echo "Usage: $0 <frontend_dir_relative_to_repo_root> [build]"
-  echo "Example: $0 src/frontend true"
+  echo "Example: $0 frontend true"
   exit 1
 fi
 

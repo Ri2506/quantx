@@ -45,8 +45,7 @@ Rollback if any of the following occurs post-release:
 
 - Run hard gates locally or in CI:
   - `bash scripts/qa/backend_hard_gates.sh`
-  - `bash scripts/qa/frontend_hard_gates.sh src/frontend true`
-  - `bash scripts/qa/frontend_hard_gates.sh frontend false`
+  - `bash scripts/qa/frontend_hard_gates.sh frontend true`
 - Run drift gate:
   - `bash scripts/qa/drift_gate.sh`
 - Verify recent signals for policy:

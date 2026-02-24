@@ -15,8 +15,8 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
-lib64/
+/lib/
+/lib64/
 parts/
 sdist/
 var/
@@ -123,4 +123,3 @@ Thumbs.db
 
 # Archive (legacy code)
 _archive/
-=13.0

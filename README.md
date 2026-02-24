@@ -19,7 +19,7 @@ Production-style SaaS platform for algorithmic swing trading signal generation, 
 
 ## Current status (code-backed)
 - Backend entrypoint is `src/backend/api/app.py`.
-- Auth uses Supabase (email/password + Google OAuth). Both `frontend/` and `src/frontend/` are wired to `AuthContext.tsx` with `signIn()`, `signUp()`, and `signInWithGoogle()`.
+- Auth uses Supabase (email/password + Google OAuth). `frontend/` is wired to `AuthContext.tsx` with `signIn()`, `signUp()`, and `signInWithGoogle()`.
 - Broker connections are per-user with Fernet-encrypted credentials stored in `broker_connections` table. OAuth flows for Zerodha/Upstox and manual credential entry for all 3 brokers.
 - Market data supports TrueData (real-time) with yfinance fallback (delayed). Configured via `DATA_PROVIDER` env var.
 - Signal generation (`src/backend/services/signal_generator.py`) uses 6 algorithmic strategies with confluence ranking and long-only equity outputs. XGBoost/TFT confirmations are optional.
@@ -39,7 +39,7 @@ pip install -r requirements.txt
 uvicorn src.backend.api.app:app --reload --port 8000
 
 # 3. Frontend (new terminal)
-cd src/frontend
+cd frontend
 npm install
 npm run dev
 ```
@@ -59,20 +59,19 @@ Or run both via:
 ```
 SwingAI/
 ├── src/
-│   ├── backend/              # FastAPI backend
-│   │   ├── api/              # app.py (main) + broker_routes + screener_routes
-│   │   ├── core/             # config, database, security
-│   │   ├── middleware/       # logging, security headers, rate limiting
-│   │   ├── services/         # signals, risk, F&O, brokers, screener, scheduler
-│   │   ├── schemas/          # Pydantic request/response models
-│   │   └── utils/
-│   └── frontend/             # Next.js 14 frontend (Vercel deploy source)
-│       ├── app/              # pages (dashboard, signals, screener, pricing, settings, etc.)
-│       ├── components/       # dashboard + shared UI components
-│       ├── contexts/         # AuthContext (Supabase)
-│       ├── hooks/            # data hooks (useSignals, usePositions, useWebSocket)
-│       └── lib/              # API client + Supabase client
-├── frontend/                  # Alternative frontend entry (re-exports from src/frontend)
+│   └── backend/              # FastAPI backend
+│       ├── api/              # app.py (main) + broker_routes + screener_routes
+│       ├── core/             # config, database, security
+│       ├── middleware/       # logging, security headers, rate limiting
+│       ├── services/         # signals, risk, F&O, brokers, screener, scheduler
+│       ├── schemas/          # Pydantic request/response models
+│       └── utils/
+├── frontend/                  # Next.js 14 frontend (Vercel deploy source)
+│   ├── app/                  # pages (dashboard, signals, screener, pricing, settings, etc.)
+│   ├── components/           # dashboard + shared UI components
+│   ├── contexts/             # AuthContext (Supabase)
+│   ├── hooks/                # data hooks (useSignals, usePositions, useWebSocket)
+│   └── lib/                  # API client + Supabase client
 ├── ml/                        # feature engineering + strategies + inference
 │   ├── features/
 │   ├── filters/

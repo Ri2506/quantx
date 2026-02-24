@@ -175,7 +175,7 @@ NEXT_PUBLIC_API_URL=https://your-backend-url.railway.app/api
 ### 3.2 Deploy
 
 1. Connect GitHub repo to Vercel
-2. Set root directory: `src/frontend`
+2. Set root directory: `frontend`
 3. Framework preset: Next.js
 4. Build settings:
    - Build command: `yarn build`

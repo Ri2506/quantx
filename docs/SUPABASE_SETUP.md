@@ -41,7 +41,7 @@ TFT_MODEL_PATH=models/tft_model.ckpt
 TFT_CONFIG_PATH=models/tft_config.json
 ```
 
-### Frontend (.env for `src/frontend`)
+### Frontend (.env for `frontend`)
 ```
 NEXT_PUBLIC_API_URL=https://<your-backend-domain>
 ```
