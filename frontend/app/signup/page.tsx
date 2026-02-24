@@ -195,7 +195,7 @@ export default function SignupPage() {
           <motion.div
             whileHover={{ scale: 1.05, rotate: 5 }}
             transition={{ type: 'spring', stiffness: 400 }}
-            className="w-12 h-12 rounded-xl bg-gradient-primary flex items-center justify-center shadow-glow-md"
+            className="w-12 h-12 rounded-xl bg-gradient-to-r from-neon-cyan to-neon-green flex items-center justify-center shadow-glow-md"
           >
             <TrendingUp className="w-6 h-6 text-white" />
           </motion.div>
@@ -211,7 +211,7 @@ export default function SignupPage() {
                 animate={{ scale: step >= i ? 1 : 0.8 }}
                 className={`w-10 h-10 rounded-full flex items-center justify-center font-medium transition-all ${
                   step >= i
-                    ? 'bg-gradient-primary text-white shadow-glow-sm'
+                    ? 'bg-gradient-to-r from-neon-cyan to-neon-green text-white shadow-glow-sm'
                     : 'bg-background-elevated text-text-muted'
                 }`}
               >
@@ -220,7 +220,7 @@ export default function SignupPage() {
               {i < 3 && (
                 <div
                   className={`w-16 h-1 rounded transition-all ${
-                    step > i ? 'bg-gradient-primary' : 'bg-background-elevated'
+                    step > i ? 'bg-gradient-to-r from-neon-cyan to-neon-green' : 'bg-background-elevated'
                   }`}
                 />
               )}
@@ -261,7 +261,7 @@ export default function SignupPage() {
                   whileTap={{ scale: 0.98 }}
                   onClick={handleGoogleSignup}
                   disabled={isGoogleLoading}
-                  className="w-full flex items-center justify-center gap-3 px-6 py-3 mb-6 bg-text-primary text-space-void rounded-xl font-medium hover:bg-text-primary/90 transition-all disabled:opacity-50"
+                  className="w-full flex items-center justify-center gap-3 px-6 py-3 mb-6 bg-white text-gray-900 rounded-xl font-medium hover:bg-white/90 transition-all disabled:opacity-50"
                 >
                   {isGoogleLoading ? (
                     <Loader2 className="w-5 h-5 animate-spin" />
@@ -298,7 +298,7 @@ export default function SignupPage() {
                         {...register('full_name')}
                         type="text"
                         placeholder="John Doe"
-                        className="w-full pl-12 pr-4 py-3 bg-background-elevated border border-white/[0.04] rounded-xl text-text-primary placeholder:text-text-muted focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+                        className="w-full pl-12 pr-4 py-3 bg-background-elevated border border-white/[0.04] rounded-xl text-text-primary placeholder:text-text-muted focus:outline-none focus:border-neon-cyan/40 focus:ring-1 focus:ring-neon-cyan/20 transition-all"
                       />
                     </div>
                     {errors.full_name && (
@@ -317,7 +317,7 @@ export default function SignupPage() {
                         {...register('email')}
                         type="email"
                         placeholder="you@example.com"
-                        className="w-full pl-12 pr-4 py-3 bg-background-elevated border border-white/[0.04] rounded-xl text-text-primary placeholder:text-text-muted focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+                        className="w-full pl-12 pr-4 py-3 bg-background-elevated border border-white/[0.04] rounded-xl text-text-primary placeholder:text-text-muted focus:outline-none focus:border-neon-cyan/40 focus:ring-1 focus:ring-neon-cyan/20 transition-all"
                       />
                     </div>
                     {errors.email && (
@@ -336,7 +336,7 @@ export default function SignupPage() {
                         {...register('password')}
                         type={showPassword ? 'text' : 'password'}
                         placeholder="••••••••"
-                        className="w-full pl-12 pr-12 py-3 bg-background-elevated border border-white/[0.04] rounded-xl text-text-primary placeholder:text-text-muted focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+                        className="w-full pl-12 pr-12 py-3 bg-background-elevated border border-white/[0.04] rounded-xl text-text-primary placeholder:text-text-muted focus:outline-none focus:border-neon-cyan/40 focus:ring-1 focus:ring-neon-cyan/20 transition-all"
                       />
                       <button
                         type="button"
@@ -362,7 +362,7 @@ export default function SignupPage() {
                         {...register('confirm_password')}
                         type={showConfirmPassword ? 'text' : 'password'}
                         placeholder="••••••••"
-                        className="w-full pl-12 pr-12 py-3 bg-background-elevated border border-white/[0.04] rounded-xl text-text-primary placeholder:text-text-muted focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+                        className="w-full pl-12 pr-12 py-3 bg-background-elevated border border-white/[0.04] rounded-xl text-text-primary placeholder:text-text-muted focus:outline-none focus:border-neon-cyan/40 focus:ring-1 focus:ring-neon-cyan/20 transition-all"
                       />
                       <button
                         type="button"
@@ -439,7 +439,7 @@ export default function SignupPage() {
                   </p>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
                   {plans.map((plan) => {
                     const Icon = plan.icon
                     return (
@@ -450,7 +450,7 @@ export default function SignupPage() {
                         onClick={() => setSelectedPlan(plan.id)}
                         className={`relative p-6 rounded-xl border-2 text-left transition-all ${
                           selectedPlan === plan.id
-                            ? 'border-primary bg-primary/10 shadow-glow-md'
+                            ? 'border-neon-cyan bg-neon-cyan/10 shadow-glow-md'
                             : 'border-white/[0.04] bg-background-elevated hover:border-gray-700'
                         }`}
                       >
@@ -468,7 +468,7 @@ export default function SignupPage() {
                         <div className="flex items-start justify-between mb-4">
                           <div>
                             <div className="flex items-center gap-2 mb-1">
-                              <Icon className="w-5 h-5 text-primary" />
+                              <Icon className={`w-5 h-5 ${plan.id === 'free' ? 'text-neon-cyan' : plan.id === 'starter' ? 'text-neon-green' : 'text-neon-purple'}`} />
                               <h3 className="text-xl font-bold text-text-primary">{plan.name}</h3>
                             </div>
                             <p className="text-sm text-text-secondary">{plan.description}</p>

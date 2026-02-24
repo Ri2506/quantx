@@ -44,14 +44,14 @@ export default function AnalyticsPage() {
   ]
 
   return (
-    <div className="min-h-screen bg-background-primary px-6 py-8">
+    <div className="min-h-screen bg-background-primary px-4 md:px-6 py-6 md:py-8">
       <div className="mx-auto max-w-7xl">
         {/* Header */}
         <ScrollReveal direction="up" delay={0}>
           <div className="mb-8">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
-                <h1 className="mb-2 text-4xl font-bold text-text-primary">
+                <h1 className="mb-2 text-3xl md:text-4xl font-bold text-text-primary">
                   <span className="gradient-text-professional">Analytics</span>
                 </h1>
                 <p className="text-lg text-text-secondary">
@@ -60,7 +60,7 @@ export default function AnalyticsPage() {
               </div>
               <Link
                 href="/dashboard"
-                className="rounded-lg border border-white/[0.04] bg-white/[0.02] px-4 py-2 text-sm font-medium text-text-primary transition hover:border-neon-cyan/40"
+                className="w-fit rounded-lg border border-white/[0.04] bg-white/[0.02] px-4 py-2 text-sm font-medium text-text-primary transition hover:border-neon-cyan/40"
               >
                 &larr; Back to Dashboard
               </Link>
@@ -70,7 +70,7 @@ export default function AnalyticsPage() {
 
         {/* Timeframe Filter */}
         <ScrollReveal direction="up" delay={0.05}>
-          <div className="mb-8 flex gap-2">
+          <div className="mb-8 flex flex-wrap gap-2">
             {(['7d', '30d', '90d', 'all'] as const).map((tf) => (
               <button
                 key={tf}
@@ -89,7 +89,7 @@ export default function AnalyticsPage() {
 
         {/* Key Metrics */}
         <ScrollReveal direction="up" delay={0.1}>
-          <div className="mb-8 grid gap-4 md:grid-cols-4 lg:grid-cols-6">
+          <div className="mb-8 grid gap-4 grid-cols-2 md:grid-cols-3 lg:grid-cols-6">
             <Card3D>
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
@@ -180,7 +180,7 @@ export default function AnalyticsPage() {
           <Card3D maxTilt={3}>
             <div className="mb-8 glass-card-neu rounded-xl border border-white/[0.04] p-6">
               <h2 className="mb-6 text-xl font-bold text-text-primary">Monthly Performance</h2>
-              <div className="grid gap-4 md:grid-cols-6">
+              <div className="grid gap-4 grid-cols-2 sm:grid-cols-3 md:grid-cols-6">
                 {monthlyData.map((month, index) => (
                   <motion.div
                     key={month.month}
@@ -203,7 +203,7 @@ export default function AnalyticsPage() {
 
         {/* Trade Statistics */}
         <ScrollReveal direction="up" delay={0.2}>
-          <div className="grid gap-6 md:grid-cols-2">
+          <div className="grid gap-6 grid-cols-1 lg:grid-cols-2">
             <Card3D>
               <div className="glass-card-neu rounded-xl border border-white/[0.04] p-6">
                 <h2 className="mb-6 text-xl font-bold text-text-primary">Trade Statistics</h2>

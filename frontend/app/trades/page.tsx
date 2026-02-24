@@ -121,13 +121,13 @@ export default function TradesPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background-primary px-6 py-8">
+      <div className="min-h-screen bg-background-primary px-4 py-6 md:px-6 md:py-8">
         <div className="mx-auto max-w-7xl">
           <div className="mb-8">
             <div className="skeleton-shimmer h-10 w-56 rounded-lg mb-3" />
             <div className="skeleton-shimmer h-5 w-80 rounded" />
           </div>
-          <div className="mb-8 grid gap-4 md:grid-cols-4">
+          <div className="mb-8 grid grid-cols-2 gap-4 md:grid-cols-4">
             {Array.from({ length: 4 }).map((_, i) => (
               <SkeletonLoader key={i} variant="stat" />
             ))}
@@ -139,14 +139,14 @@ export default function TradesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background-primary px-6 py-8">
+    <div className="min-h-screen bg-background-primary px-4 py-6 md:px-6 md:py-8">
       <div className="mx-auto max-w-7xl">
         {/* Header */}
         <ScrollReveal direction="up" delay={0}>
           <div className="mb-8">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col-reverse gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
-                <h1 className="mb-2 text-4xl font-bold text-text-primary">
+                <h1 className="mb-2 text-3xl font-bold text-text-primary md:text-4xl">
                   <span className="gradient-text-professional">Trade History</span>
                 </h1>
                 <div className="flex items-center gap-3">
@@ -158,9 +158,10 @@ export default function TradesPage() {
               </div>
               <Link
                 href="/dashboard"
-                className="rounded-lg border border-white/[0.04] bg-white/[0.02] px-4 py-2 text-sm font-medium text-text-primary transition hover:bg-white/[0.04] hover:shadow-glow-sm"
+                className="self-start rounded-lg border border-white/[0.04] bg-white/[0.02] px-4 py-2 text-sm font-medium text-text-primary transition hover:bg-white/[0.04] hover:shadow-glow-sm sm:self-auto"
               >
-                ← Back to Dashboard
+                <span className="sm:hidden">&larr;</span>
+                <span className="hidden sm:inline">&larr; Back to Dashboard</span>
               </Link>
             </div>
           </div>
@@ -168,7 +169,7 @@ export default function TradesPage() {
 
         {/* Summary Stats */}
         <ScrollReveal direction="up" delay={0.1}>
-          <div className="mb-8 grid gap-4 md:grid-cols-4">
+          <div className="mb-8 grid grid-cols-2 gap-4 md:grid-cols-4">
             <Card3D>
               <div className="glass-card-neu rounded-xl border border-white/[0.04] p-6">
                 <div className="mb-2 flex items-center gap-2 text-sm font-medium text-text-secondary">
@@ -230,66 +231,123 @@ export default function TradesPage() {
           </div>
         </ScrollReveal>
 
-        {/* Trades Table */}
+        {/* Mobile Trade Cards */}
+        <div className="space-y-4 md:hidden">
+          {filteredTrades.map((trade, index) => (
+            <ScrollReveal key={trade.id} direction="up" delay={0.05 * index}>
+              <motion.div
+                initial={{ opacity: 0, y: 15 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.06 }}
+                className="glass-card-neu overflow-hidden rounded-2xl border border-white/[0.04]"
+              >
+                {/* Card Header: Symbol + Direction */}
+                <div className="flex items-center justify-between border-b border-white/[0.04] bg-white/[0.02] px-4 py-3">
+                  <span className="text-lg font-bold text-text-primary">{trade.symbol}</span>
+                  <span className={`inline-flex items-center gap-1 rounded-md px-2.5 py-1 text-xs font-bold ${
+                    trade.direction === 'LONG' ? 'bg-neon-green/10 border border-neon-green/20 text-neon-green' : 'bg-danger/10 border border-danger/20 text-danger'
+                  }`}>
+                    {trade.direction === 'LONG' ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+                    {trade.direction}
+                  </span>
+                </div>
+
+                <div className="space-y-3 px-4 py-4">
+                  {/* Entry / Exit Prices */}
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-text-muted">Entry &rarr; Exit</span>
+                    <span className="font-medium text-text-secondary">
+                      ₹{trade.entry_price.toFixed(2)} &rarr; ₹{trade.exit_price.toFixed(2)}
+                    </span>
+                  </div>
+
+                  {/* P&L */}
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-text-muted">P&amp;L</span>
+                    <div className="text-right">
+                      <div className={`text-xl font-bold ${trade.pnl >= 0 ? 'text-neon-green' : 'text-danger'}`}>
+                        {trade.pnl >= 0 ? '+' : ''}₹{trade.pnl.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                      </div>
+                      <div className={`flex items-center justify-end gap-1 text-xs ${trade.pnl >= 0 ? 'text-neon-green' : 'text-danger'}`}>
+                        {trade.pnl >= 0 ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
+                        {Math.abs(trade.pnl_percent).toFixed(2)}%
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Date Range */}
+                  <div className="flex items-center gap-1.5 text-xs text-text-muted">
+                    <Calendar className="h-3.5 w-3.5" />
+                    {trade.entry_date} &rarr; {trade.exit_date}
+                  </div>
+                </div>
+              </motion.div>
+            </ScrollReveal>
+          ))}
+        </div>
+
+        {/* Trades Table (desktop) */}
         <ScrollReveal direction="up" delay={0.2}>
-          <Card3D maxTilt={3}>
-            <div className="overflow-hidden rounded-xl border border-white/[0.04] glass-card-neu">
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="border-b border-white/[0.04] bg-white/[0.04]">
-                    <tr>
-                      <th className="px-6 py-4 text-left text-sm font-semibold text-text-secondary">Symbol</th>
-                      <th className="px-6 py-4 text-center text-sm font-semibold text-text-secondary">Direction</th>
-                      <th className="px-6 py-4 text-right text-sm font-semibold text-text-secondary">Entry</th>
-                      <th className="px-6 py-4 text-right text-sm font-semibold text-text-secondary">Exit</th>
-                      <th className="px-6 py-4 text-right text-sm font-semibold text-text-secondary">Qty</th>
-                      <th className="px-6 py-4 text-right text-sm font-semibold text-text-secondary">P&L</th>
-                      <th className="px-6 py-4 text-center text-sm font-semibold text-text-secondary">Dates</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-white/[0.04]">
-                    {filteredTrades.map((trade, index) => (
-                      <motion.tr
-                        key={trade.id}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: index * 0.05 }}
-                        className="transition-colors hover:bg-white/[0.04] hover:shadow-glow-sm"
-                      >
-                        <td className="px-6 py-4 font-semibold text-text-primary">{trade.symbol}</td>
-                        <td className="px-6 py-4 text-center">
-                          <span className={`inline-flex items-center gap-1 rounded px-2 py-1 text-xs font-bold ${
-                            trade.direction === 'LONG' ? 'bg-neon-green/10 border border-neon-green/20 text-neon-green' : 'bg-danger/10 border border-danger/20 text-danger'
-                          }`}>
-                            {trade.direction === 'LONG' ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
-                            {trade.direction}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-right text-text-secondary">₹{trade.entry_price.toFixed(2)}</td>
-                        <td className="px-6 py-4 text-right text-text-primary">₹{trade.exit_price.toFixed(2)}</td>
-                        <td className="px-6 py-4 text-right text-text-secondary">{trade.quantity}</td>
-                        <td className="px-6 py-4 text-right">
-                          <div className={`font-bold ${trade.pnl >= 0 ? 'text-neon-green' : 'text-danger'}`}>
-                            {trade.pnl >= 0 ? '+' : ''}₹{trade.pnl.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
-                          </div>
-                          <div className={`flex items-center justify-end gap-1 text-xs ${trade.pnl >= 0 ? 'text-neon-green' : 'text-danger'}`}>
-                            {trade.pnl >= 0 ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
-                            {Math.abs(trade.pnl_percent).toFixed(2)}%
-                          </div>
-                        </td>
-                        <td className="px-6 py-4 text-center">
-                          <div className="flex items-center justify-center gap-1 text-sm text-text-secondary">
-                            <Calendar className="h-4 w-4" />
-                            {trade.entry_date} → {trade.exit_date}
-                          </div>
-                        </td>
-                      </motion.tr>
-                    ))}
-                  </tbody>
-                </table>
+          <div className="hidden md:block">
+            <Card3D maxTilt={3}>
+              <div className="overflow-hidden rounded-xl border border-white/[0.04] glass-card-neu">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="border-b border-white/[0.04] bg-white/[0.04]">
+                      <tr>
+                        <th className="px-6 py-4 text-left text-sm font-semibold text-text-secondary">Symbol</th>
+                        <th className="px-6 py-4 text-center text-sm font-semibold text-text-secondary">Direction</th>
+                        <th className="px-6 py-4 text-right text-sm font-semibold text-text-secondary">Entry</th>
+                        <th className="px-6 py-4 text-right text-sm font-semibold text-text-secondary">Exit</th>
+                        <th className="px-6 py-4 text-right text-sm font-semibold text-text-secondary">Qty</th>
+                        <th className="px-6 py-4 text-right text-sm font-semibold text-text-secondary">P&L</th>
+                        <th className="px-6 py-4 text-center text-sm font-semibold text-text-secondary">Dates</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/[0.04]">
+                      {filteredTrades.map((trade, index) => (
+                        <motion.tr
+                          key={trade.id}
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: index * 0.05 }}
+                          className="transition-colors hover:bg-white/[0.04] hover:shadow-glow-sm"
+                        >
+                          <td className="px-6 py-4 font-semibold text-text-primary">{trade.symbol}</td>
+                          <td className="px-6 py-4 text-center">
+                            <span className={`inline-flex items-center gap-1 rounded px-2 py-1 text-xs font-bold ${
+                              trade.direction === 'LONG' ? 'bg-neon-green/10 border border-neon-green/20 text-neon-green' : 'bg-danger/10 border border-danger/20 text-danger'
+                            }`}>
+                              {trade.direction === 'LONG' ? <TrendingUp className="h-3 w-3" /> : <TrendingDown className="h-3 w-3" />}
+                              {trade.direction}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 text-right text-text-secondary">₹{trade.entry_price.toFixed(2)}</td>
+                          <td className="px-6 py-4 text-right text-text-primary">₹{trade.exit_price.toFixed(2)}</td>
+                          <td className="px-6 py-4 text-right text-text-secondary">{trade.quantity}</td>
+                          <td className="px-6 py-4 text-right">
+                            <div className={`font-bold ${trade.pnl >= 0 ? 'text-neon-green' : 'text-danger'}`}>
+                              {trade.pnl >= 0 ? '+' : ''}₹{trade.pnl.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                            </div>
+                            <div className={`flex items-center justify-end gap-1 text-xs ${trade.pnl >= 0 ? 'text-neon-green' : 'text-danger'}`}>
+                              {trade.pnl >= 0 ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
+                              {Math.abs(trade.pnl_percent).toFixed(2)}%
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 text-center">
+                            <div className="flex items-center justify-center gap-1 text-sm text-text-secondary">
+                              <Calendar className="h-4 w-4" />
+                              {trade.entry_date} → {trade.exit_date}
+                            </div>
+                          </td>
+                        </motion.tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
-            </div>
-          </Card3D>
+            </Card3D>
+          </div>
         </ScrollReveal>
       </div>
     </div>

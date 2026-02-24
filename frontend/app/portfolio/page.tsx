@@ -93,13 +93,13 @@ export default function PortfolioPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background-primary px-6 py-8">
+      <div className="min-h-screen bg-background-primary px-4 md:px-6 py-6 md:py-8">
         <div className="mx-auto max-w-7xl">
           <div className="mb-8">
             <div className="skeleton-shimmer h-10 w-48 rounded-lg mb-3" />
             <div className="skeleton-shimmer h-5 w-72 rounded" />
           </div>
-          <div className="mb-8 grid gap-4 md:grid-cols-4">
+          <div className="mb-8 grid gap-4 grid-cols-2 md:grid-cols-4">
             {Array.from({ length: 4 }).map((_, i) => (
               <SkeletonLoader key={i} variant="stat" />
             ))}
@@ -111,14 +111,14 @@ export default function PortfolioPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background-primary px-6 py-8">
+    <div className="min-h-screen bg-background-primary px-4 md:px-6 py-6 md:py-8">
       <div className="mx-auto max-w-7xl">
         {/* Header */}
         <ScrollReveal direction="up" delay={0}>
           <div className="mb-8">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
               <div>
-                <h1 className="mb-2 text-4xl font-bold text-text-primary">
+                <h1 className="mb-2 text-3xl md:text-4xl font-bold text-text-primary">
                   <span className="gradient-text-professional">Portfolio</span>
                 </h1>
                 <div className="flex items-center gap-3">
@@ -130,7 +130,7 @@ export default function PortfolioPage() {
               </div>
               <Link
                 href="/dashboard"
-                className="rounded-lg border border-white/[0.04] bg-white/[0.02] px-4 py-2 text-sm font-medium text-text-primary transition hover:bg-white/[0.04] hover:shadow-glow-sm"
+                className="w-fit rounded-lg border border-white/[0.04] bg-white/[0.02] px-4 py-2 text-sm font-medium text-text-primary transition hover:bg-white/[0.04] hover:shadow-glow-sm"
               >
                 ← Back to Dashboard
               </Link>
@@ -140,7 +140,7 @@ export default function PortfolioPage() {
 
         {/* Portfolio Summary */}
         <ScrollReveal direction="up" delay={0.1}>
-          <div className="mb-8 grid gap-4 md:grid-cols-4">
+          <div className="mb-8 grid gap-4 grid-cols-2 md:grid-cols-4">
             <Card3D>
               <div className="glass-card-neu rounded-xl border border-white/[0.04] p-6">
                 <div className="mb-2 flex items-center gap-2 text-sm font-medium text-text-secondary">
@@ -186,61 +186,109 @@ export default function PortfolioPage() {
           </div>
         </ScrollReveal>
 
-        {/* Holdings Table */}
-        <ScrollReveal direction="up" delay={0.2}>
-          <Card3D maxTilt={3}>
-            <div className="overflow-hidden rounded-xl border border-white/[0.04] glass-card-neu">
-              <div className="border-b border-white/[0.04] bg-white/[0.02] px-6 py-4">
-                <h2 className="text-xl font-bold text-text-primary">Holdings</h2>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="border-b border-white/[0.04] bg-white/[0.04]">
-                    <tr>
-                      <th className="px-6 py-4 text-left text-sm font-semibold text-text-secondary">Stock</th>
-                      <th className="px-6 py-4 text-right text-sm font-semibold text-text-secondary">Qty</th>
-                      <th className="px-6 py-4 text-right text-sm font-semibold text-text-secondary">Avg Price</th>
-                      <th className="px-6 py-4 text-right text-sm font-semibold text-text-secondary">LTP</th>
-                      <th className="px-6 py-4 text-right text-sm font-semibold text-text-secondary">Current Value</th>
-                      <th className="px-6 py-4 text-right text-sm font-semibold text-text-secondary">P&L</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-white/[0.04]">
-                    {positions.map((position, index) => (
-                      <motion.tr
-                        key={position.id}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ delay: index * 0.05 }}
-                        className="transition-colors hover:bg-white/[0.04] hover:shadow-glow-sm"
-                      >
-                        <td className="px-6 py-4">
-                          <div className="font-semibold text-text-primary">{position.symbol}</div>
-                          <div className="text-sm text-text-secondary">{position.name}</div>
-                        </td>
-                        <td className="px-6 py-4 text-right font-medium text-text-primary">{position.quantity}</td>
-                        <td className="px-6 py-4 text-right text-text-secondary">₹{position.avg_price.toFixed(2)}</td>
-                        <td className="px-6 py-4 text-right font-medium text-text-primary">₹{position.current_price.toFixed(2)}</td>
-                        <td className="px-6 py-4 text-right font-medium text-text-primary">
-                          ₹{position.value.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
-                        </td>
-                        <td className="px-6 py-4 text-right">
-                          <div className={`font-bold ${position.pnl >= 0 ? 'text-neon-green' : 'text-danger'}`}>
-                            {position.pnl >= 0 ? '+' : ''}₹{position.pnl.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
-                          </div>
-                          <div className={`flex items-center justify-end gap-1 text-sm ${position.pnl >= 0 ? 'text-neon-green' : 'text-danger'}`}>
-                            {position.pnl >= 0 ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
-                            {Math.abs(position.pnl_percent).toFixed(2)}%
-                          </div>
-                        </td>
-                      </motion.tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+        {/* Holdings - Mobile Card View */}
+        <div className="md:hidden">
+          <ScrollReveal direction="up" delay={0.2}>
+            <div className="space-y-3">
+              <h2 className="text-xl font-bold text-text-primary mb-4">Holdings</h2>
+              {positions.map((position, index) => (
+                <motion.div
+                  key={position.id}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.05 }}
+                  className="glass-card-neu rounded-2xl border border-white/[0.04] p-4"
+                >
+                  <div className="flex items-start justify-between mb-3">
+                    <div>
+                      <div className="font-semibold text-text-primary text-base">{position.symbol}</div>
+                      <div className="text-xs text-text-secondary">{position.name}</div>
+                    </div>
+                    <div className={`flex items-center gap-1 text-sm font-bold ${position.pnl >= 0 ? 'text-neon-green' : 'text-danger'}`}>
+                      {position.pnl >= 0 ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
+                      {Math.abs(position.pnl_percent).toFixed(2)}%
+                    </div>
+                  </div>
+                  <div className="text-xs text-text-secondary mb-2">
+                    {position.quantity} x ₹{position.avg_price.toFixed(2)} → ₹{position.current_price.toFixed(2)}
+                  </div>
+                  <div className="flex items-end justify-between">
+                    <div>
+                      <div className="text-xs text-text-secondary">Current Value</div>
+                      <div className="text-lg font-bold text-text-primary">
+                        ₹{position.value.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-xs text-text-secondary">P&L</div>
+                      <div className={`font-bold ${position.pnl >= 0 ? 'text-neon-green' : 'text-danger'}`}>
+                        {position.pnl >= 0 ? '+' : ''}₹{position.pnl.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              ))}
             </div>
-          </Card3D>
-        </ScrollReveal>
+          </ScrollReveal>
+        </div>
+
+        {/* Holdings Table - Desktop */}
+        <div className="hidden md:block">
+          <ScrollReveal direction="up" delay={0.2}>
+            <Card3D maxTilt={3}>
+              <div className="overflow-hidden rounded-xl border border-white/[0.04] glass-card-neu">
+                <div className="border-b border-white/[0.04] bg-white/[0.02] px-6 py-4">
+                  <h2 className="text-xl font-bold text-text-primary">Holdings</h2>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="border-b border-white/[0.04] bg-white/[0.04]">
+                      <tr>
+                        <th className="px-6 py-4 text-left text-sm font-semibold text-text-secondary">Stock</th>
+                        <th className="px-6 py-4 text-right text-sm font-semibold text-text-secondary">Qty</th>
+                        <th className="px-6 py-4 text-right text-sm font-semibold text-text-secondary">Avg Price</th>
+                        <th className="px-6 py-4 text-right text-sm font-semibold text-text-secondary">LTP</th>
+                        <th className="px-6 py-4 text-right text-sm font-semibold text-text-secondary">Current Value</th>
+                        <th className="px-6 py-4 text-right text-sm font-semibold text-text-secondary">P&L</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/[0.04]">
+                      {positions.map((position, index) => (
+                        <motion.tr
+                          key={position.id}
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: index * 0.05 }}
+                          className="transition-colors hover:bg-white/[0.04] hover:shadow-glow-sm"
+                        >
+                          <td className="px-6 py-4">
+                            <div className="font-semibold text-text-primary">{position.symbol}</div>
+                            <div className="text-sm text-text-secondary">{position.name}</div>
+                          </td>
+                          <td className="px-6 py-4 text-right font-medium text-text-primary">{position.quantity}</td>
+                          <td className="px-6 py-4 text-right text-text-secondary">₹{position.avg_price.toFixed(2)}</td>
+                          <td className="px-6 py-4 text-right font-medium text-text-primary">₹{position.current_price.toFixed(2)}</td>
+                          <td className="px-6 py-4 text-right font-medium text-text-primary">
+                            ₹{position.value.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                          </td>
+                          <td className="px-6 py-4 text-right">
+                            <div className={`font-bold ${position.pnl >= 0 ? 'text-neon-green' : 'text-danger'}`}>
+                              {position.pnl >= 0 ? '+' : ''}₹{position.pnl.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                            </div>
+                            <div className={`flex items-center justify-end gap-1 text-sm ${position.pnl >= 0 ? 'text-neon-green' : 'text-danger'}`}>
+                              {position.pnl >= 0 ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
+                              {Math.abs(position.pnl_percent).toFixed(2)}%
+                            </div>
+                          </td>
+                        </motion.tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </Card3D>
+          </ScrollReveal>
+        </div>
       </div>
     </div>
   )

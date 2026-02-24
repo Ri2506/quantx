@@ -155,12 +155,12 @@ export default function SignalsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background-primary px-6 py-8">
+    <div className="min-h-screen bg-background-primary px-4 py-6 md:px-6 md:py-8">
       <div className="mx-auto max-w-7xl">
         {/* Header */}
         <ScrollReveal direction="up" delay={0}>
           <div className="mb-10">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col-reverse gap-4 sm:flex-row sm:items-center sm:justify-between">
               <div>
                 <div className="mb-3 flex items-center gap-3">
                   <StatusDot status="live" label="Live" />
@@ -168,7 +168,7 @@ export default function SignalsPage() {
                     Real-time Engine
                   </span>
                 </div>
-                <h1 className="mb-3 text-4xl font-bold tracking-tight text-text-primary md:text-5xl">
+                <h1 className="mb-3 text-3xl font-bold tracking-tight text-text-primary md:text-4xl lg:text-5xl">
                   <span className="gradient-text-professional">AI Trading Signals</span>
                 </h1>
                 <p className="max-w-lg text-lg text-text-secondary">
@@ -177,9 +177,10 @@ export default function SignalsPage() {
               </div>
               <Link
                 href="/dashboard"
-                className="glass-card-neu rounded-xl border border-white/[0.04] px-5 py-2.5 text-sm font-medium text-text-primary transition hover:border-neon-cyan/20 hover:shadow-glow-sm"
+                className="glass-card-neu self-start rounded-xl border border-white/[0.04] px-5 py-2.5 text-sm font-medium text-text-primary transition hover:border-neon-cyan/20 hover:shadow-glow-sm sm:self-auto"
               >
-                &larr; Back to Dashboard
+                <span className="sm:hidden">&larr;</span>
+                <span className="hidden sm:inline">&larr; Back to Dashboard</span>
               </Link>
             </div>
           </div>
@@ -187,7 +188,7 @@ export default function SignalsPage() {
 
         {/* Stats Overview */}
         <ScrollReveal direction="up" delay={0.1}>
-          <div className="mb-10 grid gap-4 md:grid-cols-4">
+          <div className="mb-10 grid grid-cols-2 gap-4 md:grid-cols-4">
             {[
               {
                 label: 'Active Signals',
@@ -231,9 +232,9 @@ export default function SignalsPage() {
 
         {/* Filters */}
         <ScrollReveal direction="up" delay={0.15}>
-          <div className="mb-8 flex items-center gap-3">
+          <div className="mb-8 flex flex-wrap items-center gap-3">
             <Filter className="h-5 w-5 text-text-muted" />
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
               {(['all', 'active', 'triggered'] as const).map((f) => (
                 <button
                   key={f}
@@ -266,35 +267,35 @@ export default function SignalsPage() {
                     className="glass-card-neu group overflow-hidden rounded-2xl border border-white/[0.04] transition-all hover:border-neon-cyan/20 hover:shadow-glow-sm"
                   >
                     {/* Signal Header */}
-                    <div className="border-b border-white/[0.04] bg-white/[0.02] px-6 py-4">
-                      <div className="flex items-center justify-between">
+                    <div className="border-b border-white/[0.04] bg-white/[0.02] px-4 py-4 sm:px-6">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <div className="flex items-center gap-4">
-                          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-neon-green/10 shadow-glow-success/20">
+                          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-neon-green/10 shadow-glow-success/20">
                             <TrendingUp className="h-5 w-5 text-neon-green" />
                           </div>
                           <div>
-                            <div className="flex items-center gap-2.5">
+                            <div className="flex flex-wrap items-center gap-2.5">
                               <span className="text-lg font-bold text-text-primary">
                                 {signal.symbol}
                               </span>
                               <span className="badge-glass-neu-success rounded-md px-2.5 py-0.5 text-xs font-bold">
                                 BUY
                               </span>
-                              <span className="flex items-center gap-1.5">
-                                <StatusDot status={getStatusDotVariant(signal.status)} />
-                                <span className={`text-xs font-semibold uppercase tracking-wide ${
-                                  signal.status === 'active' ? 'text-neon-green' :
-                                  signal.status === 'triggered' ? 'text-neon-gold' :
-                                  'text-text-muted'
-                                }`}>
-                                  {signal.status}
-                                </span>
-                              </span>
                             </div>
                             <span className="text-sm text-text-secondary">{signal.name}</span>
                           </div>
                         </div>
-                        <div className="flex items-center gap-5">
+                        <div className="flex flex-wrap items-center gap-3 pl-15 sm:gap-5 sm:pl-0">
+                          <span className="flex items-center gap-1.5">
+                            <StatusDot status={getStatusDotVariant(signal.status)} />
+                            <span className={`text-xs font-semibold uppercase tracking-wide ${
+                              signal.status === 'active' ? 'text-neon-green' :
+                              signal.status === 'triggered' ? 'text-neon-gold' :
+                              'text-text-muted'
+                            }`}>
+                              {signal.status}
+                            </span>
+                          </span>
                           <div className="flex items-center gap-1.5 text-sm text-text-muted">
                             <Clock className="h-4 w-4" />
                             {getTimeAgo(signal.generated_at)}
@@ -303,13 +304,13 @@ export default function SignalsPage() {
                             <Sparkles className="h-4 w-4 text-neon-cyan" />
                             <span className="text-sm font-bold text-neon-cyan">{signal.confidence}%</span>
                           </div>
-                          <ChevronRight className="h-5 w-5 text-text-muted transition-transform group-hover:translate-x-1 group-hover:text-neon-cyan" />
+                          <ChevronRight className="hidden h-5 w-5 text-text-muted transition-transform group-hover:translate-x-1 group-hover:text-neon-cyan sm:block" />
                         </div>
                       </div>
                     </div>
 
                     {/* Signal Data Grid */}
-                    <div className="grid gap-4 p-6 md:grid-cols-4">
+                    <div className="grid grid-cols-2 gap-4 p-4 sm:p-6 md:grid-cols-4">
                       <div>
                         <div className="mb-1.5 text-xs font-medium uppercase tracking-wider text-text-muted">
                           Entry Price

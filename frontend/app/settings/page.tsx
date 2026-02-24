@@ -213,8 +213,8 @@ export default function SettingsPage() {
 
   if (authLoading) {
     return (
-      <div className="app-shell flex items-center justify-center">
-        <Loader2 className="w-8 h-8 text-primary animate-spin" />
+      <div className="min-h-screen bg-background-primary flex items-center justify-center">
+        <Loader2 className="w-8 h-8 text-neon-cyan animate-spin" />
       </div>
     )
   }
@@ -229,23 +229,23 @@ export default function SettingsPage() {
   ] as const
 
   return (
-    <div className="app-shell">
+    <div className="min-h-screen bg-background-primary px-4 md:px-6 py-6 md:py-8">
       {/* Header */}
-      <header className="app-header">
-        <div className="max-w-6xl mx-auto px-6 py-4">
+      <div className="mx-auto max-w-6xl mb-8">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div className="flex items-center gap-4">
-            <Link href="/dashboard" className="p-2 hover:bg-background-elevated rounded-lg transition-colors">
+            <Link href="/dashboard" className="p-2 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.06] transition-colors">
               <ArrowLeft className="w-5 h-5 text-text-secondary" />
             </Link>
             <div>
-              <h1 className="text-2xl font-bold text-text-primary">Settings</h1>
-              <p className="text-sm text-text-muted">Manage your account and preferences</p>
+              <h1 className="text-3xl md:text-4xl font-bold"><span className="gradient-text-professional">Settings</span></h1>
+              <p className="text-sm text-text-secondary">Manage your account and preferences</p>
             </div>
           </div>
         </div>
-      </header>
+      </div>
 
-      <div className="max-w-6xl mx-auto px-6 py-8">
+      <div className="max-w-6xl mx-auto">
         {/* Message */}
         {message && (
           <motion.div
@@ -253,46 +253,43 @@ export default function SettingsPage() {
             animate={{ opacity: 1, y: 0 }}
             className={`mb-6 p-4 rounded-xl flex items-center gap-3 ${
               message.type === 'success'
-                ? 'bg-green-500/10 border border-green-500/30'
+                ? 'bg-neon-green/10 border border-neon-green/20'
                 : 'bg-red-500/10 border border-red-500/30'
             }`}
           >
             {message.type === 'success' ? (
-              <CheckCircle className="w-5 h-5 text-green-400" />
+              <CheckCircle className="w-5 h-5 text-neon-green" />
             ) : (
               <AlertCircle className="w-5 h-5 text-red-400" />
             )}
-            <p className={message.type === 'success' ? 'text-green-400' : 'text-red-400'}>
+            <p className={message.type === 'success' ? 'text-neon-green' : 'text-red-400'}>
               {message.text}
             </p>
           </motion.div>
         )}
 
-        <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">
-          {/* Sidebar */}
-          <div className="lg:col-span-1">
-            <nav className="space-y-1">
-              {tabs.map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all ${
-                    activeTab === tab.id
-                      ? 'bg-primary/10 text-primary font-medium'
-                      : 'text-text-secondary hover:bg-background-elevated'
-                  }`}
-                >
-                  <tab.icon className="w-5 h-5" />
-                  {tab.label}
-                  <ChevronRight className={`w-4 h-4 ml-auto ${activeTab === tab.id ? 'opacity-100' : 'opacity-0'}`} />
-                </button>
-              ))}
-            </nav>
-          </div>
+        {/* Tab Navigation - horizontal scroll on mobile, vertical on lg */}
+        <nav className="flex overflow-x-auto gap-2 pb-2 mb-6 lg:mb-0 lg:flex-col lg:overflow-visible lg:w-56 lg:float-left lg:mr-8 scrollbar-hide">
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex items-center gap-3 px-4 py-3 rounded-xl whitespace-nowrap transition-all ${
+                activeTab === tab.id
+                  ? 'glass-card-neu border border-neon-cyan/20 text-neon-cyan font-medium shadow-glow-sm'
+                  : 'text-text-secondary hover:bg-white/[0.04] border border-transparent'
+              }`}
+            >
+              <tab.icon className="w-5 h-5" />
+              {tab.label}
+              <ChevronRight className={`w-4 h-4 ml-auto hidden lg:block ${activeTab === tab.id ? 'opacity-100' : 'opacity-0'}`} />
+            </button>
+          ))}
+        </nav>
 
-          {/* Content */}
-          <div className="lg:col-span-3">
-            <div className="app-panel p-6">
+        {/* Content */}
+        <div className="lg:overflow-hidden">
+          <div className="glass-card-neu rounded-2xl border border-white/[0.04] p-6 md:p-8">
               {/* Profile Tab */}
               {activeTab === 'profile' && (
                 <div className="space-y-6">
@@ -308,7 +305,7 @@ export default function SettingsPage() {
                         type="text"
                         value={profileForm.full_name}
                         onChange={(e) => setProfileForm({ ...profileForm, full_name: e.target.value })}
-                        className="w-full px-4 py-3 bg-background-elevated border border-border/50 rounded-xl text-text-primary focus:outline-none focus:border-primary"
+                        className="w-full px-4 py-3 bg-white/[0.02] border border-white/[0.06] rounded-xl text-text-primary focus:border-neon-cyan/40 focus:outline-none focus:ring-1 focus:ring-neon-cyan/20"
                         placeholder="John Doe"
                       />
                     </div>
@@ -318,7 +315,7 @@ export default function SettingsPage() {
                         type="email"
                         value={user?.email || ''}
                         disabled
-                        className="w-full px-4 py-3 bg-background-elevated border border-border/50 rounded-xl text-text-muted cursor-not-allowed"
+                        className="w-full px-4 py-3 bg-white/[0.02] border border-white/[0.06] rounded-xl text-text-muted cursor-not-allowed"
                       />
                     </div>
                     <div>
@@ -327,7 +324,7 @@ export default function SettingsPage() {
                         type="tel"
                         value={profileForm.phone}
                         onChange={(e) => setProfileForm({ ...profileForm, phone: e.target.value })}
-                        className="w-full px-4 py-3 bg-background-elevated border border-border/50 rounded-xl text-text-primary focus:outline-none focus:border-primary"
+                        className="w-full px-4 py-3 bg-white/[0.02] border border-white/[0.06] rounded-xl text-text-primary focus:border-neon-cyan/40 focus:outline-none focus:ring-1 focus:ring-neon-cyan/20"
                         placeholder="+91 98765 43210"
                       />
                     </div>
@@ -337,7 +334,7 @@ export default function SettingsPage() {
                         type="number"
                         value={profileForm.capital}
                         onChange={(e) => setProfileForm({ ...profileForm, capital: Number(e.target.value) })}
-                        className="w-full px-4 py-3 bg-background-elevated border border-border/50 rounded-xl text-text-primary focus:outline-none focus:border-primary"
+                        className="w-full px-4 py-3 bg-white/[0.02] border border-white/[0.06] rounded-xl text-text-primary focus:border-neon-cyan/40 focus:outline-none focus:ring-1 focus:ring-neon-cyan/20"
                         min="10000"
                       />
                     </div>
@@ -346,7 +343,7 @@ export default function SettingsPage() {
                   <button
                     onClick={handleSaveProfile}
                     disabled={saving}
-                    className="flex items-center gap-2 px-6 py-3 bg-gradient-primary text-white rounded-xl font-medium hover:shadow-glow-md transition-all disabled:opacity-50"
+                    className="flex items-center gap-2 px-6 py-3 btn-tv-gradient btn-press rounded-xl text-white font-medium shadow-glow-sm hover:shadow-glow-md transition-all disabled:opacity-50"
                   >
                     {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                     Save Changes
@@ -363,7 +360,7 @@ export default function SettingsPage() {
                   </div>
 
                   {profile && (
-                    <div className="p-4 rounded-xl border border-border/50 bg-background-elevated">
+                    <div className="p-4 rounded-xl border border-white/[0.06] bg-white/[0.02]">
                       <h3 className="text-sm font-medium text-text-secondary mb-2">Execution Status</h3>
                       {(() => {
                         const start = profile.paper_trading_started_at ? new Date(profile.paper_trading_started_at) : profile.created_at ? new Date(profile.created_at) : null
@@ -392,8 +389,8 @@ export default function SettingsPage() {
                             onClick={() => setTradingForm({ ...tradingForm, risk_profile: risk })}
                             className={`p-4 rounded-xl border transition-all ${
                               tradingForm.risk_profile === risk
-                                ? 'border-primary bg-primary/10 text-primary'
-                                : 'border-border/50 text-text-secondary hover:border-border/80'
+                                ? 'border-neon-cyan bg-neon-cyan/10 text-neon-cyan'
+                                : 'border-white/[0.06] text-text-secondary hover:border-white/[0.12]'
                             }`}
                           >
                             <span className="capitalize font-medium">{risk}</span>
@@ -416,11 +413,11 @@ export default function SettingsPage() {
                             onClick={() => setTradingForm({ ...tradingForm, trading_mode: mode.id })}
                             className={`p-4 rounded-xl border transition-all text-left ${
                               tradingForm.trading_mode === mode.id
-                                ? 'border-primary bg-primary/10'
-                                : 'border-border/50 hover:border-border/80'
+                                ? 'border-neon-cyan bg-neon-cyan/10'
+                                : 'border-white/[0.06] hover:border-white/[0.12]'
                             }`}
                           >
-                            <span className={`font-medium ${tradingForm.trading_mode === mode.id ? 'text-primary' : 'text-text-primary'}`}>
+                            <span className={`font-medium ${tradingForm.trading_mode === mode.id ? 'text-neon-cyan' : 'text-text-primary'}`}>
                               {mode.label}
                             </span>
                             <p className="text-xs text-text-muted mt-1">{mode.desc}</p>
@@ -437,7 +434,7 @@ export default function SettingsPage() {
                           type="number"
                           value={tradingForm.max_positions}
                           onChange={(e) => setTradingForm({ ...tradingForm, max_positions: Number(e.target.value) })}
-                          className="w-full px-4 py-3 bg-background-elevated border border-border/50 rounded-xl text-text-primary focus:outline-none focus:border-primary"
+                          className="w-full px-4 py-3 bg-white/[0.02] border border-white/[0.06] rounded-xl text-text-primary focus:border-neon-cyan/40 focus:outline-none focus:ring-1 focus:ring-neon-cyan/20"
                           min="1"
                           max="20"
                         />
@@ -448,7 +445,7 @@ export default function SettingsPage() {
                           type="number"
                           value={tradingForm.risk_per_trade}
                           onChange={(e) => setTradingForm({ ...tradingForm, risk_per_trade: Number(e.target.value) })}
-                          className="w-full px-4 py-3 bg-background-elevated border border-border/50 rounded-xl text-text-primary focus:outline-none focus:border-primary"
+                          className="w-full px-4 py-3 bg-white/[0.02] border border-white/[0.06] rounded-xl text-text-primary focus:border-neon-cyan/40 focus:outline-none focus:ring-1 focus:ring-neon-cyan/20"
                           min="0.5"
                           max="10"
                           step="0.5"
@@ -466,7 +463,7 @@ export default function SettingsPage() {
                             type="number"
                             value={tradingForm.daily_loss_limit}
                             onChange={(e) => setTradingForm({ ...tradingForm, daily_loss_limit: Number(e.target.value) })}
-                            className="w-full px-3 py-2 bg-background-elevated border border-border/50 rounded-lg text-text-primary focus:outline-none focus:border-primary"
+                            className="w-full px-3 py-2 bg-white/[0.02] border border-white/[0.06] rounded-lg text-text-primary focus:border-neon-cyan/40 focus:outline-none focus:ring-1 focus:ring-neon-cyan/20"
                           />
                         </div>
                         <div>
@@ -475,7 +472,7 @@ export default function SettingsPage() {
                             type="number"
                             value={tradingForm.weekly_loss_limit}
                             onChange={(e) => setTradingForm({ ...tradingForm, weekly_loss_limit: Number(e.target.value) })}
-                            className="w-full px-3 py-2 bg-background-elevated border border-border/50 rounded-lg text-text-primary focus:outline-none focus:border-primary"
+                            className="w-full px-3 py-2 bg-white/[0.02] border border-white/[0.06] rounded-lg text-text-primary focus:border-neon-cyan/40 focus:outline-none focus:ring-1 focus:ring-neon-cyan/20"
                           />
                         </div>
                         <div>
@@ -484,14 +481,14 @@ export default function SettingsPage() {
                             type="number"
                             value={tradingForm.monthly_loss_limit}
                             onChange={(e) => setTradingForm({ ...tradingForm, monthly_loss_limit: Number(e.target.value) })}
-                            className="w-full px-3 py-2 bg-background-elevated border border-border/50 rounded-lg text-text-primary focus:outline-none focus:border-primary"
+                            className="w-full px-3 py-2 bg-white/[0.02] border border-white/[0.06] rounded-lg text-text-primary focus:border-neon-cyan/40 focus:outline-none focus:ring-1 focus:ring-neon-cyan/20"
                           />
                         </div>
                       </div>
                     </div>
 
                     {/* F&O Settings */}
-                    <div className="p-4 bg-background-elevated rounded-xl">
+                    <div className="p-4 bg-white/[0.02] border border-white/[0.06] rounded-xl">
                       <div className="flex items-center justify-between mb-4">
                         <div>
                           <h3 className="font-medium text-text-primary">F&O Trading</h3>
@@ -500,7 +497,7 @@ export default function SettingsPage() {
                         <button
                           onClick={() => setTradingForm({ ...tradingForm, fo_enabled: !tradingForm.fo_enabled })}
                           className={`w-12 h-6 rounded-full transition-colors ${
-                            tradingForm.fo_enabled ? 'bg-primary' : 'bg-background-elevated/80'
+                            tradingForm.fo_enabled ? 'bg-neon-cyan' : 'bg-white/[0.06]'
                           }`}
                         >
                           <div className={`w-5 h-5 rounded-full bg-white transition-transform ${
@@ -514,7 +511,7 @@ export default function SettingsPage() {
                           <select
                             value={tradingForm.preferred_option_type}
                             onChange={(e) => setTradingForm({ ...tradingForm, preferred_option_type: e.target.value })}
-                            className="w-full px-3 py-2 bg-background-primary border border-border/50 rounded-lg text-text-primary focus:outline-none focus:border-primary"
+                            className="w-full px-3 py-2 bg-white/[0.02] border border-white/[0.06] rounded-lg text-text-primary focus:border-neon-cyan/40 focus:outline-none focus:ring-1 focus:ring-neon-cyan/20"
                           >
                             <option value="put_options">Put Options</option>
                             <option value="futures">Futures</option>
@@ -525,7 +522,7 @@ export default function SettingsPage() {
                     </div>
 
                     {/* Trailing SL */}
-                    <div className="flex items-center justify-between p-4 bg-background-elevated rounded-xl">
+                    <div className="flex items-center justify-between p-4 bg-white/[0.02] border border-white/[0.06] rounded-xl">
                       <div>
                         <h3 className="font-medium text-text-primary">Trailing Stop Loss</h3>
                         <p className="text-sm text-text-muted">Automatically trail SL as price moves in favor</p>
@@ -533,7 +530,7 @@ export default function SettingsPage() {
                       <button
                         onClick={() => setTradingForm({ ...tradingForm, trailing_sl_enabled: !tradingForm.trailing_sl_enabled })}
                         className={`w-12 h-6 rounded-full transition-colors ${
-                          tradingForm.trailing_sl_enabled ? 'bg-primary' : 'bg-background-elevated/80'
+                          tradingForm.trailing_sl_enabled ? 'bg-neon-cyan' : 'bg-white/[0.06]'
                         }`}
                       >
                         <div className={`w-5 h-5 rounded-full bg-white transition-transform ${
@@ -546,7 +543,7 @@ export default function SettingsPage() {
                   <button
                     onClick={handleSaveTrading}
                     disabled={saving}
-                    className="flex items-center gap-2 px-6 py-3 bg-gradient-primary text-white rounded-xl font-medium hover:shadow-glow-md transition-all disabled:opacity-50"
+                    className="flex items-center gap-2 px-6 py-3 btn-tv-gradient btn-press rounded-xl text-white font-medium shadow-glow-sm hover:shadow-glow-md transition-all disabled:opacity-50"
                   >
                     {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                     Save Settings
@@ -564,14 +561,14 @@ export default function SettingsPage() {
 
                   {/* Current Status */}
                   {brokerStatus?.connected ? (
-                    <div className="p-4 bg-green-500/10 border border-green-500/30 rounded-xl">
+                    <div className="p-4 bg-neon-green/10 border border-neon-green/20 rounded-xl">
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-green-500/20 rounded-full flex items-center justify-center">
-                            <Link2 className="w-5 h-5 text-green-400" />
+                          <div className="w-10 h-10 bg-neon-green/20 rounded-full flex items-center justify-center">
+                            <Link2 className="w-5 h-5 text-neon-green" />
                           </div>
                           <div>
-                            <p className="font-medium text-green-400">Connected to {brokerStatus.broker_name}</p>
+                            <p className="font-medium text-neon-green">Connected to {brokerStatus.broker_name}</p>
                             <p className="text-sm text-text-muted">Last synced: {brokerStatus.last_sync ? new Date(brokerStatus.last_sync).toLocaleString() : 'Never'}</p>
                           </div>
                         </div>
@@ -592,7 +589,7 @@ export default function SettingsPage() {
                         <select
                           value={brokerForm.broker_name}
                           onChange={(e) => setBrokerForm({ ...brokerForm, broker_name: e.target.value })}
-                          className="w-full px-4 py-3 bg-background-elevated border border-border/50 rounded-xl text-text-primary focus:outline-none focus:border-primary"
+                          className="w-full px-4 py-3 bg-white/[0.02] border border-white/[0.06] rounded-xl text-text-primary focus:border-neon-cyan/40 focus:outline-none focus:ring-1 focus:ring-neon-cyan/20"
                         >
                           <option value="zerodha">Zerodha</option>
                           <option value="angelone">Angel One</option>
@@ -607,7 +604,7 @@ export default function SettingsPage() {
                             type="text"
                             value={brokerForm.api_key}
                             onChange={(e) => setBrokerForm({ ...brokerForm, api_key: e.target.value })}
-                            className="w-full px-4 py-3 bg-background-elevated border border-border/50 rounded-xl text-text-primary focus:outline-none focus:border-primary"
+                            className="w-full px-4 py-3 bg-white/[0.02] border border-white/[0.06] rounded-xl text-text-primary focus:border-neon-cyan/40 focus:outline-none focus:ring-1 focus:ring-neon-cyan/20"
                             placeholder="Your API key"
                           />
                         </div>
@@ -617,7 +614,7 @@ export default function SettingsPage() {
                             type="password"
                             value={brokerForm.api_secret}
                             onChange={(e) => setBrokerForm({ ...brokerForm, api_secret: e.target.value })}
-                            className="w-full px-4 py-3 bg-background-elevated border border-border/50 rounded-xl text-text-primary focus:outline-none focus:border-primary"
+                            className="w-full px-4 py-3 bg-white/[0.02] border border-white/[0.06] rounded-xl text-text-primary focus:border-neon-cyan/40 focus:outline-none focus:ring-1 focus:ring-neon-cyan/20"
                             placeholder="Your API secret"
                           />
                         </div>
@@ -629,7 +626,7 @@ export default function SettingsPage() {
                                 type="text"
                                 value={brokerForm.client_id}
                                 onChange={(e) => setBrokerForm({ ...brokerForm, client_id: e.target.value })}
-                                className="w-full px-4 py-3 bg-background-elevated border border-border/50 rounded-xl text-text-primary focus:outline-none focus:border-primary"
+                                className="w-full px-4 py-3 bg-white/[0.02] border border-white/[0.06] rounded-xl text-text-primary focus:border-neon-cyan/40 focus:outline-none focus:ring-1 focus:ring-neon-cyan/20"
                                 placeholder="Your client ID"
                               />
                             </div>
@@ -639,7 +636,7 @@ export default function SettingsPage() {
                                 type="password"
                                 value={brokerForm.totp_secret}
                                 onChange={(e) => setBrokerForm({ ...brokerForm, totp_secret: e.target.value })}
-                                className="w-full px-4 py-3 bg-background-elevated border border-border/50 rounded-xl text-text-primary focus:outline-none focus:border-primary"
+                                className="w-full px-4 py-3 bg-white/[0.02] border border-white/[0.06] rounded-xl text-text-primary focus:border-neon-cyan/40 focus:outline-none focus:ring-1 focus:ring-neon-cyan/20"
                                 placeholder="TOTP secret for 2FA"
                               />
                             </div>
@@ -650,7 +647,7 @@ export default function SettingsPage() {
                       <button
                         onClick={handleConnectBroker}
                         disabled={saving || !brokerForm.api_key}
-                        className="flex items-center gap-2 px-6 py-3 bg-gradient-primary text-white rounded-xl font-medium hover:shadow-glow-md transition-all disabled:opacity-50"
+                        className="flex items-center gap-2 px-6 py-3 btn-tv-gradient btn-press rounded-xl text-white font-medium shadow-glow-sm hover:shadow-glow-md transition-all disabled:opacity-50"
                       >
                         {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Link2 className="w-4 h-4" />}
                         Connect Broker
@@ -659,7 +656,7 @@ export default function SettingsPage() {
                   )}
 
                   {/* Help */}
-                  <div className="p-4 bg-background-elevated rounded-xl">
+                  <div className="p-4 bg-white/[0.02] border border-white/[0.06] rounded-xl">
                     <h3 className="font-medium text-text-primary mb-2">How to get API credentials?</h3>
                     <ul className="text-sm text-text-muted space-y-1">
                       <li>&#8226; <strong>Zerodha:</strong> Go to kite.zerodha.com &rarr; My Profile &rarr; API</li>
@@ -680,7 +677,7 @@ export default function SettingsPage() {
 
                   <div className="space-y-4">
                     {/* Master Toggle */}
-                    <div className="flex items-center justify-between p-4 bg-background-elevated rounded-xl">
+                    <div className="flex items-center justify-between p-4 bg-white/[0.02] border border-white/[0.06] rounded-xl">
                       <div>
                         <h3 className="font-medium text-text-primary">Enable Notifications</h3>
                         <p className="text-sm text-text-muted">Receive alerts for signals, trades, and updates</p>
@@ -688,7 +685,7 @@ export default function SettingsPage() {
                       <button
                         onClick={() => setNotificationForm({ ...notificationForm, notifications_enabled: !notificationForm.notifications_enabled })}
                         className={`w-12 h-6 rounded-full transition-colors ${
-                          notificationForm.notifications_enabled ? 'bg-primary' : 'bg-background-elevated/80'
+                          notificationForm.notifications_enabled ? 'bg-neon-cyan' : 'bg-white/[0.06]'
                         }`}
                       >
                         <div className={`w-5 h-5 rounded-full bg-white transition-transform ${
@@ -700,14 +697,14 @@ export default function SettingsPage() {
                     {notificationForm.notifications_enabled && (
                       <>
                         {/* Email Notifications */}
-                        <div className="p-4 bg-background-elevated rounded-xl space-y-3">
+                        <div className="p-4 bg-white/[0.02] border border-white/[0.06] rounded-xl space-y-3">
                           <h3 className="font-medium text-text-primary">Email Notifications</h3>
                           <div className="flex items-center justify-between">
                             <span className="text-sm text-text-secondary">New Signals</span>
                             <button
                               onClick={() => setNotificationForm({ ...notificationForm, email_signals: !notificationForm.email_signals })}
                               className={`w-10 h-5 rounded-full transition-colors ${
-                                notificationForm.email_signals ? 'bg-primary' : 'bg-background-elevated/80'
+                                notificationForm.email_signals ? 'bg-neon-cyan' : 'bg-white/[0.06]'
                               }`}
                             >
                               <div className={`w-4 h-4 rounded-full bg-white transition-transform ${
@@ -720,7 +717,7 @@ export default function SettingsPage() {
                             <button
                               onClick={() => setNotificationForm({ ...notificationForm, email_trades: !notificationForm.email_trades })}
                               className={`w-10 h-5 rounded-full transition-colors ${
-                                notificationForm.email_trades ? 'bg-primary' : 'bg-background-elevated/80'
+                                notificationForm.email_trades ? 'bg-neon-cyan' : 'bg-white/[0.06]'
                               }`}
                             >
                               <div className={`w-4 h-4 rounded-full bg-white transition-transform ${
@@ -731,7 +728,7 @@ export default function SettingsPage() {
                         </div>
 
                         {/* Push Notifications */}
-                        <div className="p-4 bg-background-elevated rounded-xl space-y-3">
+                        <div className="p-4 bg-white/[0.02] border border-white/[0.06] rounded-xl space-y-3">
                           <div className="flex items-center justify-between">
                             <div>
                               <h3 className="font-medium text-text-primary">Push — Signal Alerts</h3>
@@ -740,7 +737,7 @@ export default function SettingsPage() {
                             <button
                               onClick={() => setNotificationForm({ ...notificationForm, push_signals: !notificationForm.push_signals })}
                               className={`w-10 h-5 rounded-full transition-colors ${
-                                notificationForm.push_signals ? 'bg-primary' : 'bg-background-elevated/80'
+                                notificationForm.push_signals ? 'bg-neon-cyan' : 'bg-white/[0.06]'
                               }`}
                             >
                               <div className={`w-4 h-4 rounded-full bg-white transition-transform ${
@@ -750,7 +747,7 @@ export default function SettingsPage() {
                           </div>
                         </div>
 
-                        <div className="p-4 bg-background-elevated rounded-xl space-y-3">
+                        <div className="p-4 bg-white/[0.02] border border-white/[0.06] rounded-xl space-y-3">
                           <div className="flex items-center justify-between">
                             <div>
                               <h3 className="font-medium text-text-primary">Push — Trade Updates</h3>
@@ -759,7 +756,7 @@ export default function SettingsPage() {
                             <button
                               onClick={() => setNotificationForm({ ...notificationForm, push_trades: !notificationForm.push_trades })}
                               className={`w-10 h-5 rounded-full transition-colors ${
-                                notificationForm.push_trades ? 'bg-primary' : 'bg-background-elevated/80'
+                                notificationForm.push_trades ? 'bg-neon-cyan' : 'bg-white/[0.06]'
                               }`}
                             >
                               <div className={`w-4 h-4 rounded-full bg-white transition-transform ${
@@ -775,7 +772,7 @@ export default function SettingsPage() {
                   <button
                     onClick={handleSaveNotifications}
                     disabled={saving}
-                    className="flex items-center gap-2 px-6 py-3 bg-gradient-primary text-white rounded-xl font-medium hover:shadow-glow-md transition-all disabled:opacity-50"
+                    className="flex items-center gap-2 px-6 py-3 btn-tv-gradient btn-press rounded-xl text-white font-medium shadow-glow-sm hover:shadow-glow-md transition-all disabled:opacity-50"
                   >
                     {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                     Save Preferences
@@ -786,6 +783,5 @@ export default function SettingsPage() {
           </div>
         </div>
       </div>
-    </div>
   )
 }

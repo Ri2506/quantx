@@ -94,7 +94,7 @@ export default function LoginPage() {
   // ============================================================================
 
   return (
-    <div className="app-shell flex items-center justify-center p-4 relative overflow-hidden">
+    <div className="min-h-screen bg-background-primary flex items-center justify-center p-4 relative overflow-hidden">
       {/* Animated Background Gradient */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute -top-1/2 -left-1/2 w-full h-full bg-gradient-to-br from-primary/20 via-secondary/10 to-transparent rounded-full blur-3xl animate-float" />
@@ -113,7 +113,7 @@ export default function LoginPage() {
           <motion.div
             whileHover={{ scale: 1.05, rotate: 5 }}
             transition={{ type: 'spring', stiffness: 400 }}
-            className="w-12 h-12 rounded-xl bg-gradient-primary flex items-center justify-center shadow-glow-md"
+            className="w-12 h-12 rounded-xl bg-gradient-to-r from-neon-cyan to-neon-green flex items-center justify-center shadow-glow-md"
           >
             <TrendingUp className="w-6 h-6 text-white" />
           </motion.div>
@@ -125,7 +125,7 @@ export default function LoginPage() {
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
           transition={{ duration: 0.3, delay: 0.1 }}
-          className="app-panel p-8 shadow-2xl"
+          className="glass-card-neu rounded-2xl border border-white/[0.04] p-8 shadow-2xl"
         >
           {/* Header */}
           <div className="text-center mb-8">
@@ -143,7 +143,7 @@ export default function LoginPage() {
             whileTap={{ scale: 0.98 }}
             onClick={handleGoogleLogin}
             disabled={isGoogleLoading}
-            className="w-full flex items-center justify-center gap-3 px-6 py-3 mb-6 bg-white text-text-primary rounded-xl font-medium hover:bg-background-elevated/60 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full flex items-center justify-center gap-3 px-6 py-3 mb-6 bg-white text-gray-900 rounded-xl font-medium hover:bg-background-elevated/60 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isGoogleLoading ? (
               <Loader2 className="w-5 h-5 animate-spin" />
@@ -161,7 +161,7 @@ export default function LoginPage() {
               <div className="w-full border-t border-border/50" />
             </div>
             <div className="relative flex justify-center text-sm">
-              <span className="px-4 bg-background-surface text-text-muted">
+              <span className="px-4 bg-background-primary text-text-muted">
                 Or sign in with email
               </span>
             </div>
@@ -184,7 +184,7 @@ export default function LoginPage() {
                   type="email"
                   id="email"
                   placeholder="you@example.com"
-                  className="w-full pl-12 pr-4 py-3 bg-background-elevated border border-border/50 rounded-xl text-text-primary placeholder:text-text-muted focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+                  className="w-full pl-12 pr-4 py-3 bg-white/[0.02] border border-white/[0.06] rounded-xl text-text-primary placeholder:text-text-muted focus:outline-none focus:border-neon-cyan/40 focus:ring-1 focus:ring-neon-cyan/20 transition-all"
                 />
               </div>
               {errors.email && (
@@ -213,7 +213,7 @@ export default function LoginPage() {
                   type={showPassword ? 'text' : 'password'}
                   id="password"
                   placeholder="••••••••"
-                  className="w-full pl-12 pr-12 py-3 bg-background-elevated border border-border/50 rounded-xl text-text-primary placeholder:text-text-muted focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all"
+                  className="w-full pl-12 pr-12 py-3 bg-white/[0.02] border border-white/[0.06] rounded-xl text-text-primary placeholder:text-text-muted focus:outline-none focus:border-neon-cyan/40 focus:ring-1 focus:ring-neon-cyan/20 transition-all"
                 />
                 <button
                   type="button"
@@ -263,7 +263,7 @@ export default function LoginPage() {
               whileTap={{ scale: 0.98 }}
               type="submit"
               disabled={isLoading}
-              className="w-full flex items-center justify-center gap-2 px-6 py-3 bg-gradient-primary text-white rounded-xl font-medium shadow-glow-sm hover:shadow-glow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full flex items-center justify-center gap-2 px-6 py-3 btn-tv-gradient btn-press text-white rounded-xl font-medium shadow-glow-sm hover:shadow-glow-md transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isLoading ? (
                 <Loader2 className="w-5 h-5 animate-spin" />
