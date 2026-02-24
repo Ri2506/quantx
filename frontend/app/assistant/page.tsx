@@ -32,7 +32,7 @@ function sourceKey(source: AssistantSource): string {
 
 export default function AssistantPage() {
   const router = useRouter()
-  const { user, signOut, loading: authLoading } = useAuth()
+  const { user, loading: authLoading } = useAuth()
   const [messages, setMessages] = useState<AssistantMessage[]>([starterMessage])
   const [input, setInput] = useState('')
   const [loading, setLoading] = useState(false)
@@ -163,12 +163,11 @@ export default function AssistantPage() {
   }
 
   return (
-    <div className="min-h-screen px-4 py-6 md:px-8">
+    <div className="min-h-screen bg-background-primary px-4 py-6 md:px-6 md:py-8">
       <div className="mx-auto w-full max-w-5xl">
-        <header className="mb-6 flex items-center justify-between">
+        <header className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <p className="text-xs uppercase tracking-wide text-text-muted">SwingAI</p>
-            <h1 className="text-2xl font-semibold text-text-primary">SwingAI Finance Intelligence</h1>
+            <h1 className="text-2xl md:text-3xl font-bold text-text-primary"><span className="gradient-text-professional">Finance Intelligence</span></h1>
             <p className="mt-1 text-sm text-text-secondary">
               Finance-only, source-backed responses for Indian and global markets.
             </p>
@@ -176,20 +175,14 @@ export default function AssistantPage() {
           <div className="flex items-center gap-2">
             <Link
               href="/dashboard"
-              className="rounded-lg border border-border/70 px-3 py-2 text-sm text-text-secondary hover:text-text-primary"
+              className="rounded-lg border border-white/[0.04] bg-white/[0.02] px-4 py-2 text-sm font-medium text-text-primary transition hover:bg-white/[0.04] hover:shadow-glow-sm"
             >
               Dashboard
             </Link>
-            <button
-              onClick={() => signOut()}
-              className="rounded-lg bg-background-surface px-3 py-2 text-sm text-text-secondary hover:text-text-primary"
-            >
-              Sign Out
-            </button>
           </div>
         </header>
 
-        <div className="mb-4 flex items-start gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-200">
+        <div className="mb-4 flex items-start gap-2 rounded-xl glass-card-neu border border-amber-500/20 bg-amber-500/5 p-3 text-xs text-amber-200">
           <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
           <div>
             This assistant is restricted to finance and markets. Replies are educational and not personalized
@@ -198,7 +191,7 @@ export default function AssistantPage() {
         </div>
 
         {usage && (
-          <div className="mb-4 rounded-xl border border-border/70 bg-background-surface/70 px-4 py-2 text-xs text-text-secondary">
+          <div className="mb-4 rounded-xl glass-card-neu border border-white/[0.04] px-4 py-2 text-xs text-text-secondary">
             <span className="font-semibold text-text-primary">{usage.tier.toUpperCase()} credits:</span>{' '}
             {usage.credits_remaining} left today
             <span className="mx-2">·</span>
@@ -208,7 +201,7 @@ export default function AssistantPage() {
           </div>
         )}
 
-        <section className="rounded-2xl border border-border/70 bg-background-surface/60">
+        <section className="glass-card-neu rounded-2xl border border-white/[0.04]">
           <div className="h-[58vh] overflow-y-auto p-4 md:p-6">
             <div className="space-y-4">
               {messages.map((message) => (
@@ -216,15 +209,15 @@ export default function AssistantPage() {
                   <div
                     className={`max-w-[88%] rounded-xl px-4 py-3 text-sm ${
                       message.role === 'user'
-                        ? 'bg-primary text-white'
+                        ? 'bg-gradient-to-r from-neon-cyan to-primary text-white shadow-glow-sm'
                         : message.in_scope === false
-                          ? 'border border-red-500/30 bg-red-500/10 text-red-100'
-                          : 'border border-border/70 bg-background-primary/70 text-text-primary'
+                          ? 'glass-card-neu border border-danger/20 bg-danger/5 text-danger'
+                          : 'glass-card-neu border border-white/[0.04] text-text-primary'
                     }`}
                   >
                     {message.role === 'assistant' && (
-                      <div className="mb-1 flex items-center gap-1 text-[11px] uppercase tracking-wide text-text-muted">
-                        <Sparkles className="h-3 w-3" />
+                      <div className="mb-1 flex items-center gap-1 text-[11px] uppercase tracking-wide text-neon-cyan/70">
+                        <Sparkles className="h-3 w-3 text-neon-cyan" />
                         SwingAI Finance Intelligence
                       </div>
                     )}
@@ -238,7 +231,7 @@ export default function AssistantPage() {
                             href={source.url}
                             target="_blank"
                             rel="noreferrer"
-                            className="block rounded-lg border border-border/70 bg-background-primary/80 px-3 py-2 text-xs text-text-secondary hover:text-text-primary"
+                            className="block rounded-lg bg-white/[0.02] border border-white/[0.06] hover:border-neon-cyan/30 px-3 py-2 text-xs text-text-secondary hover:text-text-primary transition-all"
                           >
                             <div className="flex items-start justify-between gap-2">
                               <div>
@@ -260,7 +253,7 @@ export default function AssistantPage() {
 
               {loading && (
                 <div className="flex justify-start">
-                  <div className="rounded-xl border border-border/70 bg-background-primary/70 px-4 py-3 text-sm text-text-secondary">
+                  <div className="rounded-xl glass-card-neu border border-white/[0.04] px-4 py-3 text-sm text-text-secondary">
                     <Loader2 className="mr-2 inline h-4 w-4 animate-spin" />
                     Thinking...
                   </div>
@@ -269,7 +262,7 @@ export default function AssistantPage() {
             </div>
           </div>
 
-          <form onSubmit={handleSubmit} className="border-t border-border/70 p-4 md:p-6">
+          <form onSubmit={handleSubmit} className="border-t border-white/[0.04] p-4 md:p-6">
             <label htmlFor="assistant-input" className="mb-2 block text-xs text-text-muted">
               Ask about stocks, trading, markets, risk, or financial news.
             </label>
@@ -283,14 +276,14 @@ export default function AssistantPage() {
                     ? 'Daily credits exhausted. Come back after reset or upgrade plan.'
                     : "Example: Summarize today's top India + global market headlines."
                 }
-                className="app-input flex-1"
+                className="flex-1 px-4 py-3 bg-white/[0.02] border border-white/[0.06] rounded-xl text-text-primary placeholder:text-text-muted focus:outline-none focus:border-neon-cyan/40 focus:ring-1 focus:ring-neon-cyan/20 transition-all"
                 maxLength={1200}
                 disabled={creditsExhausted}
               />
               <button
                 type="submit"
                 disabled={loading || !input.trim() || creditsExhausted}
-                className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-white disabled:opacity-60"
+                className="inline-flex items-center gap-2 btn-tv-gradient btn-press rounded-xl px-5 py-3 text-sm font-medium text-white shadow-glow-sm hover:shadow-glow-md disabled:opacity-50 disabled:cursor-not-allowed transition-all"
               >
                 <Send className="h-4 w-4" />
                 Send

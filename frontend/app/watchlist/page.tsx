@@ -171,7 +171,7 @@ export default function WatchlistPage() {
       <div className="container mx-auto px-4 py-6">
         {/* Stats Cards */}
         <ScrollReveal delay={0}>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
             <Card3D>
               <div className="glass-card-neu border border-white/[0.04] rounded-xl p-4">
                 <div className="text-text-secondary text-sm mb-1">Total Stocks</div>
@@ -245,152 +245,237 @@ export default function WatchlistPage() {
               </p>
               <Link
                 href="/screener"
-                className="px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl font-medium flex items-center gap-2"
+                className="px-6 py-3 btn-tv-gradient btn-press shadow-glow-sm hover:shadow-glow-md rounded-xl font-medium flex items-center gap-2"
               >
                 <Search className="w-4 h-4" />
                 Go to Screener
               </Link>
             </div>
           ) : (
-            <div className="glass-card-neu border border-white/[0.04] rounded-xl overflow-hidden">
-              <table className="w-full">
-                <thead className="bg-white/[0.02]">
-                  <tr className="text-left text-sm text-text-secondary">
-                    <th className="px-4 py-3 font-medium">Symbol</th>
-                    <th className="px-4 py-3 font-medium">Price</th>
-                    <th className="px-4 py-3 font-medium">Change</th>
-                    <th className="px-4 py-3 font-medium hidden md:table-cell">Target / SL</th>
-                    <th className="px-4 py-3 font-medium hidden lg:table-cell">Notes</th>
-                    <th className="px-4 py-3 font-medium text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-white/[0.04]">
-                  {watchlist.map((item) => {
-                    const isPositive = (item.change_percent || 0) >= 0
-                    const isEditing = editingItem === item.symbol
+            <>
+              {/* Mobile Watchlist Cards */}
+              <div className="space-y-3 md:hidden">
+                {watchlist.map((item) => {
+                  const isPositive = (item.change_percent || 0) >= 0
+                  const isEditing = editingItem === item.symbol
 
-                    return (
-                      <motion.tr
-                        key={item.id}
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        className="hover:bg-white/[0.04] transition"
-                        data-testid={`watchlist-row-${item.symbol}`}
-                      >
-                        <td className="px-4 py-4">
-                          <div>
-                            <div className="font-bold text-text-primary">{item.symbol}</div>
-                            <div className="text-xs text-text-secondary/50 truncate max-w-[150px]">{item.name}</div>
-                          </div>
-                        </td>
-                        <td className="px-4 py-4">
-                          <div className="font-semibold text-text-primary">
-                            {item.current_price?.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
-                          </div>
-                        </td>
-                        <td className="px-4 py-4">
-                          <div className={`flex items-center gap-1 ${isPositive ? 'text-neon-green' : 'text-danger'}`}>
-                            {isPositive ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownRight className="w-4 h-4" />}
-                            {Math.abs(item.change_percent || 0).toFixed(2)}%
-                          </div>
-                        </td>
-                        <td className="px-4 py-4 hidden md:table-cell">
-                          {isEditing ? (
-                            <div className="flex gap-2">
-                              <input
-                                type="number"
-                                placeholder="Target"
-                                value={editForm.target_price}
-                                onChange={(e) => setEditForm({ ...editForm, target_price: e.target.value })}
-                                className="w-20 px-2 py-1 bg-white/[0.04] border border-white/[0.06] rounded text-sm text-text-primary"
-                              />
-                              <input
-                                type="number"
-                                placeholder="SL"
-                                value={editForm.stop_loss}
-                                onChange={(e) => setEditForm({ ...editForm, stop_loss: e.target.value })}
-                                className="w-20 px-2 py-1 bg-white/[0.04] border border-white/[0.06] rounded text-sm text-text-primary"
-                              />
+                  return (
+                    <motion.div
+                      key={item.id}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="glass-card-neu rounded-xl border border-white/[0.04] overflow-hidden"
+                    >
+                      {/* Card Header */}
+                      <div className="flex items-center justify-between px-4 py-3 border-b border-white/[0.04] bg-white/[0.02]">
+                        <div>
+                          <span className="font-bold text-text-primary">{item.symbol}</span>
+                          <span className="ml-2 text-xs text-text-secondary truncate">{item.name}</span>
+                        </div>
+                        <div className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-medium ${
+                          isPositive ? 'bg-neon-green/10 text-neon-green' : 'bg-danger/10 text-danger'
+                        }`}>
+                          {isPositive ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
+                          {Math.abs(item.change_percent || 0).toFixed(2)}%
+                        </div>
+                      </div>
+
+                      <div className="px-4 py-3 space-y-2">
+                        {/* Price */}
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-text-muted">Price</span>
+                          <span className="font-semibold text-text-primary">
+                            ₹{item.current_price?.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                          </span>
+                        </div>
+
+                        {/* Target / SL */}
+                        {(item.target_price || item.stop_loss) && (
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-text-muted">Target / SL</span>
+                            <div>
+                              {item.target_price && <span className="text-neon-green mr-2">T: {item.target_price}</span>}
+                              {item.stop_loss && <span className="text-danger">SL: {item.stop_loss}</span>}
                             </div>
-                          ) : (
-                            <div className="text-sm">
-                              {item.target_price && (
-                                <span className="text-neon-green mr-2">T: {item.target_price}</span>
-                              )}
-                              {item.stop_loss && (
-                                <span className="text-danger">SL: {item.stop_loss}</span>
-                              )}
-                              {!item.target_price && !item.stop_loss && (
-                                <span className="text-text-secondary/50">-</span>
-                              )}
-                            </div>
-                          )}
-                        </td>
-                        <td className="px-4 py-4 hidden lg:table-cell">
-                          {isEditing ? (
-                            <input
-                              type="text"
-                              placeholder="Notes"
-                              value={editForm.notes}
-                              onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
-                              className="w-full px-2 py-1 bg-white/[0.04] border border-white/[0.06] rounded text-sm text-text-primary"
-                            />
-                          ) : (
-                            <div className="text-sm text-text-secondary truncate max-w-[200px]">
-                              {item.notes || '-'}
-                            </div>
-                          )}
-                        </td>
-                        <td className="px-4 py-4">
-                          <div className="flex items-center justify-end gap-2">
-                            {isEditing ? (
-                              <>
-                                <button
-                                  onClick={() => saveEdit(item.symbol)}
-                                  className="p-2 hover:bg-neon-green/10 rounded-lg text-neon-green"
-                                >
-                                  <Check className="w-4 h-4" />
-                                </button>
-                                <button
-                                  onClick={() => setEditingItem(null)}
-                                  className="p-2 hover:bg-white/[0.06] rounded-lg text-text-secondary"
-                                >
-                                  <X className="w-4 h-4" />
-                                </button>
-                              </>
-                            ) : (
-                              <>
-                                <button
-                                  onClick={() => setChartSymbol(item.symbol)}
-                                  className="p-2 hover:bg-neon-cyan/10 rounded-lg text-neon-cyan"
-                                  title="View Chart"
-                                >
-                                  <Eye className="w-4 h-4" />
-                                </button>
-                                <button
-                                  onClick={() => startEditing(item)}
-                                  className="p-2 hover:bg-white/[0.06] rounded-lg text-text-secondary"
-                                  title="Edit"
-                                >
-                                  <Edit2 className="w-4 h-4" />
-                                </button>
-                                <button
-                                  onClick={() => removeFromWatchlist(item.symbol)}
-                                  className="p-2 hover:bg-danger/10 rounded-lg text-danger"
-                                  title="Remove"
-                                >
-                                  <Trash2 className="w-4 h-4" />
-                                </button>
-                              </>
-                            )}
                           </div>
-                        </td>
-                      </motion.tr>
-                    )
-                  })}
-                </tbody>
-              </table>
-            </div>
+                        )}
+
+                        {/* Notes */}
+                        {item.notes && (
+                          <div className="text-xs text-text-secondary truncate">{item.notes}</div>
+                        )}
+
+                        {/* Actions */}
+                        <div className="flex items-center gap-2 pt-1">
+                          <button
+                            onClick={() => setChartSymbol(item.symbol)}
+                            className="flex-1 flex items-center justify-center gap-1 py-2 bg-neon-cyan/10 hover:bg-neon-cyan/20 rounded-lg text-sm text-neon-cyan transition"
+                          >
+                            <Eye className="w-4 h-4" />
+                            Chart
+                          </button>
+                          <button
+                            onClick={() => startEditing(item)}
+                            className="p-2 hover:bg-white/[0.06] rounded-lg text-text-secondary"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={() => removeFromWatchlist(item.symbol)}
+                            className="p-2 hover:bg-danger/10 rounded-lg text-danger"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </div>
+                      </div>
+                    </motion.div>
+                  )
+                })}
+              </div>
+
+              {/* Desktop Watchlist Table */}
+              <div className="hidden md:block">
+                <div className="glass-card-neu border border-white/[0.04] rounded-xl overflow-hidden">
+                  <table className="w-full">
+                    <thead className="bg-white/[0.02]">
+                      <tr className="text-left text-sm text-text-secondary">
+                        <th className="px-4 py-3 font-medium">Symbol</th>
+                        <th className="px-4 py-3 font-medium">Price</th>
+                        <th className="px-4 py-3 font-medium">Change</th>
+                        <th className="px-4 py-3 font-medium hidden md:table-cell">Target / SL</th>
+                        <th className="px-4 py-3 font-medium hidden lg:table-cell">Notes</th>
+                        <th className="px-4 py-3 font-medium text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-white/[0.04]">
+                      {watchlist.map((item) => {
+                        const isPositive = (item.change_percent || 0) >= 0
+                        const isEditing = editingItem === item.symbol
+
+                        return (
+                          <motion.tr
+                            key={item.id}
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            className="hover:bg-white/[0.04] transition"
+                            data-testid={`watchlist-row-${item.symbol}`}
+                          >
+                            <td className="px-4 py-4">
+                              <div>
+                                <div className="font-bold text-text-primary">{item.symbol}</div>
+                                <div className="text-xs text-text-secondary/50 truncate max-w-[150px]">{item.name}</div>
+                              </div>
+                            </td>
+                            <td className="px-4 py-4">
+                              <div className="font-semibold text-text-primary">
+                                {item.current_price?.toLocaleString('en-IN', { maximumFractionDigits: 2 })}
+                              </div>
+                            </td>
+                            <td className="px-4 py-4">
+                              <div className={`flex items-center gap-1 ${isPositive ? 'text-neon-green' : 'text-danger'}`}>
+                                {isPositive ? <ArrowUpRight className="w-4 h-4" /> : <ArrowDownRight className="w-4 h-4" />}
+                                {Math.abs(item.change_percent || 0).toFixed(2)}%
+                              </div>
+                            </td>
+                            <td className="px-4 py-4 hidden md:table-cell">
+                              {isEditing ? (
+                                <div className="flex gap-2">
+                                  <input
+                                    type="number"
+                                    placeholder="Target"
+                                    value={editForm.target_price}
+                                    onChange={(e) => setEditForm({ ...editForm, target_price: e.target.value })}
+                                    className="w-20 px-2 py-1 bg-white/[0.04] border border-white/[0.06] rounded text-sm text-text-primary"
+                                  />
+                                  <input
+                                    type="number"
+                                    placeholder="SL"
+                                    value={editForm.stop_loss}
+                                    onChange={(e) => setEditForm({ ...editForm, stop_loss: e.target.value })}
+                                    className="w-20 px-2 py-1 bg-white/[0.04] border border-white/[0.06] rounded text-sm text-text-primary"
+                                  />
+                                </div>
+                              ) : (
+                                <div className="text-sm">
+                                  {item.target_price && (
+                                    <span className="text-neon-green mr-2">T: {item.target_price}</span>
+                                  )}
+                                  {item.stop_loss && (
+                                    <span className="text-danger">SL: {item.stop_loss}</span>
+                                  )}
+                                  {!item.target_price && !item.stop_loss && (
+                                    <span className="text-text-secondary/50">-</span>
+                                  )}
+                                </div>
+                              )}
+                            </td>
+                            <td className="px-4 py-4 hidden lg:table-cell">
+                              {isEditing ? (
+                                <input
+                                  type="text"
+                                  placeholder="Notes"
+                                  value={editForm.notes}
+                                  onChange={(e) => setEditForm({ ...editForm, notes: e.target.value })}
+                                  className="w-full px-2 py-1 bg-white/[0.04] border border-white/[0.06] rounded text-sm text-text-primary"
+                                />
+                              ) : (
+                                <div className="text-sm text-text-secondary truncate max-w-[200px]">
+                                  {item.notes || '-'}
+                                </div>
+                              )}
+                            </td>
+                            <td className="px-4 py-4">
+                              <div className="flex items-center justify-end gap-2">
+                                {isEditing ? (
+                                  <>
+                                    <button
+                                      onClick={() => saveEdit(item.symbol)}
+                                      className="p-2 hover:bg-neon-green/10 rounded-lg text-neon-green"
+                                    >
+                                      <Check className="w-4 h-4" />
+                                    </button>
+                                    <button
+                                      onClick={() => setEditingItem(null)}
+                                      className="p-2 hover:bg-white/[0.06] rounded-lg text-text-secondary"
+                                    >
+                                      <X className="w-4 h-4" />
+                                    </button>
+                                  </>
+                                ) : (
+                                  <>
+                                    <button
+                                      onClick={() => setChartSymbol(item.symbol)}
+                                      className="p-2 hover:bg-neon-cyan/10 rounded-lg text-neon-cyan"
+                                      title="View Chart"
+                                    >
+                                      <Eye className="w-4 h-4" />
+                                    </button>
+                                    <button
+                                      onClick={() => startEditing(item)}
+                                      className="p-2 hover:bg-white/[0.06] rounded-lg text-text-secondary"
+                                      title="Edit"
+                                    >
+                                      <Edit2 className="w-4 h-4" />
+                                    </button>
+                                    <button
+                                      onClick={() => removeFromWatchlist(item.symbol)}
+                                      className="p-2 hover:bg-danger/10 rounded-lg text-danger"
+                                      title="Remove"
+                                    >
+                                      <Trash2 className="w-4 h-4" />
+                                    </button>
+                                  </>
+                                )}
+                              </div>
+                            </td>
+                          </motion.tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </>
           )}
         </ScrollReveal>
       </div>
