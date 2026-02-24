@@ -1,0 +1,86 @@
+{
+  "summary": "Completed testing of SwingAI Watchlist and Screener features. Backend: 20/21 tests passed (95%). Frontend: Screener page works correctly with 61 scanners and 11 categories. CRITICAL BUG: Watchlist page uses invalid user ID 'demo-user-123' instead of valid UUID format required by Supabase.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {
+        "endpoint": "/api/watchlist/{invalid-uuid}",
+        "issue": "Returns 520 instead of 500 for invalid UUID format",
+        "priority": "LOW"
+      }
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {
+        "component": "WatchlistPage",
+        "issue": "Uses hardcoded 'demo-user-123' which is invalid UUID format for Supabase",
+        "selector": "userId state in /app/frontend/app/watchlist/page.tsx line 35",
+        "priority": "HIGH"
+      },
+      {
+        "component": "ScreenerPage",
+        "issue": "Uses hardcoded 'demo-user-123' which is invalid UUID format for Supabase",
+        "selector": "userId state in /app/frontend/app/screener/page.tsx line 255",
+        "priority": "HIGH"
+      }
+    ],
+    "integration_issues": [
+      {
+        "flow": "Watchlist page data loading",
+        "issue": "API returns 500 error due to invalid UUID format 'demo-user-123'",
+        "affected_selectors": ["watchlist table", "stats cards"]
+      }
+    ],
+    "design_issues": []
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_watchlist_screener.py",
+    "/app/test_reports/pytest/pytest_results_watchlist.xml"
+  ],
+  "action_items": [
+    "CRITICAL: Update userId in /app/frontend/app/watchlist/page.tsx from 'demo-user-123' to valid UUID (e.g., 'ffb9e2ca-6733-4e84-9286-0aa134e6f57e') or implement proper auth",
+    "CRITICAL: Update userId in /app/frontend/app/screener/page.tsx from 'demo-user-123' to valid UUID or implement proper auth",
+    "Both pages need consistent user ID handling - consider using a shared auth context"
+  ],
+  "critical_code_review_comments": [
+    "User ID mismatch: Frontend uses 'demo-user-123' but Supabase requires UUID format",
+    "No auth context shared between pages - each page has its own hardcoded userId",
+    "Watchlist API works correctly when called with valid UUID (tested with ffb9e2ca-6733-4e84-9286-0aa134e6f57e)"
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_watchlist_screener.py"
+  ],
+  "success_rate": {
+    "backend": "95% (20/21 tests passed)",
+    "frontend": "80% (screener works, watchlist fails due to invalid user ID)"
+  },
+  "test_credentials": {
+    "valid_test_user_id": "ffb9e2ca-6733-4e84-9286-0aa134e6f57e"
+  },
+  "seed_data_creation": "Test user exists in Supabase with ID ffb9e2ca-6733-4e84-9286-0aa134e6f57e",
+  "retest_needed": true,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Backend APIs all work correctly with valid UUID. Frontend has hardcoded invalid user ID 'demo-user-123' in both screener and watchlist pages. Fix by updating to valid UUID format or implementing proper auth.",
+  "features_tested": {
+    "Watchlist API - Add stock": "PASS (with valid UUID)",
+    "Watchlist API - Get user's watchlist with live prices": "PASS (with valid UUID)",
+    "Watchlist API - Remove stock": "PASS (with valid UUID)",
+    "Frontend screener shows 61 scanners": "PASS",
+    "Frontend shows 11 scanner categories": "PASS",
+    "Clicking Chart button opens TradingView modal": "PASS (modal opens, iframe loads)",
+    "Clicking Watchlist bookmark adds stock": "FAIL (invalid user ID)",
+    "Watchlist page loads with stats cards": "PASS (UI loads but data fails)",
+    "AI Swing Candidates returns stock data": "PASS (18 stocks with prices and RSI)"
+  },
+  "rca_of_the_issue": {
+    "root_cause": "Frontend pages use hardcoded 'demo-user-123' as user ID, but Supabase watchlist table has user_id column with UUID type constraint",
+    "reproduction_steps": [
+      "1. Navigate to /watchlist page",
+      "2. Page calls GET /api/watchlist/demo-user-123",
+      "3. Supabase returns error: 'invalid input syntax for type uuid: demo-user-123'",
+      "4. API returns 500 error, watchlist shows 0 stocks"
+    ],
+    "mitigation": "Update userId in both /app/frontend/app/watchlist/page.tsx (line 35) and /app/frontend/app/screener/page.tsx (line 255) to use valid UUID format like 'ffb9e2ca-6733-4e84-9286-0aa134e6f57e'"
+  }
+}
