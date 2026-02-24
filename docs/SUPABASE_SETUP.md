@@ -81,10 +81,11 @@ SUPABASE_DB_URL="..." scripts/apply_migration.sh infrastructure/database/migrati
 ```
 
 **Expected key tables created/updated**
+- `subscription_plans` (3 plans: Free, Starter, Pro)
 - `signals` (adds `strategy_names`, `tft_prediction`)
 - `trades` (adds `execution_mode`, `broker_order_id`)
 - `positions` (adds `execution_mode`)
-- `broker_connections`
+- `broker_connections` (per-user encrypted credentials)
 - `candles`, `features`
 - `daily_universe`, `eod_scan_runs`
 - `user_profiles` (adds paper/live flags, kill switch)
@@ -103,7 +104,12 @@ If you only need signals realtime, run only:
 alter publication supabase_realtime add table public.signals;
 ```
 
-## 4) Create Storage Bucket for Models
+## 4) Create Storage Bucket for Models (Optional - not required for beta)
+
+ML models are optional for beta. The algorithmic strategies work without them.
+
+If you want to enable ML model confirmations later:
+
 1. In Supabase Storage, create a bucket named `models`.
 2. Upload:
    - `xgboost_model.json`

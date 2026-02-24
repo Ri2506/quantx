@@ -87,13 +87,17 @@ Scheduler support:
 - `/api/portfolio/performance` derives aggregated trade metrics.
 - `/api/user/stats` aggregates trade and position stats for dashboards.
 
-### Market endpoints
-Stubbed endpoints in `app.py` read `market_data` or return fallback values.
+### Market data
+- TrueData integration: `src/backend/services/truedata_client.py` (real-time tick data).
+- Data provider factory: `src/backend/services/data_provider.py` with `market_data.py` routing to TrueData or yfinance based on `DATA_PROVIDER` env var.
+- Market endpoints in `app.py` read live data when available or return fallback values.
 
 ### Broker integration
-File: `src/backend/services/broker_integration.py`
-- Contains classes for Zerodha, Angel One, Upstox.
-- Not wired into live execution in the main API.
+Files: `src/backend/services/broker_integration.py`, `src/backend/api/broker_routes.py`
+- Contains adapter classes for Zerodha (KiteConnect), Angel One (SmartAPI), Upstox.
+- `broker_routes.py` provides per-user connect/disconnect, OAuth initiate/callback, positions, holdings, and margin endpoints.
+- Credentials are Fernet-encrypted and stored in the `broker_connections` table (composite key: user_id + broker_name).
+- All broker routes use centralized settings from `src/backend/core/config.py`.
 
 ### Risk management and F&O engine
 - `src/backend/services/risk_management.py` defines risk profiles and sizing logic.
@@ -177,9 +181,10 @@ Files under `ml/`:
 - WebSocket clients receive messages when connected, but only `ping` is handled on the inbound path.
 
 ## 8) Known gaps and TODOs
-- Live market data feeds are not integrated; signals and price checks use simulated data.
-- Broker execution is not wired to live broker APIs; DB-level execution is used.
-- WebSocket channel subscriptions are not implemented in the backend.
+- TrueData real-time data integration is wired (`src/backend/services/truedata_client.py`) but requires production credentials; yfinance is the active fallback.
+- Broker adapter classes are wired into per-user routes; live execution needs integration testing with broker sandbox accounts.
+- WebSocket channel subscriptions are not implemented in the backend (only `ping` handling).
+- Push notification delivery (FCM/APNs) not yet built; UI toggles exist.
 - Enhanced AI uses a default account value and empty portfolio context; it is not personalized per user.
 
 ## 9) Key files to explore

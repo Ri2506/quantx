@@ -1,80 +1,87 @@
 # SwingAI - Product Requirements Document
 
-## Original Problem Statement
-Build a cutting-edge, institutional-grade AI swing trading platform for the Indian stock market (NSE).
+## Overview
+SwingAI is a SaaS algorithmic swing trading platform for the Indian stock market (NSE). It generates daily trading signals using algorithmic strategies, allows users to view/approve/auto-execute trades via connected brokers, and manages risk through automated position sizing and stop-loss tracking.
 
-## Latest Update - January 26, 2025
-**Implemented 2026 Fintech Design Theme**
+## Target Users
+Indian retail traders who want algorithmic swing trading signals with optional semi-automatic or fully automatic trade execution via Zerodha, Angel One, or Upstox.
 
-### Theme Features
+## Subscription Plans (3 Tiers)
 
-#### 1. Deep Space Dark Mode (Default)
-- **Primary Background**: #04060e (near-black/deep navy)
-- **Surface Colors**: #080c18, #0c1220
-- **Nebula Gradient Overlays**: Blue, teal, purple radial gradients
-- **Grain/Noise Texture**: Subtle noise overlay to prevent flat banding
-- **Starfield Effect**: CSS-based subtle star patterns
+| Feature | Free (₹0) | Starter (₹499/mo) | Pro (₹1,499/mo) |
+|---------|-----------|-------------------|-----------------|
+| Signals/day | 5 | 20 | Unlimited |
+| Max positions | 3 | 5 | 15 |
+| Trading mode | View only | Semi-auto | Full-auto |
+| Equity trading | Yes | Yes | Yes |
+| F&O trading | No | No | Yes |
+| Notifications | Email | Email + Push | All channels |
+| AI credits/day | 5 | Included | Included |
+| Priority support | No | No | Yes |
+| API access | No | No | Yes |
 
-#### 2. Glassmorphism 2.0 (Premium Glass Panels)
-- **Glass Cards**: `glass-card`, `glass-card-glow` classes
-- **Glass Panels**: `glass-panel` class with backdrop-blur
-- **Glass Navigation**: `glass-nav` with blur and subtle border
-- **Features**:
-  - Mild blur (12-20px) for readability
-  - Soft borders with rgba(255,255,255,0.06-0.08)
-  - Inner strokes and shadows
-  - Hover glow effects
+Payment: Razorpay (UPI, cards, net banking). Billing: monthly, quarterly, yearly.
 
-#### 3. Gradient Typography System
-- **Hero Headlines**: `gradient-text-hero` - Cyan to green flow
-- **Professional**: `gradient-text-professional` - Animated gradient
-- **Accent**: `gradient-text-accent` - Cyan to purple
-- **Shimmer**: `gradient-text-shimmer-pro` - Moving shimmer effect
-- **Static Variants**: For reduced motion preference
+## Signal Generation Pipeline
+1. **15:45 IST (EOD Scan)**: PKScreener filters NSE universe by price, volume, momentum.
+2. **6 Algorithmic Strategies** run on filtered stocks: ConsolidationBreakout, TrendPullback, CandleReversal, BOSStructure, ReversalPatterns, VolumeReversal.
+3. **Confluence Ranking**: Stocks scored by number of strategies that agree. Entry, stop-loss, and targets computed.
+4. **Filters**: Confidence ≥ 65%, Risk:Reward ≥ 1.5:1, long-only equity for beta.
+5. **Signals saved** to Supabase for the next trading day.
+6. **08:30 IST**: Signals broadcast to users.
 
-#### 4. Neon Accent Colors
-- **Cyan**: #00e5ff
-- **Green**: #00ff88
-- **Purple**: #8b5cf6
-- **Gold**: #fbbf24
+ML models (XGBoost, TFT) are optional confirmations — not required for beta.
 
-### CSS Classes Added
-- Background: `bg-deep-space`, `bg-starfield`, `bg-nebula`, `bg-aurora-hero`
-- Glass: `glass-panel`, `glass-card`, `glass-card-glow`, `glass-nav`
-- Typography: `gradient-text-hero`, `gradient-text-professional`, `gradient-text-accent`
-- Effects: `text-glow`, `text-glow-pulse`, `btn-glow`, `btn-glass`
-- Elevation: `soft-elevation`, `soft-elevation-lg`, `inner-stroke`
+## Trade Execution Flow
+- **Signal-only (Free)**: User views signals, trades manually via their broker.
+- **Semi-auto (Starter)**: User approves/rejects each signal. Approved trades execute via connected broker.
+- **Full-auto (Pro)**: Trades execute automatically when signals pass confidence threshold.
+- **Paper trading**: All users start with 14 days of paper trading before live eligibility.
 
-### Testing Results
-- Frontend: 95% (17/18 design features working)
-- Deep Space Theme: 100% Complete
-- Gradient Typography: 100% Complete
-- Glassmorphism: 85% Complete
-- Text Contrast: 100% Complete
+## Broker Integration
+- Zerodha (KiteConnect): OAuth flow + API trading
+- Angel One (SmartAPI): Manual credential entry + API trading
+- Upstox: OAuth flow + API trading
+- Per-user encrypted credentials (Fernet). Composite key: (user_id, broker_name).
 
-## What's Working
-- 2026 Fintech Dark Theme
-- Gradient Headlines
-- Glassmorphism Cards
-- 61 PKScreener Scanners
-- Advanced Stock Charts (RSI, MACD, Patterns)
-- Real-time 5s Polling Updates
-- Paper Trading
-- Watchlist
+## Tech Stack
+- Backend: FastAPI + Supabase (Auth + Postgres) + Razorpay
+- Frontend: Next.js 14 + Tailwind CSS + Framer Motion
+- Market Data: TrueData (real-time) / yfinance (fallback)
+- ML: PyTorch, scikit-learn, XGBoost (optional for beta)
+- Infrastructure: Railway (backend), Vercel (frontend), Docker
+
+## Design Theme
+2026 Fintech Dark Mode:
+- Deep space background (#04060e)
+- Glassmorphism 2.0 panels with backdrop-blur
+- Neon accent colors: Cyan (#00e5ff), Green (#00ff88), Purple (#8b5cf6), Gold (#fbbf24)
+- Gradient typography with shimmer effects
+
+## Current Beta Status
+- Auth: Supabase email/password + Google OAuth (working)
+- Payments: Razorpay integration (working)
+- Signals: 6 algorithmic strategies via PKScreener + EOD scanner (working)
+- Broker: Per-user connection with encrypted credentials (working)
+- Market data: TrueData integration with yfinance fallback (working)
+- Trade execution: Paper trading + semi-auto + full-auto (working, needs live broker testing)
 
 ## Backlog
-### P1 - High Priority
-- [ ] Enhance glassmorphism on trading terminal
-- [ ] Add glow fallbacks for CTA buttons
-- [ ] Complete Google Auth flow
+### P1 — Beta Launch Blockers
+- [ ] Push notification delivery service (FCM/APNs)
+- [ ] Live broker sandbox testing (Zerodha/Angel/Upstox)
+- [ ] TrueData production credentials
 
-### P2 - Medium Priority
+### P2 — Post-Launch
+- [ ] WebSocket channel subscriptions for real-time price updates
+- [ ] Enhanced AI core (v2 ensemble) integration
+- [ ] Kill switch end-to-end testing
+
+### P3 — Future
 - [ ] PDF report generation
-- [ ] Bollinger Bands indicator
-
-### P3 - Future
-- [ ] Broker API integration
+- [ ] Advanced portfolio analytics
+- [ ] Mobile app / PWA
 - [ ] Backtesting module
 
 ## Last Updated
-January 26, 2025
+February 24, 2026
