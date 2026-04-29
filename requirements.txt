@@ -16,11 +16,11 @@ pydantic[email]==2.5.3
 # ============================================================================
 # DATABASE & AUTHENTICATION
 # ============================================================================
-supabase==2.3.0
-postgrest==0.13.2
-realtime==1.0.4
-storage3==0.7.4
-gotrue>=2.4.0
+supabase>=2.10.0,<3.0.0
+postgrest>=0.18.0
+realtime>=2.0.0
+storage3>=0.8.0
+gotrue>=2.10.0
 
 # ============================================================================
 # OBJECT STORAGE — Backblaze B2 (model registry artifact store)
