@@ -38,7 +38,7 @@ def _utc_now_iso() -> str:
 
 
 def _public_model_name() -> str:
-    return settings.ASSISTANT_PUBLIC_MODEL_NAME or "SwingAI Finance Intelligence"
+    return settings.ASSISTANT_PUBLIC_MODEL_NAME or "Quant X Finance Intelligence"
 
 
 class AssistantService:
@@ -111,7 +111,12 @@ class AssistantService:
             "reason_code": reason_code,
         }
 
-    async def chat(self, message: str, history: Optional[List[Dict[str, str]]] = None) -> Dict[str, Any]:
+    async def chat(
+        self,
+        message: str,
+        history: Optional[List[Dict[str, str]]] = None,
+        page_context: Optional[Dict[str, Any]] = None,
+    ) -> Dict[str, Any]:
         start = time.perf_counter()
         normalized_history = self._normalize_history(history)
         self._validate_inputs(message.strip(), normalized_history)
@@ -151,12 +156,23 @@ class AssistantService:
             }
 
         sources = self._format_sources(news_items)
+        # PR 86 — clamp page_context: drop unknown keys and cap each
+        # string at 64 chars before passing to the prompt builder. The
+        # client supplies it untrusted; we never let it grow the prompt
+        # by more than ~250 chars.
+        safe_ctx: Dict[str, str] = {}
+        if isinstance(page_context, dict):
+            for key in ("route", "symbol", "signal_id", "page_label"):
+                v = page_context.get(key)
+                if isinstance(v, str) and v.strip():
+                    safe_ctx[key] = v.strip()[:64]
         reply = await self.gemini.generate_reply(
             message=message,
             history=normalized_history,
             topic=decision.topic,
             market_context=market_context,
             news_context=sources,
+            page_context=safe_ctx or None,
         )
         reply = self._enforce_disclaimer(reply, decision.topic)
 

@@ -1,5 +1,5 @@
 // ============================================================================
-// SWINGAI - NOTIFICATION BELL COMPONENT
+// QUANT X - NOTIFICATION BELL COMPONENT
 // Animated notification bell with dropdown
 // ============================================================================
 
@@ -16,6 +16,11 @@ interface NotificationBellProps {
   onMarkAsRead?: (id: string) => void
   onMarkAllAsRead?: () => void
   onDelete?: (id: string) => void
+  // PR 88 — optional deep-link resolver. When provided, clicking a
+  // notification row navigates to the source (signal / stock / settings)
+  // and auto-closes the dropdown. The wired bell maps types →
+  // routes; presentational consumers can opt out by omitting it.
+  getHref?: (n: Notification) => string | null
 }
 
 export default function NotificationBell({
@@ -23,6 +28,7 @@ export default function NotificationBell({
   onMarkAsRead,
   onMarkAllAsRead,
   onDelete,
+  getHref,
 }: NotificationBellProps) {
   const [isOpen, setIsOpen] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
@@ -46,13 +52,13 @@ export default function NotificationBell({
       case 'signal_new':
         return <TrendingUp className="w-4 h-4 text-primary" />
       case 'target_hit':
-        return <TrendingUp className="w-4 h-4 text-success" />
+        return <TrendingUp className="w-4 h-4 text-up" />
       case 'stop_loss_hit':
-        return <Shield className="w-4 h-4 text-danger" />
+        return <Shield className="w-4 h-4 text-down" />
       case 'risk_alert':
         return <AlertTriangle className="w-4 h-4 text-warning" />
       default:
-        return <Info className="w-4 h-4 text-text-muted" />
+        return <Info className="w-4 h-4 text-d-text-muted" />
     }
   }
 
@@ -71,16 +77,16 @@ export default function NotificationBell({
         whileHover={{ scale: 1.05 }}
         whileTap={{ scale: 0.95 }}
         onClick={() => setIsOpen(!isOpen)}
-        className="relative p-2 rounded-xl bg-background-elevated border border-gray-800 hover:border-gray-700 transition-all"
+        className="relative p-2 rounded-xl bg-background-elevated border border-d-border hover:border-white/20 transition-all"
       >
-        <Bell className="w-5 h-5 text-text-secondary" />
+        <Bell className="w-5 h-5 text-white/60" />
 
         {/* Badge */}
         {unreadCount > 0 && (
           <motion.div
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
-            className="absolute -top-1 -right-1 w-5 h-5 bg-danger rounded-full flex items-center justify-center text-xs font-bold text-white"
+            className="absolute -top-1 -right-1 w-5 h-5 bg-down rounded-full flex items-center justify-center text-xs font-bold text-white"
           >
             {unreadCount > 9 ? '9+' : unreadCount}
           </motion.div>
@@ -88,7 +94,7 @@ export default function NotificationBell({
 
         {/* Ping Animation */}
         {unreadCount > 0 && (
-          <span className="absolute -top-1 -right-1 w-5 h-5 bg-danger rounded-full animate-ping opacity-75" />
+          <span className="absolute -top-1 -right-1 w-5 h-5 bg-down rounded-full animate-ping opacity-75" />
         )}
       </motion.button>
 
@@ -100,13 +106,13 @@ export default function NotificationBell({
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 10, scale: 0.95 }}
             transition={{ duration: 0.2 }}
-            className="absolute right-0 mt-2 w-96 bg-background-elevated border border-gray-800 rounded-2xl shadow-2xl z-50"
+            className="absolute right-0 mt-2 w-96 bg-background-elevated border border-d-border rounded-2xl shadow-2xl z-50"
           >
             {/* Header */}
-            <div className="flex items-center justify-between p-4 border-b border-gray-800">
+            <div className="flex items-center justify-between p-4 border-b border-d-border">
               <div>
-                <h3 className="text-sm font-bold text-text-primary">Notifications</h3>
-                <p className="text-xs text-text-muted">{unreadCount} unread</p>
+                <h3 className="text-sm font-bold text-white">Notifications</h3>
+                <p className="text-xs text-d-text-muted">{unreadCount} unread</p>
               </div>
 
               {unreadCount > 0 && onMarkAllAsRead && (
@@ -125,12 +131,14 @@ export default function NotificationBell({
             <div className="max-h-96 overflow-y-auto">
               {notifications.length === 0 ? (
                 <div className="p-8 text-center">
-                  <Bell className="w-12 h-12 text-text-muted mx-auto mb-3 opacity-50" />
-                  <p className="text-sm text-text-muted">No notifications yet</p>
+                  <Bell className="w-12 h-12 text-d-text-muted mx-auto mb-3 opacity-50" />
+                  <p className="text-sm text-d-text-muted">No notifications yet</p>
                 </div>
               ) : (
-                <div className="divide-y divide-gray-800">
-                  {notifications.map((notification) => (
+                <div className="divide-y divide-d-border">
+                  {notifications.map((notification) => {
+                    const href = getHref ? getHref(notification) : null
+                    return (
                     <motion.div
                       key={notification.id}
                       initial={{ opacity: 0, x: -20 }}
@@ -148,20 +156,35 @@ export default function NotificationBell({
                         {/* Content */}
                         <div className="flex-1 min-w-0">
                           <div className="flex items-start justify-between gap-2 mb-1">
-                            <h4 className="text-sm font-bold text-text-primary truncate">
-                              {notification.title}
-                            </h4>
+                            {href ? (
+                              <Link
+                                href={href}
+                                onClick={() => {
+                                  setIsOpen(false)
+                                  if (!notification.is_read && onMarkAsRead) {
+                                    onMarkAsRead(notification.id)
+                                  }
+                                }}
+                                className="text-sm font-bold text-white truncate hover:text-primary transition-colors"
+                              >
+                                {notification.title}
+                              </Link>
+                            ) : (
+                              <h4 className="text-sm font-bold text-white truncate">
+                                {notification.title}
+                              </h4>
+                            )}
                             {!notification.is_read && (
                               <div className="w-2 h-2 rounded-full bg-primary flex-shrink-0 mt-1" />
                             )}
                           </div>
 
-                          <p className="text-xs text-text-secondary line-clamp-2 mb-2">
+                          <p className="text-xs text-white/60 line-clamp-2 mb-2">
                             {notification.message}
                           </p>
 
                           <div className="flex items-center justify-between">
-                            <span className="text-xs text-text-muted">
+                            <span className="text-xs text-d-text-muted">
                               {getTimeAgo(notification.created_at)}
                             </span>
 
@@ -174,7 +197,7 @@ export default function NotificationBell({
                                   className="p-1 rounded hover:bg-background-elevated transition-colors"
                                   title="Mark as read"
                                 >
-                                  <Check className="w-3 h-3 text-success" />
+                                  <Check className="w-3 h-3 text-up" />
                                 </motion.button>
                               )}
 
@@ -186,7 +209,7 @@ export default function NotificationBell({
                                   className="p-1 rounded hover:bg-background-elevated transition-colors"
                                   title="Delete"
                                 >
-                                  <X className="w-3 h-3 text-danger" />
+                                  <X className="w-3 h-3 text-down" />
                                 </motion.button>
                               )}
                             </div>
@@ -194,14 +217,15 @@ export default function NotificationBell({
                         </div>
                       </div>
                     </motion.div>
-                  ))}
+                  )
+                  })}
                 </div>
               )}
             </div>
 
             {/* Footer */}
             {notifications.length > 0 && (
-              <div className="p-3 border-t border-gray-800 text-center">
+              <div className="p-3 border-t border-d-border text-center">
                 <Link
                   href="/notifications"
                   className="text-xs text-primary hover:text-primary-dark font-medium"

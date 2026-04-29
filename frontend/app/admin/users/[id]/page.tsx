@@ -1,5 +1,5 @@
 // ============================================================================
-// SWINGAI - ADMIN USER DETAIL PAGE
+// QUANT X - ADMIN USER DETAIL PAGE
 // Detailed user view with trading settings and activity
 // ============================================================================
 
@@ -26,6 +26,7 @@ import {
   RefreshCw,
 } from 'lucide-react'
 import { UserDetailResponse } from '@/types/admin'
+import { api, handleApiError } from '@/lib/api'
 
 export default function UserDetailPage() {
   const params = useParams()
@@ -46,80 +47,19 @@ export default function UserDetailPage() {
       setLoading(true)
       setError(null)
 
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || ''
-      const res = await fetch(`${apiUrl}/api/admin/users/${userId}`, {
-        headers: { Authorization: `Bearer ${getToken()}` },
-      })
-
-      if (res.ok) {
-        setUserData(await res.json())
+      const data = await api.admin.getUser(userId) as unknown as UserDetailResponse
+      if (data) {
+        setUserData(data)
       } else {
-        // Use mock data for development
-        setUserData(getMockUserDetail())
+        setError('Failed to fetch user details')
       }
     } catch (err) {
       console.error('Failed to fetch user:', err)
-      setUserData(getMockUserDetail())
+      setError('Failed to connect to backend')
     } finally {
       setLoading(false)
     }
   }
-
-  const getToken = () => {
-    if (typeof window === 'undefined') return ''
-    return localStorage.getItem('sb-access-token') || ''
-  }
-
-  const getMockUserDetail = (): UserDetailResponse => ({
-    user: {
-      id: userId,
-      email: 'rajesh.kumar@example.com',
-      full_name: 'Rajesh Kumar',
-      phone: '+91 98765 43210',
-      capital: 500000,
-      trading_mode: 'semi_auto',
-      subscription_status: 'active',
-      subscription_plan: 'Pro',
-      broker_connected: true,
-      broker_name: 'zerodha',
-      total_trades: 145,
-      winning_trades: 89,
-      total_pnl: 47500,
-      created_at: '2024-01-15T10:30:00Z',
-      last_login: '2025-08-15T09:15:00Z',
-      last_active: '2025-08-15T14:30:00Z',
-      is_suspended: false,
-      is_banned: false,
-    },
-    trading_settings: {
-      risk_profile: 'moderate',
-      risk_per_trade: 2.5,
-      max_positions: 5,
-      fo_enabled: true,
-      preferred_option_type: 'put_options',
-      daily_loss_limit: 3,
-      weekly_loss_limit: 7,
-      monthly_loss_limit: 15,
-      trailing_sl_enabled: true,
-    },
-    recent_activity: [
-      { action: 'trade_executed', timestamp: '2025-08-15T14:30:00Z', details: 'Executed LONG on RELIANCE' },
-      { action: 'login', timestamp: '2025-08-15T09:15:00Z', details: 'Login from Chrome/Windows' },
-      { action: 'settings_updated', timestamp: '2025-08-14T18:00:00Z', details: 'Updated risk_per_trade' },
-    ],
-    payment_history: [
-      { id: '1', amount: 199900, status: 'completed', created_at: '2025-07-15T10:00:00Z', subscription_plans: { display_name: 'Pro' } },
-      { id: '2', amount: 199900, status: 'completed', created_at: '2025-06-15T10:00:00Z', subscription_plans: { display_name: 'Pro' } },
-    ],
-    positions: [
-      { id: '1', symbol: 'RELIANCE', direction: 'LONG', quantity: 50, average_price: 2450, current_price: 2485, unrealized_pnl: 1750 },
-      { id: '2', symbol: 'TCS', direction: 'LONG', quantity: 25, average_price: 3650, current_price: 3620, unrealized_pnl: -750 },
-    ],
-    trades: [
-      { id: '1', symbol: 'INFY', direction: 'LONG', quantity: 100, entry_price: 1450, exit_price: 1495, net_pnl: 4500, status: 'closed', closed_at: '2025-08-14T15:00:00Z' },
-      { id: '2', symbol: 'HDFC', direction: 'SHORT', quantity: 30, entry_price: 1680, exit_price: 1650, net_pnl: 900, status: 'closed', closed_at: '2025-08-13T14:30:00Z' },
-    ],
-  })
 
   const handleResetSubscription = async () => {
     const newStatus = prompt('Enter new subscription status (free, trial, active):')
@@ -132,22 +72,9 @@ export default function UserDetailPage() {
     if (!reason) return
 
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || ''
-      const res = await fetch(`${apiUrl}/api/admin/users/${userId}/reset-subscription`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${getToken()}`,
-        },
-        body: JSON.stringify({ new_status: newStatus, reason }),
-      })
-
-      if (res.ok) {
-        alert('Subscription reset successfully')
-        fetchUserDetail()
-      } else {
-        alert('Failed to reset subscription')
-      }
+      await api.admin.resetSubscription(userId)
+      alert('Subscription reset successfully')
+      fetchUserDetail()
     } catch (err) {
       console.error('Reset error:', err)
       alert('Failed to reset subscription')
@@ -157,7 +84,7 @@ export default function UserDetailPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-96">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-red-500"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-down"></div>
       </div>
     )
   }
@@ -165,9 +92,9 @@ export default function UserDetailPage() {
   if (!userData) {
     return (
       <div className="text-center py-12">
-        <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+        <AlertCircle className="w-12 h-12 text-down mx-auto mb-4" />
         <p className="text-white text-lg">User not found</p>
-        <Link href="/admin/users" className="text-red-500 hover:text-red-400 mt-2 inline-block">
+        <Link href="/admin/users" className="text-down hover:text-down mt-2 inline-block">
           Back to Users
         </Link>
       </div>
@@ -182,19 +109,19 @@ export default function UserDetailPage() {
       <div className="flex items-center gap-4">
         <Link
           href="/admin/users"
-          className="p-2 bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors"
+          className="p-2 bg-d-bg-elevated hover:bg-white/[0.06] rounded-lg transition-colors"
         >
-          <ArrowLeft className="w-5 h-5 text-gray-400" />
+          <ArrowLeft className="w-5 h-5 text-d-text-muted" />
         </Link>
         <div className="flex-1">
           <h1 className="text-2xl font-bold text-white">{user.full_name || 'User'}</h1>
-          <p className="text-gray-400">{user.email}</p>
+          <p className="text-d-text-muted">{user.email}</p>
         </div>
         <button
           onClick={fetchUserDetail}
-          className="p-2 bg-gray-800 hover:bg-gray-700 rounded-lg transition-colors"
+          className="p-2 bg-d-bg-elevated hover:bg-white/[0.06] rounded-lg transition-colors"
         >
-          <RefreshCw className="w-5 h-5 text-gray-400" />
+          <RefreshCw className="w-5 h-5 text-d-text-muted" />
         </button>
       </div>
 
@@ -202,15 +129,15 @@ export default function UserDetailPage() {
       {(user.is_suspended || user.is_banned) && (
         <div
           className={`p-4 rounded-xl flex items-center gap-3 ${
-            user.is_banned ? 'bg-red-500/10 border border-red-500/30' : 'bg-yellow-500/10 border border-yellow-500/30'
+            user.is_banned ? 'bg-down/10 border border-down/20' : 'bg-warning/10 border border-warning/20'
           }`}
         >
           {user.is_banned ? (
-            <Ban className="w-5 h-5 text-red-500" />
+            <Ban className="w-5 h-5 text-down" />
           ) : (
-            <UserX className="w-5 h-5 text-yellow-500" />
+            <UserX className="w-5 h-5 text-warning" />
           )}
-          <span className={user.is_banned ? 'text-red-400' : 'text-yellow-400'}>
+          <span className={user.is_banned ? 'text-down' : 'text-warning'}>
             This user is {user.is_banned ? 'BANNED' : 'SUSPENDED'}
           </span>
         </div>
@@ -219,28 +146,28 @@ export default function UserDetailPage() {
       {/* User Info Cards */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* Basic Info */}
-        <div className="bg-gray-900 rounded-2xl border border-gray-800 p-6">
+        <div className="bg-d-bg-card rounded-2xl border border-d-border p-6">
           <h3 className="text-lg font-semibold text-white mb-4">Basic Info</h3>
           <div className="space-y-3">
             <div className="flex items-center gap-3">
-              <Mail className="w-4 h-4 text-gray-500" />
-              <span className="text-gray-300">{user.email}</span>
+              <Mail className="w-4 h-4 text-d-text-muted" />
+              <span className="text-white/70">{user.email}</span>
             </div>
             {user.phone && (
               <div className="flex items-center gap-3">
-                <Phone className="w-4 h-4 text-gray-500" />
-                <span className="text-gray-300">{user.phone}</span>
+                <Phone className="w-4 h-4 text-d-text-muted" />
+                <span className="text-white/70">{user.phone}</span>
               </div>
             )}
             <div className="flex items-center gap-3">
-              <Calendar className="w-4 h-4 text-gray-500" />
-              <span className="text-gray-300">
+              <Calendar className="w-4 h-4 text-d-text-muted" />
+              <span className="text-white/70">
                 Joined {new Date(user.created_at).toLocaleDateString()}
               </span>
             </div>
             <div className="flex items-center gap-3">
-              <CreditCard className="w-4 h-4 text-gray-500" />
-              <span className="text-gray-300">
+              <CreditCard className="w-4 h-4 text-d-text-muted" />
+              <span className="text-white/70">
                 {user.subscription_plan || user.subscription_status}
               </span>
             </div>
@@ -248,19 +175,19 @@ export default function UserDetailPage() {
         </div>
 
         {/* Trading Stats */}
-        <div className="bg-gray-900 rounded-2xl border border-gray-800 p-6">
+        <div className="bg-d-bg-card rounded-2xl border border-d-border p-6">
           <h3 className="text-lg font-semibold text-white mb-4">Trading Stats</h3>
           <div className="space-y-3">
             <div className="flex justify-between">
-              <span className="text-gray-400">Capital</span>
-              <span className="text-white font-medium">₹{user.capital.toLocaleString()}</span>
+              <span className="text-d-text-muted">Capital</span>
+              <span className="text-white font-medium font-mono num-display">₹{user.capital.toLocaleString()}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-400">Total Trades</span>
+              <span className="text-d-text-muted">Total Trades</span>
               <span className="text-white font-medium">{user.total_trades}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-400">Win Rate</span>
+              <span className="text-d-text-muted">Win Rate</span>
               <span className="text-white font-medium">
                 {user.total_trades > 0
                   ? ((user.winning_trades / user.total_trades) * 100).toFixed(1)
@@ -268,8 +195,8 @@ export default function UserDetailPage() {
               </span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-400">Total P&L</span>
-              <span className={`font-medium ${user.total_pnl >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+              <span className="text-d-text-muted">Total P&L</span>
+              <span className={`font-medium font-mono num-display ${user.total_pnl >= 0 ? 'text-up' : 'text-down'}`}>
                 {user.total_pnl >= 0 ? '+' : ''}₹{user.total_pnl.toLocaleString()}
               </span>
             </div>
@@ -277,29 +204,29 @@ export default function UserDetailPage() {
         </div>
 
         {/* Trading Settings */}
-        <div className="bg-gray-900 rounded-2xl border border-gray-800 p-6">
+        <div className="bg-d-bg-card rounded-2xl border border-d-border p-6">
           <h3 className="text-lg font-semibold text-white mb-4">Trading Settings</h3>
           <div className="space-y-3 text-sm">
             <div className="flex justify-between">
-              <span className="text-gray-400">Mode</span>
+              <span className="text-d-text-muted">Mode</span>
               <span className="text-white capitalize">{user.trading_mode.replace('_', ' ')}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-400">Risk Profile</span>
+              <span className="text-d-text-muted">Risk Profile</span>
               <span className="text-white capitalize">{trading_settings.risk_profile}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-400">Risk/Trade</span>
+              <span className="text-d-text-muted">Risk/Trade</span>
               <span className="text-white">{trading_settings.risk_per_trade}%</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-400">F&O Enabled</span>
-              <span className={trading_settings.fo_enabled ? 'text-green-500' : 'text-gray-500'}>
+              <span className="text-d-text-muted">F&O Enabled</span>
+              <span className={trading_settings.fo_enabled ? 'text-up' : 'text-d-text-muted'}>
                 {trading_settings.fo_enabled ? 'Yes' : 'No'}
               </span>
             </div>
             <div className="flex justify-between">
-              <span className="text-gray-400">Broker</span>
+              <span className="text-d-text-muted">Broker</span>
               <span className="text-white capitalize">
                 {user.broker_connected ? user.broker_name : 'Not connected'}
               </span>
@@ -309,27 +236,27 @@ export default function UserDetailPage() {
       </div>
 
       {/* Admin Actions */}
-      <div className="bg-gray-900 rounded-2xl border border-gray-800 p-6">
+      <div className="bg-d-bg-card rounded-2xl border border-d-border p-6">
         <h3 className="text-lg font-semibold text-white mb-4">Admin Actions</h3>
         <div className="flex flex-wrap gap-3">
           <button
             onClick={handleResetSubscription}
-            className="px-4 py-2 bg-blue-500/10 hover:bg-blue-500/20 border border-blue-500/30 rounded-lg text-blue-400 text-sm font-medium transition-colors"
+            className="px-4 py-2 bg-primary/10 hover:bg-primary/20 border border-primary/20 rounded-lg text-primary text-sm font-medium transition-colors"
           >
             Reset Subscription
           </button>
           {!user.is_banned && (
             <>
               {user.is_suspended ? (
-                <button className="px-4 py-2 bg-green-500/10 hover:bg-green-500/20 border border-green-500/30 rounded-lg text-green-400 text-sm font-medium transition-colors">
+                <button className="px-4 py-2 bg-up/10 hover:bg-up/20 border border-up/20 rounded-lg text-up text-sm font-medium transition-colors">
                   Unsuspend User
                 </button>
               ) : (
-                <button className="px-4 py-2 bg-yellow-500/10 hover:bg-yellow-500/20 border border-yellow-500/30 rounded-lg text-yellow-400 text-sm font-medium transition-colors">
+                <button className="px-4 py-2 bg-warning/10 hover:bg-warning/20 border border-warning/20 rounded-lg text-warning text-sm font-medium transition-colors">
                   Suspend User
                 </button>
               )}
-              <button className="px-4 py-2 bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 rounded-lg text-red-400 text-sm font-medium transition-colors">
+              <button className="px-4 py-2 bg-down/10 hover:bg-down/20 border border-down/20 rounded-lg text-down text-sm font-medium transition-colors">
                 Ban User
               </button>
             </>
@@ -338,7 +265,7 @@ export default function UserDetailPage() {
       </div>
 
       {/* Tabs */}
-      <div className="border-b border-gray-800">
+      <div className="border-b border-d-border">
         <div className="flex gap-4">
           {['overview', 'trades', 'payments', 'activity'].map((tab) => (
             <button
@@ -346,8 +273,8 @@ export default function UserDetailPage() {
               onClick={() => setActiveTab(tab as any)}
               className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
                 activeTab === tab
-                  ? 'border-red-500 text-red-500'
-                  : 'border-transparent text-gray-400 hover:text-white'
+                  ? 'border-down text-down'
+                  : 'border-transparent text-d-text-muted hover:text-white'
               }`}
             >
               {tab.charAt(0).toUpperCase() + tab.slice(1)}
@@ -357,7 +284,7 @@ export default function UserDetailPage() {
       </div>
 
       {/* Tab Content */}
-      <div className="bg-gray-900 rounded-2xl border border-gray-800 p-6">
+      <div className="bg-d-bg-card rounded-2xl border border-d-border p-6">
         {activeTab === 'overview' && (
           <div>
             <h3 className="text-lg font-semibold text-white mb-4">Active Positions</h3>
@@ -365,7 +292,7 @@ export default function UserDetailPage() {
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
-                    <tr className="text-left text-xs text-gray-500 uppercase">
+                    <tr className="text-left text-xs text-d-text-muted uppercase">
                       <th className="pb-3">Symbol</th>
                       <th className="pb-3">Direction</th>
                       <th className="pb-3">Qty</th>
@@ -374,17 +301,17 @@ export default function UserDetailPage() {
                       <th className="pb-3">P&L</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-800">
+                  <tbody className="divide-y divide-d-border">
                     {positions.map((pos: any) => (
                       <tr key={pos.id}>
                         <td className="py-3 text-white font-medium">{pos.symbol}</td>
-                        <td className={`py-3 ${pos.direction === 'LONG' ? 'text-green-500' : 'text-red-500'}`}>
+                        <td className={`py-3 ${pos.direction === 'LONG' ? 'text-up' : 'text-down'}`}>
                           {pos.direction}
                         </td>
-                        <td className="py-3 text-gray-300">{pos.quantity}</td>
-                        <td className="py-3 text-gray-300">₹{pos.average_price}</td>
-                        <td className="py-3 text-gray-300">₹{pos.current_price}</td>
-                        <td className={`py-3 font-medium ${pos.unrealized_pnl >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                        <td className="py-3 text-white/70">{pos.quantity}</td>
+                        <td className="py-3 text-white/70 font-mono num-display">₹{pos.average_price}</td>
+                        <td className="py-3 text-white/70 font-mono num-display">₹{pos.current_price}</td>
+                        <td className={`py-3 font-medium font-mono num-display ${pos.unrealized_pnl >= 0 ? 'text-up' : 'text-down'}`}>
                           {pos.unrealized_pnl >= 0 ? '+' : ''}₹{pos.unrealized_pnl}
                         </td>
                       </tr>
@@ -393,7 +320,7 @@ export default function UserDetailPage() {
                 </table>
               </div>
             ) : (
-              <p className="text-gray-500">No active positions</p>
+              <p className="text-d-text-muted">No active positions</p>
             )}
           </div>
         )}
@@ -405,7 +332,7 @@ export default function UserDetailPage() {
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
-                    <tr className="text-left text-xs text-gray-500 uppercase">
+                    <tr className="text-left text-xs text-d-text-muted uppercase">
                       <th className="pb-3">Symbol</th>
                       <th className="pb-3">Direction</th>
                       <th className="pb-3">Qty</th>
@@ -415,20 +342,20 @@ export default function UserDetailPage() {
                       <th className="pb-3">Date</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-gray-800">
+                  <tbody className="divide-y divide-d-border">
                     {trades.map((trade: any) => (
                       <tr key={trade.id}>
                         <td className="py-3 text-white font-medium">{trade.symbol}</td>
-                        <td className={`py-3 ${trade.direction === 'LONG' ? 'text-green-500' : 'text-red-500'}`}>
+                        <td className={`py-3 ${trade.direction === 'LONG' ? 'text-up' : 'text-down'}`}>
                           {trade.direction}
                         </td>
-                        <td className="py-3 text-gray-300">{trade.quantity}</td>
-                        <td className="py-3 text-gray-300">₹{trade.entry_price}</td>
-                        <td className="py-3 text-gray-300">₹{trade.exit_price}</td>
-                        <td className={`py-3 font-medium ${trade.net_pnl >= 0 ? 'text-green-500' : 'text-red-500'}`}>
+                        <td className="py-3 text-white/70">{trade.quantity}</td>
+                        <td className="py-3 text-white/70 font-mono num-display">₹{trade.entry_price}</td>
+                        <td className="py-3 text-white/70 font-mono num-display">₹{trade.exit_price}</td>
+                        <td className={`py-3 font-medium font-mono num-display ${trade.net_pnl >= 0 ? 'text-up' : 'text-down'}`}>
                           {trade.net_pnl >= 0 ? '+' : ''}₹{trade.net_pnl}
                         </td>
-                        <td className="py-3 text-gray-500 text-sm">
+                        <td className="py-3 text-d-text-muted text-sm">
                           {trade.closed_at ? new Date(trade.closed_at).toLocaleDateString() : '-'}
                         </td>
                       </tr>
@@ -437,7 +364,7 @@ export default function UserDetailPage() {
                 </table>
               </div>
             ) : (
-              <p className="text-gray-500">No trades found</p>
+              <p className="text-d-text-muted">No trades found</p>
             )}
           </div>
         )}
@@ -448,18 +375,18 @@ export default function UserDetailPage() {
             {payment_history.length > 0 ? (
               <div className="space-y-3">
                 {payment_history.map((payment: any) => (
-                  <div key={payment.id} className="flex justify-between items-center p-4 bg-gray-800/50 rounded-lg">
+                  <div key={payment.id} className="flex justify-between items-center p-4 bg-white/[0.04] rounded-lg">
                     <div>
                       <p className="text-white font-medium">
                         {payment.subscription_plans?.display_name || 'Payment'}
                       </p>
-                      <p className="text-gray-500 text-sm">
+                      <p className="text-d-text-muted text-sm">
                         {new Date(payment.created_at).toLocaleDateString()}
                       </p>
                     </div>
                     <div className="text-right">
-                      <p className="text-white font-medium">₹{(payment.amount / 100).toLocaleString()}</p>
-                      <p className={`text-xs ${payment.status === 'completed' ? 'text-green-500' : 'text-yellow-500'}`}>
+                      <p className="text-white font-medium font-mono num-display">₹{(payment.amount / 100).toLocaleString()}</p>
+                      <p className={`text-xs ${payment.status === 'completed' ? 'text-up' : 'text-warning'}`}>
                         {payment.status}
                       </p>
                     </div>
@@ -467,7 +394,7 @@ export default function UserDetailPage() {
                 ))}
               </div>
             ) : (
-              <p className="text-gray-500">No payments found</p>
+              <p className="text-d-text-muted">No payments found</p>
             )}
           </div>
         )}
@@ -478,22 +405,22 @@ export default function UserDetailPage() {
             {recent_activity.length > 0 ? (
               <div className="space-y-3">
                 {recent_activity.map((activity: any, i: number) => (
-                  <div key={i} className="flex items-start gap-4 p-4 bg-gray-800/50 rounded-lg">
-                    <div className="w-10 h-10 bg-gray-700 rounded-full flex items-center justify-center">
-                      <History className="w-5 h-5 text-gray-400" />
+                  <div key={i} className="flex items-start gap-4 p-4 bg-white/[0.04] rounded-lg">
+                    <div className="w-10 h-10 bg-d-bg-elevated rounded-full flex items-center justify-center">
+                      <History className="w-5 h-5 text-d-text-muted" />
                     </div>
                     <div className="flex-1">
                       <p className="text-white">{activity.details}</p>
-                      <p className="text-gray-500 text-sm capitalize">{activity.action.replace('_', ' ')}</p>
+                      <p className="text-d-text-muted text-sm capitalize">{activity.action.replace('_', ' ')}</p>
                     </div>
-                    <p className="text-gray-500 text-sm">
+                    <p className="text-d-text-muted text-sm">
                       {new Date(activity.timestamp).toLocaleString()}
                     </p>
                   </div>
                 ))}
               </div>
             ) : (
-              <p className="text-gray-500">No activity found</p>
+              <p className="text-d-text-muted">No activity found</p>
             )}
           </div>
         )}

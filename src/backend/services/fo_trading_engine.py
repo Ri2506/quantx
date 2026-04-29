@@ -1,6 +1,6 @@
 """
 ================================================================================
-SWINGAI F&O TRADING ENGINE
+QUANT X F&O TRADING ENGINE
 ================================================================================
 Complete Options & Futures Trading with:
 - NSE Lot Sizes
@@ -627,12 +627,13 @@ class FOTradingEngine:
                 theta=greeks["theta"]
             )
     
-    def get_option_chain(self, symbol: str, expiry: date, spot_price: float) -> List[OptionContract]:
+    def get_option_chain(self, symbol: str, expiry: date, spot_price: float, base_iv: float = 0.15) -> List[OptionContract]:
         """
-        Generate option chain (in production, fetch from broker API)
+        Generate option chain (in production, fetch from broker API).
+        base_iv: ATM implied volatility as decimal (e.g., 0.26 for 26%).
         """
         lot_size = self.get_lot_size(symbol)
-        
+
         # Determine strike interval
         if spot_price > 10000:
             strike_interval = 50
@@ -640,23 +641,23 @@ class FOTradingEngine:
             strike_interval = 50
         else:
             strike_interval = 10
-        
+
         atm_strike = round(spot_price / strike_interval) * strike_interval
-        
+
         chain = []
         days_to_expiry = max(1, (expiry - date.today()).days)
         T = days_to_expiry / 365
-        
+
         # Generate strikes from -10 to +10 around ATM
         for i in range(-10, 11):
             strike = atm_strike + (i * strike_interval)
-            
+
             # Skip invalid strikes
             if strike <= 0:
                 continue
-            
-            # Estimate IV (in production, use real IV)
-            iv = 0.15 + abs(i) * 0.005  # IV smile approximation
+
+            # IV smile: base_iv at ATM, increasing for OTM
+            iv = base_iv + abs(i) * 0.005
             
             # Calculate prices and Greeks
             call_price = self.bs.call_price(spot_price, strike, T, self.risk_free_rate, iv)

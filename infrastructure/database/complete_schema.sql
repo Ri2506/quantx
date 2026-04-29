@@ -1,5 +1,5 @@
 -- ============================================================================
--- SWINGAI COMPLETE DATABASE SCHEMA
+-- QUANT X COMPLETE DATABASE SCHEMA
 -- Supabase PostgreSQL - Production Ready
 -- ============================================================================
 

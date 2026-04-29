@@ -1,5 +1,5 @@
 // ============================================================================
-// SWINGAI - STAT CARD COMPONENT
+// QUANT X - STAT CARD COMPONENT
 // Animated stat card with sparkline and icon
 // ============================================================================
 
@@ -27,12 +27,12 @@ const colorClasses = {
     bg: 'bg-blue-500/10',
     text: 'text-blue-500',
     border: 'border-blue-500/20',
-    glow: 'group-hover:shadow-glow-sm',
+    glow: 'group-hover:',
   },
   green: {
-    bg: 'bg-green-500/10',
-    text: 'text-green-500',
-    border: 'border-green-500/20',
+    bg: 'bg-up/10',
+    text: 'text-up',
+    border: 'border-up/20',
     glow: 'group-hover:shadow-[0_0_20px_rgba(16,185,129,0.3)]',
   },
   purple: {
@@ -48,9 +48,9 @@ const colorClasses = {
     glow: 'group-hover:shadow-[0_0_20px_rgba(249,115,22,0.3)]',
   },
   red: {
-    bg: 'bg-red-500/10',
-    text: 'text-red-500',
-    border: 'border-red-500/20',
+    bg: 'bg-down/10',
+    text: 'text-down',
+    border: 'border-down/20',
     glow: 'group-hover:shadow-[0_0_20px_rgba(239,68,68,0.3)]',
   },
 }
@@ -74,7 +74,7 @@ export default function StatCard({
       animate={{ opacity: 1, y: 0 }}
       whileHover={{ y: -4 }}
       transition={{ duration: 0.2 }}
-      className={`group bg-background-surface/50 backdrop-blur-xl rounded-2xl border border-gray-800 p-6 hover:border-gray-700 transition-all ${colors.glow}`}
+      className={`group bg-background-surface rounded-2xl border border-d-border p-6 hover:border-white/20 transition-colors ${colors.glow}`}
     >
       <div className="flex items-start justify-between mb-4">
         {/* Icon */}
@@ -91,10 +91,10 @@ export default function StatCard({
           <div
             className={`flex items-center gap-1 text-sm font-medium ${
               changeType === 'positive'
-                ? 'text-success'
+                ? 'text-up'
                 : changeType === 'negative'
-                ? 'text-danger'
-                : 'text-text-muted'
+                ? 'text-down'
+                : 'text-d-text-muted'
             }`}
           >
             {changeType === 'positive' && <ArrowUpRight className="w-4 h-4" />}
@@ -105,10 +105,10 @@ export default function StatCard({
       </div>
 
       {/* Title */}
-      <p className="text-text-secondary text-sm mb-1 font-medium">{title}</p>
+      <p className="text-white/60 text-sm mb-1 font-medium">{title}</p>
 
       {/* Value */}
-      <p className="text-3xl font-bold text-text-primary font-mono mb-3">
+      <p className="text-3xl font-bold text-white font-mono mb-3">
         {prefix}
         {typeof value === 'number' ? value.toLocaleString('en-IN') : value}
         {suffix}

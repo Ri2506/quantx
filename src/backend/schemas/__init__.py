@@ -1,5 +1,5 @@
 """
-SwingAI API Schemas
+Quant X API Schemas
 Pydantic models for request/response validation
 """
 from pydantic import BaseModel, Field, EmailStr
@@ -148,9 +148,9 @@ class SignalResponse(SignalBase):
     option_type: Optional[str] = None
     lot_size: Optional[int] = None
     is_premium: bool
-    catboost_score: Optional[float]
-    tft_score: Optional[float]
-    stockformer_score: Optional[float]
+    catboost_score: Optional[float]       # DB legacy name → ML meta-labeler (RandomForest) score
+    tft_score: Optional[float]            # DB legacy name → TFT price-forecast bullish score
+    stockformer_score: Optional[float]    # DB legacy name → raw strategy confidence
     model_agreement: int
     reasons: List[str]
     strategy_names: Optional[List[str]] = None
@@ -377,6 +377,16 @@ class WatchlistAdd(BaseModel):
     alert_price_above: Optional[float] = None
     alert_price_below: Optional[float] = None
 
+
+# PR 112 — partial-update payload for an existing watchlist row.
+# All fields optional so a client can flip just one threshold or
+# toggle alert_enabled without re-stating the rest.
+class WatchlistUpdate(BaseModel):
+    alert_price_above: Optional[float] = None
+    alert_price_below: Optional[float] = None
+    alert_enabled: Optional[bool] = None
+    notes: Optional[str] = None
+
 class WatchlistResponse(BaseModel):
     id: str
     symbol: str
@@ -428,9 +438,22 @@ class AssistantSource(BaseModel):
     published_at: Optional[str] = None
 
 
+class AssistantPageContext(BaseModel):
+    """PR 86 — optional page-context hint passed by every Copilot caller.
+    Lets the assistant ground answers in what the user is actually
+    looking at (the active route + visible symbol or signal). All
+    fields are optional and untrusted — clamped server-side before
+    being injected into the prompt."""
+    route: Optional[str] = None
+    symbol: Optional[str] = None
+    signal_id: Optional[str] = None
+    page_label: Optional[str] = None
+
+
 class AssistantChatRequest(BaseModel):
     message: str
     history: List[AssistantHistoryMessage] = Field(default_factory=list)
+    page_context: Optional[AssistantPageContext] = None
 
 
 class AssistantUsage(BaseModel):

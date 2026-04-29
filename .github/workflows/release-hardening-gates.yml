@@ -52,7 +52,7 @@ jobs:
       - name: Run frontend hard gates
         run: bash scripts/qa/frontend_hard_gates.sh frontend true
         env:
-          NEXT_PUBLIC_API_URL: https://api.swingai.app
+          NEXT_PUBLIC_API_URL: https://api.quantx.app
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
 

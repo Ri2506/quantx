@@ -20,7 +20,7 @@ export default function StatusDot({ status, className, label }: StatusDotProps) 
         )}
       />
       {label && (
-        <span className="text-xs font-medium text-text-secondary">{label}</span>
+        <span className="text-xs font-medium text-d-text-muted">{label}</span>
       )}
     </span>
   )

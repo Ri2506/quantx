@@ -1,5 +1,5 @@
 """
-SwingAI Features Module
+Quant X Features Module
 =======================
 Technical indicator computation for all 15 strategies.
 """

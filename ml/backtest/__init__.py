@@ -1,5 +1,5 @@
 """
-SwingAI Backtest Module
+Quant X Backtest Module
 =======================
 Production-grade backtesting with:
 - Bar-by-bar simulation (no look-ahead bias)

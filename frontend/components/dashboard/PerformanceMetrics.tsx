@@ -1,5 +1,5 @@
 // ============================================================================
-// SWINGAI - PERFORMANCE METRICS COMPONENT
+// QUANT X - PERFORMANCE METRICS COMPONENT
 // Win rate, profit factor, Sharpe ratio display
 // ============================================================================
 
@@ -62,9 +62,9 @@ export default function PerformanceMetrics({
 
   const colorClasses = {
     success: {
-      bg: 'bg-success/10',
-      text: 'text-success',
-      border: 'border-success/20',
+      bg: 'bg-up/10',
+      text: 'text-up',
+      border: 'border-up/20',
     },
     warning: {
       bg: 'bg-warning/10',
@@ -72,9 +72,9 @@ export default function PerformanceMetrics({
       border: 'border-warning/20',
     },
     danger: {
-      bg: 'bg-danger/10',
-      text: 'text-danger',
-      border: 'border-danger/20',
+      bg: 'bg-down/10',
+      text: 'text-down',
+      border: 'border-down/20',
     },
   }
 
@@ -91,7 +91,7 @@ export default function PerformanceMetrics({
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: index * 0.1 }}
             whileHover={{ y: -4 }}
-            className="bg-background-surface/50 backdrop-blur-xl rounded-xl border border-gray-800 p-4 hover:border-gray-700 transition-all"
+            className="bg-background-surface rounded-xl border border-d-border p-4 hover:border-white/20 transition-colors"
           >
             {/* Icon & Value */}
             <div className="flex items-center justify-between mb-3">
@@ -104,10 +104,10 @@ export default function PerformanceMetrics({
             </div>
 
             {/* Label */}
-            <p className="text-sm font-medium text-text-primary mb-1">{metric.label}</p>
+            <p className="text-sm font-medium text-white mb-1">{metric.label}</p>
 
             {/* Description */}
-            <p className="text-xs text-text-muted">{metric.description}</p>
+            <p className="text-xs text-d-text-muted">{metric.description}</p>
           </motion.div>
         )
       })}

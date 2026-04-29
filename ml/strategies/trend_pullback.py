@@ -207,4 +207,9 @@ class TrendPullback(BaseStrategy):
                 if trail > position.stop_loss and trail < close:
                     position.stop_loss = trail
 
+        # 5. Time exit (force close losing positions past max hold)
+        time_exit = self._check_time_exit(df, position)
+        if time_exit:
+            return time_exit
+
         return None

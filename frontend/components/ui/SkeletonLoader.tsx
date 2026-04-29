@@ -29,7 +29,7 @@ export default function SkeletonLoader({
 
   if (variant === 'card') {
     return (
-      <div className={cn('glass-card-neu rounded-2xl p-6 space-y-4', className)}>
+      <div className={cn('glass-card p-6 space-y-4', className)}>
         <div className="skeleton-shimmer h-6 w-1/3 rounded" />
         <div className="skeleton-shimmer h-4 w-full rounded" />
         <div className="skeleton-shimmer h-4 w-4/5 rounded" />
@@ -40,7 +40,7 @@ export default function SkeletonLoader({
 
   if (variant === 'chart') {
     return (
-      <div className={cn('glass-card-neu rounded-2xl p-6', className)}>
+      <div className={cn('glass-card p-6', className)}>
         <div className="skeleton-shimmer h-5 w-1/4 rounded mb-4" />
         <div className="skeleton-shimmer h-48 w-full rounded-lg" />
       </div>
@@ -64,7 +64,7 @@ export default function SkeletonLoader({
 
   // stat variant
   return (
-    <div className={cn('glass-card-neu rounded-2xl p-6', className)}>
+    <div className={cn('glass-card p-6', className)}>
       <div className="skeleton-shimmer h-4 w-1/3 rounded mb-3" />
       <div className="skeleton-shimmer h-8 w-2/3 rounded mb-2" />
       <div className="skeleton-shimmer h-3 w-1/2 rounded" />

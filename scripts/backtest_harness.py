@@ -33,8 +33,25 @@ ROOT_DIR = Path(__file__).resolve().parents[1]
 if str(ROOT_DIR) not in sys.path:
     sys.path.append(str(ROOT_DIR))
 
-from ml.features.feature_calculator_v2 import calculate_all_70_features
-from ml.strategies.confluence_ranker import select_best_strategy
+from ml.features.indicators import compute_all_indicators as calculate_all_70_features
+from ml.scanner import get_all_strategies
+
+
+def select_best_strategy(feat_df: pd.DataFrame, idx: int):
+    """Select best strategy signal at given bar index.
+    Returns (strategy, confluence) or (None, 0) if no signal fires."""
+    strategies = get_all_strategies()
+    best = None
+    best_conf = 0.0
+    for strategy in strategies:
+        try:
+            signal = strategy.check_entry(feat_df, idx)
+            if signal and signal.confidence > best_conf:
+                best = strategy
+                best_conf = signal.confidence / 100.0  # normalize to 0-1
+        except Exception:
+            continue
+    return best, best_conf
 
 
 @dataclass

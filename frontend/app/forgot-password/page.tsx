@@ -2,103 +2,90 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import { motion, AnimatePresence } from 'framer-motion'
-import { Mail, ArrowLeft, CheckCircle } from 'lucide-react'
+import { Mail, ArrowLeft, CheckCircle, Loader2 } from 'lucide-react'
 import AuthLayout from '@/components/auth/AuthLayout'
-import GradientBorder from '@/components/ui/GradientBorder'
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 
 export default function ForgotPasswordPage() {
   const [email, setEmail] = useState('')
   const [submitted, setSubmitted] = useState(false)
+  const [loading, setLoading] = useState(false)
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    setSubmitted(true)
+    setLoading(true)
+    try {
+      const supabase = createClientComponentClient()
+      const { error: resetError } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/auth/callback?type=recovery`,
+      })
+      if (resetError) throw resetError
+      setSubmitted(true)
+    } catch {
+      // Always show success to avoid email enumeration
+      setSubmitted(true)
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
     <AuthLayout
       title="Reset Your Password"
       subtitle="Don't worry, it happens to the best of us. We'll help you get back in."
-      backgroundImage="/images/auth-bg.webp"
     >
-      <Link
-        href="/login"
-        className="mb-8 inline-flex items-center gap-2 text-sm text-text-secondary transition hover:text-neon-cyan"
-      >
-        <ArrowLeft className="h-4 w-4" />
-        Back to Login
-      </Link>
-
-      <GradientBorder animated={false}>
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5 }}
-          className="rounded-[19px] p-8"
+      <div className="animate-fade-in-up">
+        <Link
+          href="/login"
+          className="mb-8 inline-flex items-center gap-2 text-sm text-l-text-secondary transition hover:text-l-accent"
         >
-          <h2 className="mb-2 text-2xl font-bold text-text-primary">Reset Password</h2>
-          <p className="mb-6 text-text-secondary">
-            Enter your email address and we'll send you a link to reset your password.
-          </p>
+          <ArrowLeft className="h-4 w-4" />
+          Back to Login
+        </Link>
 
-          <AnimatePresence mode="wait">
-            {submitted ? (
-              <motion.div
-                key="success"
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="rounded-xl bg-neon-green/10 border border-neon-green/20 p-6 text-center"
-              >
-                <motion.div
-                  initial={{ scale: 0 }}
-                  animate={{ scale: 1 }}
-                  transition={{ type: 'spring', stiffness: 300, damping: 20, delay: 0.2 }}
-                  className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-neon-green/20"
-                >
-                  <CheckCircle className="h-7 w-7 text-neon-green" />
-                </motion.div>
-                <p className="text-neon-green font-medium">
-                  Check your inbox!
-                </p>
-                <p className="text-text-secondary text-sm mt-2">
-                  If an account exists for {email}, you will receive a password reset link shortly.
-                </p>
-              </motion.div>
-            ) : (
-              <motion.form
-                key="form"
-                exit={{ opacity: 0, y: -10 }}
-                onSubmit={handleSubmit}
-                className="space-y-4"
-              >
-                <div>
-                  <label className="mb-2 block text-sm font-medium text-text-secondary">
-                    Email Address
-                  </label>
-                  <div className="relative">
-                    <Mail className="absolute left-3 top-1/2 h-5 w-5 -translate-y-1/2 text-text-secondary" />
-                    <input
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="you@example.com"
-                      required
-                      className="w-full rounded-xl border border-white/[0.06] bg-white/[0.02] py-3 pl-10 pr-4 text-text-primary placeholder-text-secondary transition focus:border-neon-cyan/40 focus:outline-none focus:ring-1 focus:ring-neon-cyan/20"
-                    />
-                  </div>
-                </div>
-                <button
-                  type="submit"
-                  className="btn-tv-gradient btn-press w-full rounded-xl py-3 font-semibold text-white transition"
-                >
-                  Send Reset Link
-                </button>
-              </motion.form>
-            )}
-          </AnimatePresence>
-        </motion.div>
-      </GradientBorder>
+        <h2 className="mb-2 text-2xl font-bold tracking-tight text-l-text">Reset Password</h2>
+        <p className="mb-6 text-sm text-l-text-secondary">
+          Enter your email address and we&apos;ll send you a link to reset your password.
+        </p>
+
+        {submitted ? (
+          <div className="rounded-xl border border-up/20 bg-up/5 p-6 text-center">
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-up/10">
+              <CheckCircle className="h-7 w-7 text-up" />
+            </div>
+            <p className="font-medium text-up">Check your inbox!</p>
+            <p className="mt-2 text-sm text-l-text-secondary">
+              If an account exists for {email}, you will receive a password reset link shortly.
+            </p>
+          </div>
+        ) : (
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div>
+              <label className="mb-2 block text-sm font-medium text-l-text">
+                Email Address
+              </label>
+              <div className="relative">
+                <Mail className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-l-text-muted" />
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@example.com"
+                  required
+                  className="w-full rounded-xl border border-l-border bg-l-bg-subtle py-3 pl-11 pr-4 text-sm text-l-text placeholder:text-l-text-muted focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 transition-all"
+                />
+              </div>
+            </div>
+            <button
+              type="submit"
+              disabled={loading}
+              className="flex w-full items-center justify-center rounded-xl bg-primary py-3 text-sm font-semibold text-[#131722] transition-all hover:bg-primary-hover hover:shadow-glow-primary disabled:opacity-50"
+            >
+              {loading ? <Loader2 className="h-5 w-5 animate-spin" /> : 'Send Reset Link'}
+            </button>
+          </form>
+        )}
+      </div>
     </AuthLayout>
   )
 }

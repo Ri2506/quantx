@@ -1,5 +1,5 @@
 // ============================================================================
-// SWINGAI - AUTH CALLBACK
+// QUANT X - AUTH CALLBACK
 // Handles Supabase OAuth redirect (Google sign-in)
 // Supabase JS client auto-picks up tokens from URL hash via detectSessionInUrl
 // ============================================================================

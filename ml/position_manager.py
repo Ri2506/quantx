@@ -1,5 +1,5 @@
 """
-SwingAI Position Manager
+Quant X Position Manager
 ==========================
 Tracks open positions, manages trailing stops, and handles exits.
 
@@ -11,9 +11,9 @@ Responsibilities:
 """
 
 import logging
-from typing import List, Optional, Dict
+from typing import List, Optional, Dict, Set
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, date, timedelta
 import pandas as pd
 
 from .strategies.base import Position, TradeSignal, ExitSignal, Direction
@@ -38,13 +38,19 @@ class ClosedTrade:
     quantity: int = 0
 
 
+def _is_trading_day(d: date, holidays: Set[date] = frozenset()) -> bool:
+    """Return True if `d` is a trading day (weekday and not an NSE holiday)."""
+    return d.weekday() < 5 and d not in holidays
+
+
 class PositionManager:
     """Manages open positions and tracks trade history."""
 
-    def __init__(self, max_positions: int = 0):
+    def __init__(self, max_positions: int = 0, nse_holidays: Set[date] | None = None):
         self.max_positions = max_positions  # 0 = unlimited
         self.open_positions: Dict[str, Position] = {}  # symbol -> Position
         self.closed_trades: List[ClosedTrade] = []
+        self._nse_holidays: Set[date] = nse_holidays or set()
 
     @property
     def position_count(self) -> int:
@@ -218,8 +224,14 @@ class PositionManager:
                 logger.warning(f"Strategy {position.strategy} not found for {symbol}")
                 continue
 
-            # Increment hold_days (engine owns this in backtest; position_manager owns it in live)
-            position.hold_days += 1
+            # Increment hold_days only on trading days (skip weekends & NSE holidays)
+            last_bar_date = df.index[-1]
+            if hasattr(last_bar_date, 'date'):
+                bar_date = last_bar_date.date()
+            else:
+                bar_date = pd.Timestamp(last_bar_date).date()
+            if _is_trading_day(bar_date, self._nse_holidays):
+                position.hold_days += 1
 
             try:
                 exit_signal = strategy.should_exit(df, position)
@@ -286,6 +298,6 @@ class PositionManager:
             'max_win': round(max(pnls), 2),
             'max_loss': round(min(pnls), 2),
             'avg_hold_days': round(sum(t.hold_days for t in self.closed_trades) / len(self.closed_trades), 1),
-            'profit_factor': round(total_wins / total_losses, 2) if total_losses > 0 else float('inf'),
+            'profit_factor': round(total_wins / total_losses, 2) if total_losses > 0 else None,
             'by_strategy': by_strategy,
         }

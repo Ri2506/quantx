@@ -208,7 +208,7 @@ class NewsContextService:
             return []
 
         timeout = httpx.Timeout(self.timeout_seconds)
-        async with httpx.AsyncClient(timeout=timeout, headers={"User-Agent": "SwingAI-Assistant/1.0"}) as client:
+        async with httpx.AsyncClient(timeout=timeout, headers={"User-Agent": "QuantX-Assistant/1.0"}) as client:
             per_feed = await asyncio_gather([self._fetch_feed(client, url) for url in self.feed_urls])
 
         merged = [item for feed_items in per_feed for item in feed_items]

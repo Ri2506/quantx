@@ -1,5 +1,5 @@
 """
-SwingAI Indicator Module
+Quant X Indicator Module
 ========================
 Computes technical indicators needed by the 6 active strategies.
 Uses the `ta` library (already in requirements.txt).
@@ -135,6 +135,104 @@ def compute_all_indicators(df: pd.DataFrame) -> pd.DataFrame:
     # WEEKLY TIMEFRAME INDICATORS (for multi-timeframe strategies)
     # =========================================================================
     df = _compute_weekly_indicators(df)
+
+    # =========================================================================
+    # SCREENER INDICATORS (used by LiveScreenerEngine)
+    # =========================================================================
+    df = _compute_screener_indicators(df)
+
+    return df
+
+
+def _compute_screener_indicators(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Extra indicators used by the LiveScreenerEngine for scanner filters.
+    Added as a separate function to keep compute_all_indicators clean.
+    """
+    high = df['high']
+    low = df['low']
+    close = df['close']
+
+    # 52-week and 10-day high/low
+    df['high_52w'] = high.rolling(window=min(252, len(df))).max()
+    df['low_52w'] = low.rolling(window=min(252, len(df))).min()
+    df['high_10d'] = high.rolling(window=min(10, len(df))).max()
+    df['low_10d'] = low.rolling(window=min(10, len(df))).min()
+
+    # Daily range (for NR4, NR7, Inside Bar)
+    df['daily_range'] = high - low
+
+    # NR4: today's range is narrowest of last 4 days
+    range_min_4 = df['daily_range'].rolling(window=4).min()
+    df['nr4'] = (df['daily_range'] <= range_min_4) & (df['daily_range'] > 0)
+
+    # NR7: today's range is narrowest of last 7 days
+    range_min_7 = df['daily_range'].rolling(window=7).min()
+    df['nr7'] = (df['daily_range'] <= range_min_7) & (df['daily_range'] > 0)
+
+    # Inside Bar: today's range fully within yesterday's range
+    df['inside_bar'] = (high <= high.shift(1)) & (low >= low.shift(1))
+
+    # Pivot points (classic floor pivots)
+    df['pivot'] = (high.shift(1) + low.shift(1) + close.shift(1)) / 3
+    df['pivot_r1'] = 2 * df['pivot'] - low.shift(1)
+    df['pivot_s1'] = 2 * df['pivot'] - high.shift(1)
+
+    # SuperTrend (period=10, multiplier=2)
+    atr = df['atr_14'] if 'atr_14' in df.columns else (high - low).rolling(14).mean()
+    hl2 = (high + low) / 2
+    upper_band = hl2 + 2.0 * atr
+    lower_band = hl2 - 2.0 * atr
+
+    supertrend = pd.Series(0.0, index=df.index)
+    direction = pd.Series(1, index=df.index)
+
+    for i in range(1, len(df)):
+        if close.iloc[i] > upper_band.iloc[i - 1]:
+            direction.iloc[i] = 1
+        elif close.iloc[i] < lower_band.iloc[i - 1]:
+            direction.iloc[i] = -1
+        else:
+            direction.iloc[i] = direction.iloc[i - 1]
+
+        if direction.iloc[i] == 1:
+            supertrend.iloc[i] = max(lower_band.iloc[i],
+                                     supertrend.iloc[i - 1]) if direction.iloc[i - 1] == 1 else lower_band.iloc[i]
+        else:
+            supertrend.iloc[i] = min(upper_band.iloc[i],
+                                     supertrend.iloc[i - 1]) if direction.iloc[i - 1] == -1 else upper_band.iloc[i]
+
+    df['supertrend'] = supertrend
+    df['supertrend_direction'] = direction  # 1=bullish, -1=bearish
+
+    # Parabolic SAR
+    try:
+        psar = ta.trend.PSARIndicator(high, low, close)
+        df['psar'] = psar.psar()
+        df['psar_up'] = psar.psar_up()
+        df['psar_down'] = psar.psar_down()
+        # Bullish when price is above PSAR
+        df['psar_bullish'] = close > df['psar']
+    except Exception:
+        df['psar'] = np.nan
+        df['psar_bullish'] = False
+
+    # TTM Squeeze: Bollinger Bands inside Keltner Channels
+    kc_mid = df['sma_20'] if 'sma_20' in df.columns else close.rolling(20).mean()
+    kc_upper = kc_mid + 1.5 * atr
+    kc_lower = kc_mid - 1.5 * atr
+    bb_upper = df.get('bb_upper', close.rolling(20).mean() + 2 * close.rolling(20).std())
+    bb_lower = df.get('bb_lower', close.rolling(20).mean() - 2 * close.rolling(20).std())
+    df['ttm_squeeze'] = (bb_lower > kc_lower) & (bb_upper < kc_upper)
+
+    # ATR-based trailing stop (for Scanner 18)
+    df['atr_trailing_stop'] = close - 2.0 * atr
+
+    # Change percent (today vs yesterday)
+    df['change_pct'] = close.pct_change() * 100
+
+    # Previous close
+    df['prev_close'] = close.shift(1)
 
     return df
 

@@ -8,10 +8,7 @@ import asyncio
 from datetime import datetime, timezone
 from typing import Any, Dict, List
 
-try:
-    import yfinance as yf
-except Exception:  # pragma: no cover - optional dependency path
-    yf = None
+import httpx
 
 from ..market_data import get_market_data_provider
 
@@ -50,30 +47,30 @@ class MarketContextBuilder:
         }
 
     async def _fetch_global_proxies(self) -> List[Dict[str, Any]]:
-        if yf is None:
-            return []
-        return await asyncio.to_thread(self._fetch_global_proxies_sync)
-
-    def _fetch_global_proxies_sync(self) -> List[Dict[str, Any]]:
         output: List[Dict[str, Any]] = []
-        for label, ticker_symbol in self._global_proxy_symbols().items():
-            try:
-                ticker = yf.Ticker(ticker_symbol)
-                hist = ticker.history(period="2d")
-                if hist.empty:
-                    continue
-                latest = hist.iloc[-1]
-                prev_close = hist.iloc[-2]["Close"] if len(hist) > 1 else latest["Close"]
-                change_percent = ((float(latest["Close"]) - float(prev_close)) / float(prev_close)) * 100 if prev_close else 0.0
-                output.append(
-                    {
+        async with httpx.AsyncClient(timeout=8.0) as client:
+            for label, yf_symbol in self._global_proxy_symbols().items():
+                try:
+                    url = f"https://query1.finance.yahoo.com/v8/finance/chart/{yf_symbol}?range=2d&interval=1d"
+                    resp = await client.get(url, headers={"User-Agent": "Mozilla/5.0"})
+                    if resp.status_code != 200:
+                        continue
+                    data = resp.json()
+                    result = data["chart"]["result"][0]
+                    closes = result["indicators"]["quote"][0]["close"]
+                    closes = [c for c in closes if c is not None]
+                    if len(closes) < 2:
+                        continue
+                    latest = closes[-1]
+                    prev = closes[-2]
+                    change_pct = ((latest - prev) / prev) * 100 if prev else 0.0
+                    output.append({
                         "symbol": label,
-                        "price": round(float(latest["Close"]), 2),
-                        "change_percent": round(change_percent, 2),
-                    }
-                )
-            except Exception:
-                continue
+                        "price": round(latest, 2),
+                        "change_percent": round(change_pct, 2),
+                    })
+                except Exception:
+                    continue
         return output
 
     async def build(self) -> Dict[str, Any]:

@@ -104,9 +104,9 @@ class VolumeReversal(BaseStrategy):
         if not has_reversal_candle:
             return None
 
-        # --- RSI confirmation ---
+        # --- RSI confirmation: pullback zone, not overbought ---
         rsi = curr.get('rsi_14', None)
-        if pd.isna(rsi) or rsi > 45:
+        if pd.isna(rsi) or rsi > 55:
             return None
 
         # --- At/near support level ---
@@ -306,12 +306,17 @@ class VolumeReversal(BaseStrategy):
                 and position.stop_loss < position.entry_price):
             position.stop_loss = position.entry_price
 
-        # 4. Trail after 1.5R using 10-EMA
+        # 4. Trail after 1.5R using 9-EMA
         if position.highest_since_entry >= position.entry_price + 1.5 * risk:
-            ema10 = curr.get('ema_9', 0)
-            if not pd.isna(ema10) and ema10 > 0:
-                trail = ema10 - position.entry_price * 0.002
+            ema9 = curr.get('ema_9', 0)
+            if not pd.isna(ema9) and ema9 > 0:
+                trail = ema9 - position.entry_price * 0.002
                 if trail > position.stop_loss and trail < close:
                     position.stop_loss = trail
+
+        # 5. Time exit (force close losing positions past max hold)
+        time_exit = self._check_time_exit(df, position)
+        if time_exit:
+            return time_exit
 
         return None

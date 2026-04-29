@@ -43,11 +43,6 @@ class BOSStructure(BaseStrategy):
         curr = df.iloc[i]
         close = float(curr['close'])
 
-        # --- Weekly trend alignment ---
-        weekly_aligned = curr.get('weekly_trend_aligned', None)
-        if pd.isna(weekly_aligned) or not weekly_aligned:
-            return None
-
         # Structure detection
         swings = self._detect_structure(df, i)
         if len(swings) < 4:
@@ -59,12 +54,18 @@ class BOSStructure(BaseStrategy):
         if len(swing_highs) < 2 or len(swing_lows) < 2:
             return None
 
-        last_sh_idx, last_sh_price = swing_highs[-1]
-        prev_sh_idx, prev_sh_price = swing_highs[-2]
+        # Exclude swing highs too close to current bar (need confirmed prior structure)
+        min_gap = self.swing_lookback
+        confirmed_sh = [(idx, p) for idx, p in swing_highs if i - idx >= min_gap]
+        if len(confirmed_sh) < 1:
+            return None
+
+        last_sh_idx, last_sh_price = confirmed_sh[-1]
+        prev_sh_idx, prev_sh_price = confirmed_sh[-2] if len(confirmed_sh) >= 2 else swing_highs[-2]
         last_sl_idx, last_sl_price = swing_lows[-1]
         prev_sl_idx, prev_sl_price = swing_lows[-2]
 
-        # BOS: close breaks above last swing high
+        # BOS: close breaks above last confirmed swing high
         bos_bullish = close > last_sh_price
         if not bos_bullish:
             return None
@@ -104,9 +105,9 @@ class BOSStructure(BaseStrategy):
         if not (is_engulfing or is_hammer or is_pin or strong_body):
             return None
 
-        # Don't chase (< 1.5% above broken level)
+        # Don't chase (< 2.5% above broken level)
         distance_pct = (close - last_sh_price) / last_sh_price
-        if distance_pct > 0.015:
+        if distance_pct > 0.025:
             return None
 
         # Stop: last swing low - 0.5x ATR (buffer)
@@ -144,7 +145,6 @@ class BOSStructure(BaseStrategy):
             f"Volume {vol_ratio:.1f}x avg, ADX={adx:.1f}",
             f"Structure: {'HH' if hh else 'LH'}/{'HL' if hl else 'LL'}",
             f"{candle_desc} on BOS bar",
-            "Weekly trend aligned",
         ]
 
         if choch_bullish:
@@ -153,6 +153,11 @@ class BOSStructure(BaseStrategy):
         confidence = min(80, 45 + (10 if choch_bullish else 5) + vol_ratio * 5 + (5 if hl else 0))
         if is_engulfing:
             confidence = min(85, confidence + 5)
+
+        # Weekly trend bonus (not a gate)
+        weekly_aligned = curr.get('weekly_trend_aligned', None)
+        if not pd.isna(weekly_aligned) and weekly_aligned:
+            confidence += 5
 
         # Universal confluence (Golden Cross, ADX already checked, MACD)
         conf_bonus, conf_reasons = self.confluence_bonus(curr)
@@ -235,5 +240,10 @@ class BOSStructure(BaseStrategy):
                 trail = ema21 - position.entry_price * 0.005  # 0.5% buffer
                 if trail > position.stop_loss and trail < close:
                     position.stop_loss = trail
+
+        # 5. Time exit (force close losing positions past max hold)
+        time_exit = self._check_time_exit(df, position)
+        if time_exit:
+            return time_exit
 
         return None

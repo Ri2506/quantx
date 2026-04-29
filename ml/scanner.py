@@ -1,5 +1,5 @@
 """
-SwingAI Stock Scanner
+Quant X Stock Scanner
 ======================
 Scans the stock universe for trading setups using all 15 strategies.
 
@@ -30,7 +30,7 @@ class ScanResult:
     errors: List[str]
 
 
-def get_all_strategies():
+def get_all_strategies(ml_labeler=None):
     """Phase 8: 6 strategies — chart-pattern + candlestick first.
 
     Pure indicator strategies removed (lagging signals).
@@ -58,7 +58,7 @@ def get_all_strategies():
     from .strategies.volume_reversal import VolumeReversal
 
     return [
-        ConsolidationBreakout(),
+        ConsolidationBreakout(ml_labeler=ml_labeler),
         TrendPullback(),
         CandleReversal(),
         BOSStructure(),

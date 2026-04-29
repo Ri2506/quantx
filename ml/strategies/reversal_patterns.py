@@ -153,6 +153,9 @@ class ReversalPatterns(BaseStrategy):
             if pattern.pattern_type in ('inverse_head_shoulders', 'cup_and_handle'):
                 confidence = min(90.0, confidence + 3)
 
+            # Long accumulation: pattern formed over many bars with high quality
+            is_long_accumulation = (pattern.duration_bars > 60 and pattern.quality_score >= 70)
+
             if has_weekly:
                 reasons.append("Weekly trend aligned")
             if is_long_accumulation and not above_ema200:
@@ -222,5 +225,10 @@ class ReversalPatterns(BaseStrategy):
                 trail = ema21 - position.entry_price * 0.005  # 0.5% buffer
                 if trail > position.stop_loss and trail < close:
                     position.stop_loss = trail
+
+        # 5. Time exit (force close losing positions past max hold)
+        time_exit = self._check_time_exit(df, position)
+        if time_exit:
+            return time_exit
 
         return None

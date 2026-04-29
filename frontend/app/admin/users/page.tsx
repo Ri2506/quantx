@@ -1,12 +1,11 @@
 // ============================================================================
-// SWINGAI - ADMIN USERS PAGE
+// QUANT X - ADMIN USERS PAGE (Intellectia.ai Design System)
 // User management with search, filters, and actions
 // ============================================================================
 
 'use client'
 
 import { useEffect, useState, useCallback } from 'react'
-import { motion } from 'framer-motion'
 import {
   Search,
   Filter,
@@ -22,8 +21,8 @@ import {
   AlertCircle,
 } from 'lucide-react'
 import { UserListItem, UserListResponse } from '@/types/admin'
-import Card3D from '@/components/ui/Card3D'
-import ScrollReveal from '@/components/ui/ScrollReveal'
+import { api, handleApiError } from '@/lib/api'
+import { logger } from '@/lib/logger'
 
 const subscriptionOptions = [
   { value: '', label: 'All Subscriptions' },
@@ -60,36 +59,27 @@ export default function AdminUsersPage() {
       setLoading(true)
       setError(null)
 
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || ''
-      const params = new URLSearchParams({
+      const params: Record<string, string> = {
         page: page.toString(),
         page_size: pageSize.toString(),
-      })
+      }
 
-      if (search) params.append('search', search)
-      if (subscriptionFilter) params.append('subscription_status', subscriptionFilter)
-      if (suspendedFilter !== null) params.append('is_suspended', suspendedFilter.toString())
+      if (search) params.search = search
+      if (subscriptionFilter) params.subscription_status = subscriptionFilter
+      if (suspendedFilter !== null) params.is_suspended = suspendedFilter.toString()
 
-      const res = await fetch(`${apiUrl}/api/admin/users?${params}`, {
-        headers: { Authorization: `Bearer ${getToken()}` },
-      })
+      const data = await api.admin.getUsers(params as any) as unknown as UserListResponse
 
-      if (res.ok) {
-        const data: UserListResponse = await res.json()
+      if (data) {
         setUsers(data.users)
         setTotal(data.total)
         setTotalPages(data.total_pages)
       } else {
-        // Use mock data for development
-        setUsers(getMockUsers())
-        setTotal(50)
-        setTotalPages(3)
+        setError('Failed to fetch users')
       }
     } catch (err) {
-      console.error('Failed to fetch users:', err)
-      setUsers(getMockUsers())
-      setTotal(50)
-      setTotalPages(3)
+      logger.error('Failed to fetch users:', err)
+      setError('Failed to connect to backend')
     } finally {
       setLoading(false)
     }
@@ -98,94 +88,6 @@ export default function AdminUsersPage() {
   useEffect(() => {
     fetchUsers()
   }, [fetchUsers])
-
-  const getToken = () => {
-    if (typeof window === 'undefined') return ''
-    return localStorage.getItem('sb-access-token') || ''
-  }
-
-  const getMockUsers = (): UserListItem[] => [
-    {
-      id: '1',
-      email: 'rajesh.kumar@example.com',
-      full_name: 'Rajesh Kumar',
-      phone: '+91 98765 43210',
-      capital: 500000,
-      trading_mode: 'semi_auto',
-      subscription_status: 'active',
-      subscription_plan: 'Pro',
-      broker_connected: true,
-      broker_name: 'zerodha',
-      total_trades: 145,
-      winning_trades: 89,
-      total_pnl: 47500,
-      created_at: '2024-01-15T10:30:00Z',
-      last_login: '2025-08-15T09:15:00Z',
-      last_active: '2025-08-15T14:30:00Z',
-      is_suspended: false,
-      is_banned: false,
-    },
-    {
-      id: '2',
-      email: 'priya.sharma@example.com',
-      full_name: 'Priya Sharma',
-      phone: '+91 87654 32109',
-      capital: 250000,
-      trading_mode: 'signal_only',
-      subscription_status: 'trial',
-      subscription_plan: 'Starter',
-      broker_connected: false,
-      broker_name: undefined,
-      total_trades: 12,
-      winning_trades: 7,
-      total_pnl: 3200,
-      created_at: '2025-08-10T14:20:00Z',
-      last_login: '2025-08-14T18:45:00Z',
-      last_active: '2025-08-14T19:00:00Z',
-      is_suspended: false,
-      is_banned: false,
-    },
-    {
-      id: '3',
-      email: 'amit.patel@example.com',
-      full_name: 'Amit Patel',
-      phone: '+91 76543 21098',
-      capital: 1000000,
-      trading_mode: 'full_auto',
-      subscription_status: 'active',
-      subscription_plan: 'Elite',
-      broker_connected: true,
-      broker_name: 'angelone',
-      total_trades: 523,
-      winning_trades: 312,
-      total_pnl: 187500,
-      created_at: '2023-06-20T08:00:00Z',
-      last_login: '2025-08-15T08:00:00Z',
-      last_active: '2025-08-15T15:45:00Z',
-      is_suspended: false,
-      is_banned: false,
-    },
-    {
-      id: '4',
-      email: 'suspended.user@example.com',
-      full_name: 'Suspended User',
-      phone: '+91 65432 10987',
-      capital: 100000,
-      trading_mode: 'signal_only',
-      subscription_status: 'free',
-      subscription_plan: 'Free',
-      broker_connected: false,
-      broker_name: undefined,
-      total_trades: 5,
-      winning_trades: 1,
-      total_pnl: -2500,
-      created_at: '2025-07-01T12:00:00Z',
-      last_login: '2025-07-15T10:00:00Z',
-      last_active: '2025-07-15T10:30:00Z',
-      is_suspended: true,
-      is_banned: false,
-    },
-  ]
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
@@ -198,24 +100,11 @@ export default function AdminUsersPage() {
     if (!reason) return
 
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || ''
-      const res = await fetch(`${apiUrl}/api/admin/users/${userId}/suspend`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${getToken()}`,
-        },
-        body: JSON.stringify({ reason }),
-      })
-
-      if (res.ok) {
-        alert('User suspended successfully')
-        fetchUsers()
-      } else {
-        alert('Failed to suspend user')
-      }
+      await api.admin.suspendUser(userId)
+      alert('User suspended successfully')
+      fetchUsers()
     } catch (err) {
-      console.error('Suspend error:', err)
+      logger.error('Suspend error:', err)
       alert('Failed to suspend user')
     }
     setActionMenuOpen(null)
@@ -225,20 +114,11 @@ export default function AdminUsersPage() {
     if (!confirm('Are you sure you want to unsuspend this user?')) return
 
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || ''
-      const res = await fetch(`${apiUrl}/api/admin/users/${userId}/unsuspend`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${getToken()}` },
-      })
-
-      if (res.ok) {
-        alert('User unsuspended successfully')
-        fetchUsers()
-      } else {
-        alert('Failed to unsuspend user')
-      }
+      await api.admin.unsuspendUser(userId)
+      alert('User unsuspended successfully')
+      fetchUsers()
     } catch (err) {
-      console.error('Unsuspend error:', err)
+      logger.error('Unsuspend error:', err)
       alert('Failed to unsuspend user')
     }
     setActionMenuOpen(null)
@@ -251,24 +131,11 @@ export default function AdminUsersPage() {
     if (!confirm('Are you SURE you want to BAN this user? This action cannot be undone.')) return
 
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || ''
-      const res = await fetch(`${apiUrl}/api/admin/users/${userId}/ban`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${getToken()}`,
-        },
-        body: JSON.stringify({ reason }),
-      })
-
-      if (res.ok) {
-        alert('User banned successfully')
-        fetchUsers()
-      } else {
-        alert('Failed to ban user')
-      }
+      await api.admin.banUser(userId)
+      alert('User banned successfully')
+      fetchUsers()
     } catch (err) {
-      console.error('Ban error:', err)
+      logger.error('Ban error:', err)
       alert('Failed to ban user')
     }
     setActionMenuOpen(null)
@@ -276,27 +143,16 @@ export default function AdminUsersPage() {
 
   const handleExport = async () => {
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || ''
-      const params = new URLSearchParams()
-      if (subscriptionFilter) params.append('subscription_status', subscriptionFilter)
-
-      const res = await fetch(`${apiUrl}/api/admin/users/export/csv?${params}`, {
-        headers: { Authorization: `Bearer ${getToken()}` },
-      })
-
-      if (res.ok) {
-        const blob = await res.blob()
-        const url = URL.createObjectURL(blob)
-        const a = document.createElement('a')
-        a.href = url
-        a.download = `users_export_${new Date().toISOString().split('T')[0]}.csv`
-        a.click()
-        URL.revokeObjectURL(url)
-      } else {
-        alert('Failed to export users')
-      }
+      const csvData = await api.admin.exportUsers()
+      const blob = new Blob([csvData as unknown as string], { type: 'text/csv' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `users_export_${new Date().toISOString().split('T')[0]}.csv`
+      a.click()
+      URL.revokeObjectURL(url)
     } catch (err) {
-      console.error('Export error:', err)
+      logger.error('Export error:', err)
       alert('Failed to export users')
     }
   }
@@ -304,34 +160,41 @@ export default function AdminUsersPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <ScrollReveal>
+      <div>
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-text-primary">Users</h1>
-            <p className="text-text-secondary mt-1">Manage user accounts and subscriptions</p>
+            <h1 className="text-3xl font-bold text-white">Users</h1>
+            <p className="text-d-text-muted mt-1">Manage user accounts and subscriptions</p>
           </div>
           <button
             onClick={handleExport}
-            className="flex items-center gap-2 px-4 py-2 bg-white/[0.04] hover:bg-white/[0.06] rounded-lg text-text-primary text-sm font-medium transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-white/[0.04] hover:bg-white/[0.06] rounded-lg text-white text-sm font-medium transition-colors"
           >
             <Download className="w-4 h-4" />
             Export CSV
           </button>
         </div>
-      </ScrollReveal>
+      </div>
+
+      {error && (
+        <div className="bg-down/10 border border-down/20 rounded-xl p-4 flex items-center gap-3">
+          <AlertCircle className="w-5 h-5 text-down" />
+          <p className="text-down">{error}</p>
+        </div>
+      )}
 
       {/* Filters */}
-      <ScrollReveal delay={0.05}>
-        <div className="glass-card-neu rounded-2xl border border-white/[0.04] p-4">
+      <div>
+        <div className="glass-card p-4">
           <form onSubmit={handleSearch} className="flex flex-col md:flex-row gap-4">
             <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-text-secondary" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-d-text-muted" />
               <input
                 type="text"
                 placeholder="Search by email, name, or phone..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full pl-10 pr-4 py-2.5 bg-white/[0.04] border border-white/[0.06] rounded-lg text-text-primary placeholder:text-text-secondary focus:outline-none focus:border-neon-gold/60"
+                className="w-full pl-10 pr-4 py-2.5 bg-white/[0.04] border border-d-border rounded-lg text-white placeholder:text-white/30 focus:outline-none focus:border-warning/60"
               />
             </div>
             <select
@@ -340,7 +203,7 @@ export default function AdminUsersPage() {
                 setSubscriptionFilter(e.target.value)
                 setPage(1)
               }}
-              className="px-4 py-2.5 bg-white/[0.04] border border-white/[0.06] rounded-lg text-text-primary focus:outline-none focus:border-neon-gold/60"
+              className="px-4 py-2.5 bg-white/[0.04] border border-d-border rounded-lg text-white focus:outline-none focus:border-warning/60"
             >
               {subscriptionOptions.map((opt) => (
                 <option key={opt.value} value={opt.value}>
@@ -350,207 +213,205 @@ export default function AdminUsersPage() {
             </select>
             <button
               type="submit"
-              className="px-6 py-2.5 bg-neon-gold hover:bg-neon-gold/90 rounded-lg text-space-void font-medium transition-colors"
+              className="px-6 py-2.5 bg-warning hover:bg-warning/90 rounded-lg text-black font-medium transition-colors"
             >
               Search
             </button>
             <button
               type="button"
               onClick={fetchUsers}
-              className="p-2.5 bg-white/[0.04] hover:bg-white/[0.06] rounded-lg text-text-secondary transition-colors"
+              className="p-2.5 bg-white/[0.04] hover:bg-white/[0.06] rounded-lg text-d-text-muted transition-colors"
             >
               <RefreshCw className="w-5 h-5" />
             </button>
           </form>
         </div>
-      </ScrollReveal>
+      </div>
 
       {/* Users Table */}
-      <ScrollReveal delay={0.15}>
-        <Card3D maxTilt={2}>
-          <div className="glass-card-neu rounded-2xl border border-white/[0.04] overflow-hidden">
-            {loading ? (
-              <div className="flex items-center justify-center h-64">
-                <div className="loader-rings" />
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead className="bg-white/[0.02]">
-                    <tr>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">
-                        User
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">
-                        Subscription
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">
-                        Trading
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">
-                        P&L
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">
-                        Status
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-medium text-text-secondary uppercase tracking-wider">
-                        Last Active
-                      </th>
-                      <th className="px-4 py-3 text-right text-xs font-medium text-text-secondary uppercase tracking-wider">
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-white/[0.04]">
-                    {users.map((user) => (
-                      <tr key={user.id} className="hover:bg-white/[0.04] transition-colors">
-                        <td className="px-4 py-4">
-                          <div>
-                            <p className="text-text-primary font-medium">{user.full_name || 'N/A'}</p>
-                            <p className="text-text-secondary text-sm">{user.email}</p>
-                            {user.phone && <p className="text-text-secondary text-xs">{user.phone}</p>}
-                          </div>
-                        </td>
-                        <td className="px-4 py-4">
-                          <span
-                            className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${
-                              user.subscription_status === 'active'
-                                ? 'bg-neon-green/10 text-neon-green'
-                                : user.subscription_status === 'trial'
-                                ? 'bg-neon-cyan/10 text-neon-cyan'
-                                : user.subscription_status === 'expired'
-                                ? 'bg-danger/10 text-danger'
-                                : 'bg-white/[0.04] text-text-secondary'
-                            }`}
-                          >
-                            {user.subscription_plan || user.subscription_status}
+      <div>
+        <div className="glass-card overflow-hidden">
+          {loading ? (
+            <div className="flex items-center justify-center h-64">
+              <div className="loader-rings" />
+            </div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-white/[0.02]">
+                  <tr>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-d-text-muted uppercase tracking-wider">
+                      User
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-d-text-muted uppercase tracking-wider">
+                      Subscription
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-d-text-muted uppercase tracking-wider">
+                      Trading
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-d-text-muted uppercase tracking-wider">
+                      P&L
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-d-text-muted uppercase tracking-wider">
+                      Status
+                    </th>
+                    <th className="px-4 py-3 text-left text-xs font-medium text-d-text-muted uppercase tracking-wider">
+                      Last Active
+                    </th>
+                    <th className="px-4 py-3 text-right text-xs font-medium text-d-text-muted uppercase tracking-wider">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-white/[0.04]">
+                  {users.map((user) => (
+                    <tr key={user.id} className="hover:bg-white/[0.04] transition-colors">
+                      <td className="px-4 py-4">
+                        <div>
+                          <p className="text-white font-medium">{user.full_name || 'N/A'}</p>
+                          <p className="text-d-text-muted text-sm">{user.email}</p>
+                          {user.phone && <p className="text-d-text-muted text-xs">{user.phone}</p>}
+                        </div>
+                      </td>
+                      <td className="px-4 py-4">
+                        <span
+                          className={`inline-flex px-2.5 py-1 rounded-full text-xs font-medium ${
+                            user.subscription_status === 'active'
+                              ? 'bg-up/10 text-up'
+                              : user.subscription_status === 'trial'
+                              ? 'bg-primary/10 text-primary'
+                              : user.subscription_status === 'expired'
+                              ? 'bg-down/10 text-down'
+                              : 'bg-white/[0.04] text-d-text-muted'
+                          }`}
+                        >
+                          {user.subscription_plan || user.subscription_status}
+                        </span>
+                      </td>
+                      <td className="px-4 py-4">
+                        <div className="text-sm">
+                          <p className="text-white">
+                            {user.total_trades} trades ({user.winning_trades} wins)
+                          </p>
+                          <p className="text-d-text-muted">
+                            Win rate:{' '}
+                            {user.total_trades > 0
+                              ? ((user.winning_trades / user.total_trades) * 100).toFixed(1)
+                              : 0}
+                            %
+                          </p>
+                        </div>
+                      </td>
+                      <td className="px-4 py-4">
+                        <span
+                          className={`font-medium font-mono num-display ${
+                            user.total_pnl >= 0 ? 'text-up' : 'text-down'
+                          }`}
+                        >
+                          {user.total_pnl >= 0 ? '+' : ''}{'\u20B9'}{user.total_pnl.toLocaleString()}
+                        </span>
+                      </td>
+                      <td className="px-4 py-4">
+                        {user.is_banned ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-1 bg-down/10 text-down rounded-full text-xs font-medium">
+                            <Ban className="w-3 h-3" /> Banned
                           </span>
-                        </td>
-                        <td className="px-4 py-4">
-                          <div className="text-sm">
-                            <p className="text-text-primary">
-                              {user.total_trades} trades ({user.winning_trades} wins)
-                            </p>
-                            <p className="text-text-secondary">
-                              Win rate:{' '}
-                              {user.total_trades > 0
-                                ? ((user.winning_trades / user.total_trades) * 100).toFixed(1)
-                                : 0}
-                              %
-                            </p>
-                          </div>
-                        </td>
-                        <td className="px-4 py-4">
-                          <span
-                            className={`font-medium ${
-                              user.total_pnl >= 0 ? 'text-neon-green' : 'text-danger'
-                            }`}
-                          >
-                            {user.total_pnl >= 0 ? '+' : ''}₹{user.total_pnl.toLocaleString()}
+                        ) : user.is_suspended ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-1 bg-warning/10 text-warning rounded-full text-xs font-medium">
+                            <UserX className="w-3 h-3" /> Suspended
                           </span>
-                        </td>
-                        <td className="px-4 py-4">
-                          {user.is_banned ? (
-                            <span className="inline-flex items-center gap-1 px-2 py-1 bg-danger/10 text-danger rounded-full text-xs font-medium">
-                              <Ban className="w-3 h-3" /> Banned
-                            </span>
-                          ) : user.is_suspended ? (
-                            <span className="inline-flex items-center gap-1 px-2 py-1 bg-neon-gold/10 text-neon-gold rounded-full text-xs font-medium">
-                              <UserX className="w-3 h-3" /> Suspended
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center gap-1 px-2 py-1 bg-neon-green/10 text-neon-green rounded-full text-xs font-medium">
-                              <UserCheck className="w-3 h-3" /> Active
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-4 py-4 text-sm text-text-secondary">
-                          {user.last_active
-                            ? new Date(user.last_active).toLocaleDateString()
-                            : 'Never'}
-                        </td>
-                        <td className="px-4 py-4 text-right">
-                          <div className="relative">
-                            <button
-                              onClick={() =>
-                                setActionMenuOpen(actionMenuOpen === user.id ? null : user.id)
-                              }
-                              className="p-2 hover:bg-white/[0.06] rounded-lg transition-colors"
-                            >
-                              <MoreVertical className="w-4 h-4 text-text-secondary" />
-                            </button>
-                            {actionMenuOpen === user.id && (
-                              <div className="absolute right-0 mt-2 w-48 bg-white/[0.04] border border-white/[0.06] rounded-lg shadow-lg z-10">
-                                <a
-                                  href={`/admin/users/${user.id}`}
-                                  className="flex items-center gap-2 px-4 py-2 text-sm text-text-secondary hover:bg-white/[0.06] transition-colors"
-                                >
-                                  <Eye className="w-4 h-4" /> View Details
-                                </a>
-                                {!user.is_banned && (
-                                  <>
-                                    {user.is_suspended ? (
-                                      <button
-                                        onClick={() => handleUnsuspend(user.id)}
-                                        className="w-full flex items-center gap-2 px-4 py-2 text-sm text-neon-green hover:bg-white/[0.06] transition-colors"
-                                      >
-                                        <UserCheck className="w-4 h-4" /> Unsuspend
-                                      </button>
-                                    ) : (
-                                      <button
-                                        onClick={() => handleSuspend(user.id)}
-                                        className="w-full flex items-center gap-2 px-4 py-2 text-sm text-neon-gold hover:bg-white/[0.06] transition-colors"
-                                      >
-                                        <UserX className="w-4 h-4" /> Suspend
-                                      </button>
-                                    )}
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2 py-1 bg-up/10 text-up rounded-full text-xs font-medium">
+                            <UserCheck className="w-3 h-3" /> Active
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 py-4 text-sm text-d-text-muted">
+                        {user.last_active
+                          ? new Date(user.last_active).toLocaleDateString()
+                          : 'Never'}
+                      </td>
+                      <td className="px-4 py-4 text-right">
+                        <div className="relative">
+                          <button
+                            onClick={() =>
+                              setActionMenuOpen(actionMenuOpen === user.id ? null : user.id)
+                            }
+                            className="p-2 hover:bg-white/[0.06] rounded-lg transition-colors"
+                          >
+                            <MoreVertical className="w-4 h-4 text-d-text-muted" />
+                          </button>
+                          {actionMenuOpen === user.id && (
+                            <div className="absolute right-0 mt-2 w-48 bg-white/[0.04] border border-d-border rounded-lg shadow-lg z-10">
+                              <a
+                                href={`/admin/users/${user.id}`}
+                                className="flex items-center gap-2 px-4 py-2 text-sm text-d-text-muted hover:bg-white/[0.06] transition-colors"
+                              >
+                                <Eye className="w-4 h-4" /> View Details
+                              </a>
+                              {!user.is_banned && (
+                                <>
+                                  {user.is_suspended ? (
                                     <button
-                                      onClick={() => handleBan(user.id)}
-                                      className="w-full flex items-center gap-2 px-4 py-2 text-sm text-danger hover:bg-white/[0.06] transition-colors"
+                                      onClick={() => handleUnsuspend(user.id)}
+                                      className="w-full flex items-center gap-2 px-4 py-2 text-sm text-up hover:bg-white/[0.06] transition-colors"
                                     >
-                                      <Ban className="w-4 h-4" /> Ban User
+                                      <UserCheck className="w-4 h-4" /> Unsuspend
                                     </button>
-                                  </>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
+                                  ) : (
+                                    <button
+                                      onClick={() => handleSuspend(user.id)}
+                                      className="w-full flex items-center gap-2 px-4 py-2 text-sm text-warning hover:bg-white/[0.06] transition-colors"
+                                    >
+                                      <UserX className="w-4 h-4" /> Suspend
+                                    </button>
+                                  )}
+                                  <button
+                                    onClick={() => handleBan(user.id)}
+                                    className="w-full flex items-center gap-2 px-4 py-2 text-sm text-down hover:bg-white/[0.06] transition-colors"
+                                  >
+                                    <Ban className="w-4 h-4" /> Ban User
+                                  </button>
+                                </>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
 
-            {/* Pagination */}
-            <div className="flex items-center justify-between px-4 py-3 border-t border-white/[0.04]">
-              <div className="text-sm text-text-secondary">
-                Showing {users.length} of {total} users
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setPage(Math.max(1, page - 1))}
-                  disabled={page === 1}
-                  className="p-2 bg-white/[0.04] hover:bg-white/[0.06] rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  <ChevronLeft className="w-4 h-4 text-text-secondary" />
-                </button>
-                <span className="text-sm text-text-secondary">
-                  Page {page} of {totalPages}
-                </span>
-                <button
-                  onClick={() => setPage(Math.min(totalPages, page + 1))}
-                  disabled={page === totalPages}
-                  className="p-2 bg-white/[0.04] hover:bg-white/[0.06] rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                >
-                  <ChevronRight className="w-4 h-4 text-text-secondary" />
-                </button>
-              </div>
+          {/* Pagination */}
+          <div className="flex items-center justify-between px-4 py-3 border-t border-white/[0.04]">
+            <div className="text-sm text-d-text-muted">
+              Showing {users.length} of {total} users
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setPage(Math.max(1, page - 1))}
+                disabled={page === 1}
+                className="p-2 bg-white/[0.04] hover:bg-white/[0.06] rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                <ChevronLeft className="w-4 h-4 text-d-text-muted" />
+              </button>
+              <span className="text-sm text-d-text-muted">
+                Page {page} of {totalPages}
+              </span>
+              <button
+                onClick={() => setPage(Math.min(totalPages, page + 1))}
+                disabled={page === totalPages}
+                className="p-2 bg-white/[0.04] hover:bg-white/[0.06] rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              >
+                <ChevronRight className="w-4 h-4 text-d-text-muted" />
+              </button>
             </div>
           </div>
-        </Card3D>
-      </ScrollReveal>
+        </div>
+      </div>
 
       {/* Click outside to close menu */}
       {actionMenuOpen && (

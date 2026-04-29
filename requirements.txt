@@ -1,5 +1,5 @@
 # ============================================================================
-# SWINGAI - PRODUCTION DEPENDENCIES
+# QUANT X - PRODUCTION DEPENDENCIES
 # Python 3.11+ Required
 # ============================================================================
 
@@ -23,6 +23,47 @@ storage3==0.7.4
 gotrue>=2.4.0
 
 # ============================================================================
+# OBJECT STORAGE — Backblaze B2 (model registry artifact store)
+# ============================================================================
+b2sdk>=2.0.0
+
+# ============================================================================
+# QUANT FRAMEWORK — Microsoft Research Qlib + NSE market calendar
+# ============================================================================
+# Qlib provides the Alpha158 factor library + LGBModel wrapper used by the
+# F2/F3/F5/F10 alpha pipeline. NSE-adapted via ingestion script + NSE
+# pandas_market_calendars calendar (see src/backend/ai/qlib/).
+pyqlib>=0.9.3                      # Microsoft Research quant framework
+pandas_market_calendars>=4.4       # NSE / BSE trading calendars
+exchange_calendars>=4.5            # Secondary calendar source (XBSE / fallback)
+
+# ============================================================================
+# ZERO-SHOT TIME-SERIES FORECASTERS — F3 Momentum
+# ============================================================================
+# Google TimesFM 200M + Amazon Chronos-Bolt Base 205M. Both zero-shot
+# foundation models — no training required. See src/backend/ai/forecast/.
+#
+# TimesFM 2.x is not on PyPI for Python 3.12 (the 1.x line pins lingvo /
+# paxml). Install from source once per environment:
+#
+#     pip install "timesfm[torch] @ git+https://github.com/google-research/timesfm.git@master"
+#
+# Adapter graceful-falls-back when the package is missing, so this line
+# stays commented — document in deploy docs, not pip pinned.
+# timesfm>=2.0.0                   # install via git+ URL above
+chronos-forecasting>=1.4.0         # Amazon Chronos-Bolt + Chronos-2
+
+# ============================================================================
+# PORTFOLIO OPTIMIZATION — F5 AI SIP (Black-Litterman + Markowitz)
+# ============================================================================
+pyportfolioopt>=1.5.5              # Markowitz + Black-Litterman + HRP
+
+# ============================================================================
+# OBSERVABILITY — PR 16 (Sentry already in + posthog for product analytics)
+# ============================================================================
+posthog>=3.0.0                     # product analytics events (conversion funnel, tier gate hits)
+
+# ============================================================================
 # PAYMENTS
 # ============================================================================
 razorpay==1.4.1
@@ -31,14 +72,15 @@ razorpay==1.4.1
 # BROKER APIS
 # ============================================================================
 kiteconnect==4.2.0
+smartapi-python>=1.3.0         # Angel One SmartAPI SDK
 requests==2.31.0
 websocket-client==1.7.0
 
 # ============================================================================
 # MARKET DATA PROVIDERS
 # ============================================================================
-truedata>=7.0.0                # TrueData Velocity SDK (real-time + historical)
-yfinance==0.2.35               # Fallback provider (15-20 min delayed)
+yfinance>=0.2.31               # Free market data (default provider, no API key needed)
+jugaad-data>=0.24              # NSE bhavcopy (secondary OHLCV when Kite token expired)
 
 # ============================================================================
 # DATA PROCESSING
@@ -47,20 +89,16 @@ pandas==2.1.4
 numpy==1.26.3
 nsepy==0.8
 ta==0.11.0
-ta-lib==0.4.28
 scipy==1.11.4
-
-# ============================================================================
-# PKSCREENER - Stock Screening
-# https://github.com/pkjmesra/PKScreener
-# ============================================================================
-pkscreener
 
 # ============================================================================
 # MACHINE LEARNING
 # ============================================================================
 scikit-learn>=1.4.0
+lightgbm>=4.0.0
+hmmlearn>=0.3.0
 catboost>=1.2.2
+xgboost>=2.0.0                     # F9 EarningsScout surprise classifier (PR 51)
 torch>=2.1.2
 pytorch-lightning>=2.1.3
 pytorch-forecasting>=1.4.0
@@ -91,10 +129,21 @@ pyjwt==2.8.0
 pyotp>=2.9.0  # For TOTP in Angel One broker auth
 
 # ============================================================================
+# PUSH NOTIFICATIONS & EMAIL
+# ============================================================================
+pywebpush>=2.0.0               # Web Push (VAPID)
+resend>=2.0.0                   # Transactional email service
+
+# ============================================================================
 # HTTP CLIENTS
 # ============================================================================
 httpx==0.24.1
 aiohttp==3.9.1
+
+# ============================================================================
+# RSS / NEWS PARSING
+# ============================================================================
+feedparser>=6.0.0
 
 # ============================================================================
 # UTILITIES
@@ -102,6 +151,23 @@ aiohttp==3.9.1
 python-dateutil==2.8.2
 pytz==2023.3.post1
 orjson==3.9.12
+
+# ============================================================================
+# F4 AUTOPILOT INFERENCE (PR 131)
+# ----------------------------------------------------------------------------
+# Inference-only deps — Stable-Baselines3 needs to load policies in the
+# request path. Gymnasium ships as a transitive dep but we pin it
+# explicitly so SB3 v2.x always finds the API it expects.
+# Heavy training deps (chronos, timesfm, hmmlearn, lightgbm, xgboost,
+# pyportfolioopt, finrl-x utilities) live in requirements-train.txt
+# (PR 151 split) so the API container stays slim.
+# ============================================================================
+stable-baselines3>=2.3.0
+gymnasium>=0.29.1
+
+# F1 Intraday LSTM (PR 135) — ONNX runtime for CPU inference.
+onnx>=1.16.0
+onnxruntime>=1.17.0
 
 # ============================================================================
 # MONITORING & LOGGING

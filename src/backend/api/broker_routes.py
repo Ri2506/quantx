@@ -1,6 +1,6 @@
 """
 ================================================================================
-SWINGAI - BROKER AUTHENTICATION ROUTES
+QUANT X - BROKER AUTHENTICATION ROUTES
 ================================================================================
 OAuth2 integration for:
 - Zerodha (KiteConnect)
@@ -86,6 +86,115 @@ class BrokerCredentialsUpdate(BaseModel):
     totp_secret: Optional[str] = None
 
 
+class QuickConnectRequest(BaseModel):
+    broker_name: str  # zerodha, angelone
+    user_id: Optional[str] = None  # Zerodha user ID (e.g. AB1234)
+    password: Optional[str] = None
+    totp_secret: Optional[str] = None  # Base32 key for permanent auto-refresh
+    totp_value: Optional[str] = None   # 6-digit OTP for one-time connect
+    api_key: Optional[str] = None  # Angel One API key
+    client_id: Optional[str] = None  # Angel One client ID
+
+
+# ============================================================================
+# AUTO-LOGIN HELPERS
+# ============================================================================
+
+def _zerodha_auto_login(
+    kite_user_id: str,
+    kite_password: str,
+    totp_secret: str = "",
+    totp_value: str = "",
+) -> Optional[str]:
+    """
+    Auto-login to Zerodha via web session and return enctoken.
+    Accepts either totp_secret (base32 key) or totp_value (6-digit code).
+    """
+    import requests as http_requests
+
+    # Resolve TOTP code
+    otp_code = ""
+    if totp_value and len(totp_value) == 6 and totp_value.isdigit():
+        otp_code = totp_value
+    elif totp_secret:
+        try:
+            import pyotp
+            otp_code = pyotp.TOTP(totp_secret).now()
+        except Exception as e:
+            logger.error(f"Invalid TOTP secret: {e}")
+            return None
+    else:
+        logger.error("Either totp_secret or totp_value is required")
+        return None
+
+    try:
+        session = http_requests.Session()
+
+        # Step 1: GET login page
+        session.get("https://kite.zerodha.com/", allow_redirects=True, timeout=15)
+
+        # Step 2: POST credentials
+        resp = session.post(
+            "https://kite.zerodha.com/api/login",
+            data={"user_id": kite_user_id, "password": kite_password},
+            timeout=15,
+        )
+        resp.raise_for_status()
+        login_data = resp.json()
+        if login_data.get("status") != "success":
+            msg = login_data.get("message", "Login failed")
+            logger.error(f"Zerodha login failed: {msg}")
+            return None
+
+        request_id = login_data["data"]["request_id"]
+
+        # Step 3: POST TOTP for 2FA
+        resp = session.post(
+            "https://kite.zerodha.com/api/twofa",
+            data={
+                "user_id": kite_user_id,
+                "request_id": request_id,
+                "twofa_value": otp_code,
+                "twofa_type": "totp",
+            },
+            timeout=15,
+        )
+        resp.raise_for_status()
+        twofa_data = resp.json()
+        if twofa_data.get("status") != "success":
+            msg = twofa_data.get("message", "2FA failed")
+            logger.error(f"Zerodha 2FA failed: {msg}")
+            return None
+
+        # Step 4: Extract enctoken from session cookies
+        enctoken = None
+        for cookie in session.cookies:
+            if cookie.name == "enctoken":
+                enctoken = cookie.value
+                break
+
+        if not enctoken:
+            logger.error("No enctoken in cookies after login")
+            return None
+
+        # Verify enctoken works
+        verify = http_requests.get(
+            "https://kite.zerodha.com/oms/user/profile",
+            headers={"Authorization": f"enctoken {enctoken}"},
+            timeout=10,
+        )
+        if verify.status_code != 200:
+            logger.error(f"Enctoken verification failed: {verify.status_code}")
+            return None
+
+        logger.info(f"Zerodha auto-login OK for {kite_user_id}")
+        return enctoken
+
+    except Exception as e:
+        logger.error(f"Zerodha auto-login error: {e}")
+        return None
+
+
 # ============================================================================
 # HELPER FUNCTIONS
 # ============================================================================
@@ -124,13 +233,15 @@ def verify_state(state: str) -> Optional[Dict]:
 @router.get("/status")
 async def get_broker_status(user: Any = Depends(get_current_user)) -> BrokerStatus:
     """
-    Get current broker connection status for user.
+    Get current broker connection status for user (single connected row —
+    preserved for backward compatibility). Frontend should prefer
+    `/broker/connections` which returns per-broker status for the 3 tiles.
     """
     try:
         result = supabase_admin.table("broker_connections").select(
             "broker_name, status, last_synced_at, account_id"
         ).eq("user_id", user.id).eq("status", "connected").single().execute()
-        
+
         if result.data:
             return BrokerStatus(
                 connected=True,
@@ -138,43 +249,239 @@ async def get_broker_status(user: Any = Depends(get_current_user)) -> BrokerStat
                 last_synced=result.data.get('last_synced_at'),
                 account_id=result.data.get('account_id')
             )
-        
+
         return BrokerStatus(connected=False)
-        
+
     except Exception as e:
         logger.error(f"Error getting broker status: {e}")
         return BrokerStatus(connected=False)
 
 
-@router.post("/disconnect")
-async def disconnect_broker(user: Any = Depends(get_current_user)):
-    """
-    Disconnect broker and clear credentials.
+# ============================================================================
+# Per-broker status list — drives the 3 broker tiles in /settings (PR 6)
+# ============================================================================
+
+SUPPORTED_BROKERS = ("zerodha", "upstox", "angelone")
+
+
+@router.get("/connections")
+async def get_broker_connections(user: Any = Depends(get_current_user)) -> Dict[str, Any]:
+    """Return status for every supported broker, one row per broker.
+
+    Shape: ``{"brokers": [{"broker_name": "zerodha", "status": "connected",
+    "account_id": "AB1234", "last_synced_at": "...", "expires_at": "..."},
+    ...]}``. Brokers the user has never connected appear with
+    ``status="not_connected"``.
     """
     try:
-        # Update connection status
-        supabase_admin.table("broker_connections").update({
-            "status": "disconnected",
-            "access_token": None,
-            "refresh_token": None,
-            "disconnected_at": datetime.utcnow().isoformat()
-        }).eq("user_id", user.id).eq("status", "connected").execute()
-        
-        # Update user profile
-        supabase_admin.table("user_profiles").update({
-            "broker_connected": False,
-            "broker_name": None
-        }).eq("id", user.id).execute()
-        
-        return {"success": True, "message": "Broker disconnected"}
-        
+        result = (
+            supabase_admin.table("broker_connections")
+            .select("broker_name, status, last_synced_at, account_id, expires_at, disconnected_at")
+            .eq("user_id", user.id)
+            .in_("broker_name", list(SUPPORTED_BROKERS))
+            .execute()
+        )
+        rows_by_broker = {row["broker_name"]: row for row in (result.data or [])}
+    except Exception as e:
+        logger.error("broker/connections query failed: %s", e)
+        rows_by_broker = {}
+
+    brokers = []
+    for name in SUPPORTED_BROKERS:
+        row = rows_by_broker.get(name)
+        if row is None:
+            brokers.append({
+                "broker_name": name,
+                "status": "not_connected",
+                "account_id": None,
+                "last_synced_at": None,
+                "expires_at": None,
+            })
+        else:
+            brokers.append({
+                "broker_name": name,
+                "status": row.get("status") or "not_connected",
+                "account_id": row.get("account_id"),
+                "last_synced_at": row.get("last_synced_at"),
+                "expires_at": row.get("expires_at"),
+            })
+    return {"brokers": brokers}
+
+
+@router.post("/disconnect")
+async def disconnect_broker(
+    broker: Optional[str] = Query(None, description="Broker to disconnect (zerodha/upstox/angelone). Omit to disconnect all."),
+    user: Any = Depends(get_current_user),
+):
+    """Disconnect a specific broker or all connected brokers.
+
+    With `broker` omitted, disconnects every currently-connected broker
+    for the user. Used by the global kill-switch flow.
+    """
+    try:
+        query = (
+            supabase_admin.table("broker_connections")
+            .update({
+                "status": "disconnected",
+                "access_token": None,
+                "refresh_token": None,
+                "disconnected_at": datetime.utcnow().isoformat(),
+            })
+            .eq("user_id", user.id)
+            .eq("status", "connected")
+        )
+        if broker:
+            broker = broker.lower()
+            if broker not in SUPPORTED_BROKERS:
+                raise HTTPException(status_code=400, detail=f"Unsupported broker: {broker}")
+            query = query.eq("broker_name", broker)
+        query.execute()
+
+        # Only flip the profile-level broker_connected flag if no other
+        # broker still sits in `connected` state.
+        remaining = (
+            supabase_admin.table("broker_connections")
+            .select("broker_name", count="exact")
+            .eq("user_id", user.id)
+            .eq("status", "connected")
+            .execute()
+        )
+        if not (remaining.data or []):
+            supabase_admin.table("user_profiles").update({
+                "broker_connected": False,
+                "broker_name": None,
+            }).eq("id", user.id).execute()
+
+        return {"success": True, "disconnected": broker or "all"}
+
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error disconnecting broker: {e}")
         raise HTTPException(status_code=500, detail="Failed to disconnect broker")
 
 
 # ============================================================================
-# ZERODHA (KITE CONNECT)
+# ONE-CLICK CONNECT (enctoken / credential-based)
+# ============================================================================
+
+@router.post("/connect")
+async def quick_connect_broker(body: QuickConnectRequest, user: Any = Depends(get_current_user)):
+    """
+    One-click broker connection.
+    Zerodha: auto-login via web session → enctoken (no API key needed).
+    Angel One: SmartAPI credential auth → JWT token.
+    """
+    broker = body.broker_name.lower()
+
+    if broker == "zerodha":
+        if not body.user_id or not body.password:
+            raise HTTPException(status_code=400, detail="User ID and password are required")
+        if not body.totp_secret and not body.totp_value:
+            raise HTTPException(status_code=400, detail="Enter your 6-digit OTP or TOTP secret key")
+
+        enctoken = _zerodha_auto_login(
+            body.user_id, body.password,
+            totp_secret=body.totp_secret or "",
+            totp_value=body.totp_value or "",
+        )
+        if not enctoken:
+            raise HTTPException(
+                status_code=401,
+                detail="Login failed. Please check your User ID, password, and OTP.",
+            )
+
+        # Store credentials — include totp_secret only if provided (for auto-refresh)
+        cred_payload = {
+            "enctoken": enctoken,
+            "kite_user_id": body.user_id,
+            "kite_password": body.password,
+        }
+        auto_refresh = False
+        if body.totp_secret and len(body.totp_secret) > 10:
+            cred_payload["totp_secret"] = body.totp_secret
+            auto_refresh = True
+
+        encrypted_creds = encrypt_credentials(cred_payload)
+
+        supabase_admin.table("broker_connections").upsert({
+            "user_id": user.id,
+            "broker_name": "zerodha",
+            "status": "connected",
+            "account_id": body.user_id,
+            "access_token": encrypted_creds,
+            "connected_at": datetime.utcnow().isoformat(),
+            "last_synced_at": datetime.utcnow().isoformat(),
+        }, on_conflict="user_id,broker_name").execute()
+
+        supabase_admin.table("user_profiles").update({
+            "broker_connected": True,
+            "broker_name": "zerodha",
+        }).eq("id", user.id).execute()
+
+        return {
+            "success": True,
+            "broker": "zerodha",
+            "account_id": body.user_id,
+            "auto_refresh": auto_refresh,
+        }
+
+    elif broker == "angelone":
+        if not body.api_key or not body.client_id or not body.password or not body.totp_secret:
+            raise HTTPException(status_code=400, detail="Angel One requires api_key, client_id, password, and totp_secret")
+
+        try:
+            from SmartApi import SmartConnect
+            import pyotp
+
+            smart = SmartConnect(api_key=body.api_key)
+            totp_val = pyotp.TOTP(body.totp_secret).now()
+
+            data = smart.generateSession(body.client_id, body.password, totp_val)
+            if not data or data.get("status") is False:
+                raise HTTPException(status_code=401, detail="Angel One login failed — check credentials")
+
+            jwt_token = data["data"]["jwtToken"]
+            refresh_token = data["data"].get("refreshToken", "")
+
+            encrypted_creds = encrypt_credentials({
+                "api_key": body.api_key,
+                "client_id": body.client_id,
+                "password": body.password,
+                "totp_secret": body.totp_secret,
+                "access_token": jwt_token,
+                "refresh_token": refresh_token,
+            })
+
+            supabase_admin.table("broker_connections").upsert({
+                "user_id": user.id,
+                "broker_name": "angelone",
+                "status": "connected",
+                "account_id": body.client_id,
+                "access_token": encrypted_creds,
+                "connected_at": datetime.utcnow().isoformat(),
+                "last_synced_at": datetime.utcnow().isoformat(),
+            }, on_conflict="user_id,broker_name").execute()
+
+            supabase_admin.table("user_profiles").update({
+                "broker_connected": True,
+                "broker_name": "angelone",
+            }).eq("id", user.id).execute()
+
+            return {"success": True, "broker": "angelone", "account_id": body.client_id}
+
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.error(f"Angel One connect error: {e}")
+            raise HTTPException(status_code=500, detail=f"Angel One connection failed: {str(e)}")
+
+    else:
+        raise HTTPException(status_code=400, detail=f"Unsupported broker: {broker}. Use 'zerodha' or 'angelone'.")
+
+
+# ============================================================================
+# ZERODHA (KITE CONNECT) — legacy OAuth
 # ============================================================================
 
 @router.post("/zerodha/auth/initiate")
@@ -409,7 +716,7 @@ async def upstox_auth_initiate(user: Any = Depends(get_current_user)):
     # Upstox OAuth2 URL
     params = {
         "client_id": UPSTOX_API_KEY,
-        "redirect_uri": UPSTOX_REDIRECT_URI or f"{FRONTEND_URL}/broker/upstox/callback",
+        "redirect_uri": UPSTOX_REDIRECT_URI or f"{FRONTEND_URL}/broker/callback",
         "response_type": "code",
         "state": state
     }
@@ -449,7 +756,7 @@ async def upstox_auth_callback(
                     "code": code,
                     "client_id": UPSTOX_API_KEY,
                     "client_secret": UPSTOX_API_SECRET,
-                    "redirect_uri": UPSTOX_REDIRECT_URI or f"{FRONTEND_URL}/broker/upstox/callback",
+                    "redirect_uri": UPSTOX_REDIRECT_URI or f"{FRONTEND_URL}/broker/callback",
                     "grant_type": "authorization_code"
                 },
                 headers={"Content-Type": "application/x-www-form-urlencoded"}

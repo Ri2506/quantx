@@ -1,5 +1,5 @@
 -- ============================================================================
--- SWINGAI ADMIN SCHEMA UPDATES
+-- QUANT X ADMIN SCHEMA UPDATES
 -- Run this migration to add admin support
 -- ============================================================================
 

@@ -1,13 +1,13 @@
 #!/bin/bash
 
 # ============================================================================
-# SWINGAI LOCAL DEVELOPMENT SCRIPT
+# QUANT X LOCAL DEVELOPMENT SCRIPT
 # Run this to start both backend and frontend
 # ============================================================================
 
 set -e
 
-echo "🚀 Starting SwingAI Development Environment"
+echo "🚀 Starting Quant X Development Environment"
 echo "============================================"
 
 # Check if .env exists
@@ -54,7 +54,7 @@ echo "   Frontend URL: http://localhost:3000"
 
 echo ""
 echo "============================================"
-echo "✅ SwingAI is running!"
+echo "✅ Quant X is running!"
 echo ""
 echo "   Frontend: http://localhost:3000"
 echo "   Backend:  http://localhost:8000"

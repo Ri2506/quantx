@@ -1,6 +1,6 @@
 """
-PRD-aligned feature engineering for SwingAI.
-Computes base technical features (XGBoost) and proxy features (TFT).
+PRD-aligned feature engineering for Quant X.
+Computes base technical features (LightGBM) and proxy features (TFT).
 """
 
 from __future__ import annotations
@@ -70,7 +70,7 @@ def compute_features(
     cfg: FeatureConfig = FeatureConfig(),
 ) -> pd.DataFrame:
     """
-    Compute PRD-aligned features for XGBoost + TFT.
+    Compute PRD-aligned features for LightGBM + TFT.
     Expects columns: open, high, low, close, volume (lowercase).
     """
     data = df.copy()
@@ -239,8 +239,8 @@ def build_feature_row(df: pd.DataFrame) -> Dict:
 
 
 def split_feature_sets(row: Dict) -> Tuple[Dict, Dict]:
-    """Split features for XGBoost (15) and TFT (full)."""
-    xgb_keys = [
+    """Split features for LightGBM (15) and TFT (full)."""
+    lgbm_keys = [
         "close",
         "rsi_14",
         "macd",
@@ -257,7 +257,7 @@ def split_feature_sets(row: Dict) -> Tuple[Dict, Dict]:
         "body_pct",
         "wick_pct",
     ]
-    xgb = {k: row.get(k, 0) for k in xgb_keys}
+    lgbm = {k: row.get(k, 0) for k in lgbm_keys}
     tft = row
-    return xgb, tft
+    return lgbm, tft
 

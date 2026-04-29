@@ -32,6 +32,32 @@ class TradeExecutionService:
         Execute a pending trade by opening a position and updating trade status.
         This is a DB-level execution for environments without broker integration.
         """
+        # PR 48 — global kill-switch gate. Paper trades are unaffected; only
+        # live (real-money) execution halts when ops flip the flag.
+        if trade.get("execution_mode") == "live":
+            try:
+                from .system_flags import is_globally_halted, global_halt_reason
+                if is_globally_halted(supabase_client=self.supabase):
+                    reason = global_halt_reason(supabase_client=self.supabase) or "ops halt"
+                    logger.warning(
+                        "Trade %s blocked — global kill switch active (%s)",
+                        trade.get("id"), reason,
+                    )
+                    try:
+                        self.supabase.table("trades").update({
+                            "status": "rejected",
+                            "exit_reason": "risk_limit",
+                        }).eq("id", trade.get("id")).execute()
+                    except Exception:
+                        pass
+                    return {
+                        "success": False,
+                        "message": f"Trading halted: {reason}",
+                        "code": "global_kill_switch",
+                    }
+            except Exception as kill_exc:
+                logger.debug("kill-switch check skipped: %s", kill_exc)
+
         try:
             if trade.get("execution_mode") == "live":
                 return await self._execute_live_trade(trade)
@@ -102,6 +128,35 @@ class TradeExecutionService:
         user_id = trade.get("user_id")
         if not trade_id or not user_id:
             return {"success": False, "message": "Missing trade or user id"}
+
+        # PR 130 — defense-in-depth eligibility check. Route layer already
+        # gates by tier on its way in; this catches the AutoPilot / RL
+        # paths that may not pass through the same routes.
+        try:
+            from .live_trade_eligibility import check_live_trade_eligibility  # noqa: PLC0415
+            elig = check_live_trade_eligibility(
+                user_id=str(user_id),
+                supabase=self.supabase,
+            )
+            if not elig.eligible:
+                logger.warning(
+                    "Live execution blocked for trade %s: %s (%s)",
+                    trade_id, elig.code, elig.reason,
+                )
+                try:
+                    self.supabase.table("trades").update({
+                        "status": "rejected",
+                        "exit_reason": elig.code or "ineligible",
+                    }).eq("id", trade_id).execute()
+                except Exception:
+                    pass
+                return {
+                    "success": False,
+                    "message": elig.reason or "Live execution not allowed",
+                    "code": elig.code,
+                }
+        except Exception as exc:
+            logger.debug("eligibility check skipped: %s", exc)
 
         conn = self.supabase.table("broker_connections").select(
             "broker_name, access_token"

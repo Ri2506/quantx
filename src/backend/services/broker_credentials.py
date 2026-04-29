@@ -1,6 +1,6 @@
 """
 ================================================================================
-SWINGAI - BROKER CREDENTIALS ENCRYPTION
+QUANT X - BROKER CREDENTIALS ENCRYPTION
 ================================================================================
 Secure encryption/decryption for broker credentials using Fernet (AES-128-CBC).
 ================================================================================
@@ -38,9 +38,11 @@ def _get_encryption_key() -> bytes:
         except Exception:
             logger.warning("Invalid BROKER_ENCRYPTION_KEY, deriving from SECRET_KEY")
     
-    # Derive key from SECRET_KEY
-    secret_key = os.getenv("SECRET_KEY", "default-secret-key-change-in-production")
-    salt = os.getenv("ENCRYPTION_SALT", "swingai-broker-salt").encode()
+    # Derive key from SECRET_KEY — refuse to use default in production
+    secret_key = os.getenv("SECRET_KEY", "")
+    if not secret_key:
+        raise RuntimeError("SECRET_KEY must be set for broker credential encryption")
+    salt = os.getenv("ENCRYPTION_SALT", "quantx-broker-salt").encode()
     
     kdf = PBKDF2HMAC(
         algorithm=hashes.SHA256(),

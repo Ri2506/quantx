@@ -16,7 +16,7 @@ const plans = [
     buttonText: "Get Started Free",
     buttonVariant: "outline" as const,
     icon: Sparkles,
-    accent: "neon-cyan",
+    accent: "primary",
     features: [
       "5 signals per day",
       "3 active positions",
@@ -80,19 +80,19 @@ const PricingSwitch = ({
 }) => {
   return (
     <div className="flex items-center justify-center gap-4">
-      <div className="relative z-10 flex rounded-full bg-background-elevated/80 border border-white/[0.06] p-1">
+      <div className="relative z-10 flex rounded-full bg-background-elevated/80 border border-d-border p-1">
         <button
           type="button"
           onClick={() => onSwitch(false)}
           className={cn(
             "relative z-10 rounded-full px-5 py-2.5 text-sm font-medium transition-colors",
-            !isYearly ? "text-space-void" : "text-text-secondary hover:text-text-primary"
+            !isYearly ? "text-black" : "text-white/60 hover:text-white"
           )}
         >
           {!isYearly && (
             <motion.span
               layoutId="pricing-switch"
-              className="absolute inset-0 rounded-full bg-gradient-to-r from-neon-cyan to-neon-green"
+              className="absolute inset-0 rounded-full bg-gradient-to-r from-primary to-up"
               transition={{ type: "spring", stiffness: 500, damping: 30 }}
             />
           )}
@@ -103,19 +103,19 @@ const PricingSwitch = ({
           onClick={() => onSwitch(true)}
           className={cn(
             "relative z-10 rounded-full px-5 py-2.5 text-sm font-medium transition-colors",
-            isYearly ? "text-space-void" : "text-text-secondary hover:text-text-primary"
+            isYearly ? "text-black" : "text-white/60 hover:text-white"
           )}
         >
           {isYearly && (
             <motion.span
               layoutId="pricing-switch"
-              className="absolute inset-0 rounded-full bg-gradient-to-r from-neon-cyan to-neon-green"
+              className="absolute inset-0 rounded-full bg-gradient-to-r from-primary to-up"
               transition={{ type: "spring", stiffness: 500, damping: 30 }}
             />
           )}
           <span className="relative flex items-center gap-1.5">
             Yearly
-            <span className="rounded-full bg-neon-green/20 px-2 py-0.5 text-[10px] font-bold text-neon-green">
+            <span className="rounded-full bg-up/20 px-2 py-0.5 text-[10px] font-bold text-up">
               -17%
             </span>
           </span>
@@ -135,25 +135,25 @@ export default function PricingSection() {
     <div className="relative px-6 py-32">
       {/* Background glow */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[600px] bg-neon-cyan/[0.04] rounded-full blur-[120px]" />
-        <div className="absolute top-1/3 right-1/4 w-[400px] h-[400px] bg-neon-purple/[0.06] rounded-full blur-[100px]" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[600px] bg-primary/[0.04] rounded-full blur-[120px]" />
+        <div className="absolute top-1/3 right-1/4 w-[400px] h-[400px] bg-[#8D5CFF]/[0.06] rounded-full blur-[100px]" />
       </div>
 
       <div className="container mx-auto relative z-10">
         {/* Header */}
         <ScrollReveal>
           <div className="text-center mb-6">
-            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-neon-green/20 bg-neon-green/5 px-5 py-2">
-              <Crown className="h-4 w-4 text-neon-green" />
-              <span className="text-xs font-semibold uppercase tracking-wider text-neon-green">
+            <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-up/20 bg-up/5 px-5 py-2">
+              <Crown className="h-4 w-4 text-up" />
+              <span className="text-xs font-semibold uppercase tracking-wider text-up">
                 Simple Pricing
               </span>
             </div>
             <h2 className="text-4xl font-bold md:text-5xl mb-4">
-              <span className="text-text-primary">Plans for Every </span>
+              <span className="text-white">Plans for Every </span>
               <span className="gradient-text-professional">Trader</span>
             </h2>
-            <p className="mx-auto max-w-2xl text-lg text-text-secondary">
+            <p className="mx-auto max-w-2xl text-lg text-white/60">
               Start free, upgrade when you&apos;re ready. All plans include core AI signal intelligence.
             </p>
           </div>
@@ -176,14 +176,14 @@ export default function PricingSection() {
                 className={cn(
                   "relative rounded-2xl overflow-hidden transition-all duration-300",
                   plan.popular
-                    ? "ring-2 ring-neon-green/40 shadow-[0_0_60px_-12px_rgba(0,255,136,0.25)]"
+                    ? "ring-2 ring-up/40 shadow-[0_0_60px_-12px_rgba(0,255,136,0.25)]"
                     : "ring-1 ring-white/[0.06]"
                 )}
               >
                 {/* Popular badge */}
                 {plan.popular && (
-                  <div className="absolute top-0 left-0 right-0 bg-gradient-to-r from-neon-cyan via-neon-green to-neon-cyan py-1.5 text-center z-10">
-                    <span className="text-xs font-bold uppercase tracking-wider text-space-void">
+                  <div className="absolute top-0 left-0 right-0 bg-gradient-to-r from-primary via-up to-primary py-1.5 text-center z-10">
+                    <span className="text-xs font-bold uppercase tracking-wider text-black">
                       Most Popular
                     </span>
                   </div>
@@ -191,7 +191,7 @@ export default function PricingSection() {
 
                 <div
                   className={cn(
-                    "glass-card-neu p-8",
+                    "glass-card p-8",
                     plan.popular ? "pt-14" : ""
                   )}
                   style={{ borderRadius: "inherit" }}
@@ -200,25 +200,25 @@ export default function PricingSection() {
                   <div className="flex items-center gap-3 mb-4">
                     <div className={cn(
                       "flex h-10 w-10 items-center justify-center rounded-xl",
-                      plan.accent === "neon-cyan" && "bg-neon-cyan/15",
-                      plan.accent === "neon-green" && "bg-neon-green/15",
-                      plan.accent === "neon-purple" && "bg-neon-purple/15",
+                      plan.accent === "primary" && "bg-primary/15",
+                      plan.accent === "neon-green" && "bg-up/15",
+                      plan.accent === "neon-purple" && "bg-[#8D5CFF]/15",
                     )}>
                       <plan.icon className={cn(
                         "h-5 w-5",
-                        plan.accent === "neon-cyan" && "text-neon-cyan",
-                        plan.accent === "neon-green" && "text-neon-green",
-                        plan.accent === "neon-purple" && "text-neon-purple",
+                        plan.accent === "primary" && "text-primary",
+                        plan.accent === "neon-green" && "text-up",
+                        plan.accent === "neon-purple" && "text-[#8D5CFF]",
                       )} />
                     </div>
-                    <h3 className="text-xl font-bold text-text-primary">{plan.name}</h3>
+                    <h3 className="text-xl font-bold text-white">{plan.name}</h3>
                   </div>
 
-                  <p className="text-sm text-text-secondary mb-6">{plan.description}</p>
+                  <p className="text-sm text-white/60 mb-6">{plan.description}</p>
 
                   {/* Price */}
                   <div className="flex items-baseline gap-1 mb-8">
-                    <span className="text-lg font-medium text-text-secondary">&#8377;</span>
+                    <span className="text-lg font-medium text-white/60">&#8377;</span>
                     <AnimatePresence mode="wait">
                       <motion.span
                         key={`${plan.name}-${isYearly}`}
@@ -226,12 +226,12 @@ export default function PricingSection() {
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -10 }}
                         transition={{ duration: 0.25 }}
-                        className="text-5xl font-bold text-text-primary tracking-tight"
+                        className="text-5xl font-bold text-white tracking-tight"
                       >
                         {formatPrice(isYearly ? plan.yearlyPrice : plan.price)}
                       </motion.span>
                     </AnimatePresence>
-                    <span className="text-sm text-text-secondary ml-1">
+                    <span className="text-sm text-white/60 ml-1">
                       /{isYearly ? "year" : "month"}
                     </span>
                   </div>
@@ -244,16 +244,16 @@ export default function PricingSection() {
                       plan.popular
                         ? "btn-tv-gradient btn-press shadow-[0_8px_24px_rgba(0,87,255,0.3)]"
                         : plan.price === 0
-                          ? "bg-white/[0.06] border border-white/[0.08] text-text-primary hover:bg-white/[0.1] hover:border-white/[0.12]"
-                          : "bg-gradient-to-r from-neon-purple/20 to-neon-purple/10 border border-neon-purple/20 text-neon-purple hover:border-neon-purple/40"
+                          ? "bg-white/[0.06] border border-white/[0.08] text-white hover:bg-white/[0.1] hover:border-white/[0.12]"
+                          : "bg-gradient-to-r from-[#8D5CFF]/20 to-[#8D5CFF]/10 border border-[#8D5CFF]/20 text-[#8D5CFF] hover:border-[#8D5CFF]/40"
                     )}
                   >
                     {plan.buttonText}
                   </Link>
 
                   {/* Features */}
-                  <div className="mt-8 pt-8 border-t border-white/[0.06]">
-                    <p className="text-xs font-semibold uppercase tracking-wider text-text-secondary mb-4">
+                  <div className="mt-8 pt-8 border-t border-d-border">
+                    <p className="text-xs font-semibold uppercase tracking-wider text-white/60 mb-4">
                       What&apos;s included
                     </p>
                     <ul className="space-y-3">
@@ -261,11 +261,11 @@ export default function PricingSection() {
                         <li key={feature} className="flex items-start gap-3">
                           <Check className={cn(
                             "h-4 w-4 mt-0.5 shrink-0",
-                            plan.accent === "neon-cyan" && "text-neon-cyan",
-                            plan.accent === "neon-green" && "text-neon-green",
-                            plan.accent === "neon-purple" && "text-neon-purple",
+                            plan.accent === "primary" && "text-primary",
+                            plan.accent === "neon-green" && "text-up",
+                            plan.accent === "neon-purple" && "text-[#8D5CFF]",
                           )} />
-                          <span className="text-sm text-text-secondary">{feature}</span>
+                          <span className="text-sm text-white/60">{feature}</span>
                         </li>
                       ))}
                     </ul>
@@ -278,7 +278,7 @@ export default function PricingSection() {
 
         {/* Bottom note */}
         <ScrollReveal delay={0.4}>
-          <p className="text-center text-sm text-text-muted mt-12 max-w-2xl mx-auto">
+          <p className="text-center text-sm text-d-text-muted mt-12 max-w-2xl mx-auto">
             All paid plans include a 7-day free trial. No credit card required to start.
             Cancel anytime with no questions asked.
           </p>

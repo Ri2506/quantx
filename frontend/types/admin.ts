@@ -1,5 +1,5 @@
 // ============================================================================
-// SWINGAI - ADMIN TYPES
+// QUANT X - ADMIN TYPES
 // Type definitions for admin console
 // ============================================================================
 
@@ -53,7 +53,11 @@ export interface SystemHealth {
   status: 'healthy' | 'degraded' | 'error'
   timestamp: string
   database: string
+  /** PR 104 — round-trip latency on the DB health-check probe.
+   *  Backend marks `database: 'slow'` when this exceeds 500ms. */
+  db_latency_ms?: number | null
   redis: string
+  redis_latency_ms?: number | null
   scheduler_status: string
   last_signal_run?: string
   active_websocket_connections: number

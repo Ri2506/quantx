@@ -51,7 +51,7 @@ jobs:
       - name: Run tests
         run: |
           pip install pytest pytest-asyncio pytest-cov
-          pytest tests/ --cov=src/backend --cov-report=xml || true
+          pytest tests/ --cov=src/backend --cov-report=xml
 
   security:
     runs-on: ubuntu-latest
@@ -74,4 +74,4 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Build Docker image
-        run: docker build -t swingai-backend:latest .
+        run: docker build -t quantx-backend:latest .

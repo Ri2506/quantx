@@ -1,5 +1,5 @@
 # ============================================================================
-# SWINGAI .GITIGNORE
+# QUANT X .GITIGNORE
 # ============================================================================
 
 # Dependencies
@@ -123,3 +123,29 @@ Thumbs.db
 
 # Archive (legacy code)
 _archive/
+
+# Output files (generated charts, validation CSVs)
+output/
+
+# Build artifacts
+frontend/tsconfig.tsbuildinfo
+
+# Reference/inspiration site scrapes
+intellectia.ai/
+www.luxalgo.com/
+frontend/demo ui:ux/
+
+# ML training logs
+lightning_logs/
+
+# Test reports
+test_reports/
+
+# Non-production docs
+AI_Trading_Signal_PRD.docx
+ai_prd_extracted.txt
+pkscreener.ini
+
+# Agent/memory
+.claude/
+memory/

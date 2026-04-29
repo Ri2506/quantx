@@ -1,5 +1,5 @@
 // ============================================================================
-// SWINGAI - WEBSOCKET HOOK
+// QUANT X - WEBSOCKET HOOK
 // Real-time data subscriptions via WebSocket
 // ============================================================================
 
@@ -8,6 +8,7 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { PriceUpdate, WebSocketMessage } from '../types'
 import { supabase } from '../lib/supabase'
+import { logger } from '../lib/logger'
 
 interface WebSocketOptions {
   url?: string
@@ -31,6 +32,7 @@ export function useWebSocket(options: WebSocketOptions = {}) {
   } = options
 
   const [isConnected, setIsConnected] = useState(false)
+  const [connectionFailed, setConnectionFailed] = useState(false)
   const [lastMessage, setLastMessage] = useState<WebSocketMessage | null>(null)
   const ws = useRef<WebSocket | null>(null)
   const reconnectCount = useRef(0)
@@ -40,55 +42,58 @@ export function useWebSocket(options: WebSocketOptions = {}) {
   // CONNECT
   // ============================================================================
 
-  const resolveWebSocketUrl = useCallback(async () => {
-    const trimmedUrl = url.replace(/\/$/, '')
-    const hasTokenInPath = /\/ws\/[^/]+$/.test(trimmedUrl)
-    let resolvedToken = token
+  /**
+   * Resolve the WebSocket URL + token separately. The token is NOT appended
+   * to the URL (that leaked tokens to server logs / CDN history). We always
+   * connect to the bare `/ws` endpoint and pass the token via the
+   * `Sec-WebSocket-Protocol` header using the browser subprotocol mechanism:
+   *   new WebSocket(url, ['access_token', token])
+   * The server accepts with `subprotocol='access_token'` to complete the
+   * handshake. See backend `/ws` endpoint in src/backend/api/app.py.
+   */
+  const resolveWebSocketConfig = useCallback(async () => {
+    let trimmedUrl = url.replace(/\/$/, '')
 
+    // Legacy support: if env var still points at /ws/{token} style, strip the
+    // path suffix. The header-auth endpoint lives at bare /ws.
+    trimmedUrl = trimmedUrl.replace('{token}', '').replace(/\/ws\/[^/]+$/, '/ws')
+    if (!trimmedUrl.endsWith('/ws')) {
+      trimmedUrl = `${trimmedUrl}/ws`
+    }
+
+    let resolvedToken = token
     if (!resolvedToken) {
       try {
         const { data: { session } } = await supabase.auth.getSession()
         resolvedToken = session?.access_token || undefined
       } catch (error) {
-        console.error('Failed to resolve WebSocket token:', error)
+        logger.error('Failed to resolve WebSocket token:', error)
       }
     }
 
     if (!resolvedToken) {
-      if (hasTokenInPath) {
-        return trimmedUrl
-      }
-      console.warn('WebSocket token missing; skipping connection')
+      logger.warn('WebSocket token missing; skipping connection')
       return null
     }
 
-    if (trimmedUrl.includes('{token}')) {
-      return trimmedUrl.replace('{token}', resolvedToken)
-    }
-
-    if (hasTokenInPath) {
-      return trimmedUrl
-    }
-
-    if (trimmedUrl.endsWith('/ws')) {
-      return `${trimmedUrl}/${resolvedToken}`
-    }
-
-    return `${trimmedUrl}/ws/${resolvedToken}`
+    return { url: trimmedUrl, token: resolvedToken }
   }, [url, token])
 
   const connect = useCallback(async () => {
     try {
-      const resolvedUrl = await resolveWebSocketUrl()
-      if (!resolvedUrl) {
+      const config = await resolveWebSocketConfig()
+      if (!config) {
         return
       }
 
-      ws.current = new WebSocket(resolvedUrl)
+      // Pass token as a subprotocol. The browser sends this as
+      // `Sec-WebSocket-Protocol: access_token, <jwt>` — never in the URL.
+      ws.current = new WebSocket(config.url, ['access_token', config.token])
 
       ws.current.onopen = () => {
-        console.log('WebSocket connected')
+        logger.log('WebSocket connected')
         setIsConnected(true)
+        setConnectionFailed(false)
         reconnectCount.current = 0
       }
 
@@ -101,12 +106,12 @@ export function useWebSocket(options: WebSocketOptions = {}) {
             onMessage(message)
           }
         } catch (error) {
-          console.error('Error parsing WebSocket message:', error)
+          logger.error('Error parsing WebSocket message:', error)
         }
       }
 
       ws.current.onerror = (error) => {
-        console.error('WebSocket error:', error)
+        logger.error('WebSocket error:', error)
 
         if (onError) {
           onError(error)
@@ -114,7 +119,7 @@ export function useWebSocket(options: WebSocketOptions = {}) {
       }
 
       ws.current.onclose = () => {
-        console.log('WebSocket disconnected')
+        logger.log('WebSocket disconnected')
         setIsConnected(false)
 
         if (onClose) {
@@ -124,7 +129,7 @@ export function useWebSocket(options: WebSocketOptions = {}) {
         // Attempt reconnection
         if (reconnectCount.current < reconnectAttempts) {
           reconnectCount.current += 1
-          console.log(
+          logger.log(
             `Attempting to reconnect (${reconnectCount.current}/${reconnectAttempts})...`
           )
 
@@ -132,13 +137,14 @@ export function useWebSocket(options: WebSocketOptions = {}) {
             connect()
           }, reconnectInterval)
         } else {
-          console.error('Max reconnection attempts reached')
+          logger.error('Max reconnection attempts reached')
+          setConnectionFailed(true)
         }
       }
     } catch (error) {
-      console.error('Error creating WebSocket:', error)
+      logger.error('Error creating WebSocket:', error)
     }
-  }, [resolveWebSocketUrl, reconnectAttempts, reconnectInterval, onMessage, onError, onClose])
+  }, [resolveWebSocketConfig, reconnectAttempts, reconnectInterval, onMessage, onError, onClose])
 
   // ============================================================================
   // DISCONNECT
@@ -166,7 +172,7 @@ export function useWebSocket(options: WebSocketOptions = {}) {
     if (ws.current && ws.current.readyState === WebSocket.OPEN) {
       ws.current.send(JSON.stringify(message))
     } else {
-      console.error('WebSocket is not connected')
+      logger.error('WebSocket is not connected')
     }
   }, [])
 
@@ -176,11 +182,30 @@ export function useWebSocket(options: WebSocketOptions = {}) {
 
   const subscribe = useCallback(
     (channel: string, data?: any) => {
-      sendMessage({
-        type: 'subscribe',
-        channel,
-        data,
-      })
+      const channelMap: Record<string, string> = {
+        prices: 'price',
+        positions: 'portfolio',
+      }
+      const backendChannel = channelMap[channel] || channel
+
+      if ((channel === 'prices' || channel === 'price') && data?.symbol) {
+        sendMessage({
+          action: 'subscribe',
+          channel: backendChannel,
+          symbols: Array.isArray(data.symbol) ? data.symbol : [data.symbol],
+        })
+      } else if (data?.symbols) {
+        sendMessage({
+          action: 'subscribe',
+          channel: backendChannel,
+          symbols: data.symbols,
+        })
+      } else {
+        sendMessage({
+          action: 'subscribe',
+          channel: backendChannel,
+        })
+      }
     },
     [sendMessage]
   )
@@ -190,10 +215,15 @@ export function useWebSocket(options: WebSocketOptions = {}) {
   // ============================================================================
 
   const unsubscribe = useCallback(
-    (channel: string) => {
+    (channel: string, data?: any) => {
+      const channelMap: Record<string, string> = {
+        prices: 'price',
+        positions: 'portfolio',
+      }
       sendMessage({
-        type: 'unsubscribe',
-        channel,
+        action: 'unsubscribe',
+        channel: channelMap[channel] || channel,
+        symbols: data?.symbols || [],
       })
     },
     [sendMessage]
@@ -206,13 +236,51 @@ export function useWebSocket(options: WebSocketOptions = {}) {
   useEffect(() => {
     connect()
 
+    // PR 105 — Supabase access tokens expire in 1 hour. Once a WS is
+    // connected, the session sits frozen with the original token; the
+    // server only verifies on connect (and `verify_exp` is on, so a
+    // stale token *would* be rejected on a clean reconnect). Without
+    // this listener, a long-running tab quietly accumulates an
+    // expired token in the live connection, and any forced reconnect
+    // (network blip, server restart) would fail until the page reloads.
+    //
+    // Subscribe to `TOKEN_REFRESHED` and force a clean reconnect with
+    // the freshly minted access token. SIGNED_OUT also drops the WS.
+    let authSub: { subscription: { unsubscribe: () => void } } | null = null
+    try {
+      const handle = supabase?.auth.onAuthStateChange((event) => {
+        if (event === 'TOKEN_REFRESHED') {
+          // Disconnect + reconnect — `connect()` re-fetches the session
+          // and uses the new access_token in the subprotocol handshake.
+          if (ws.current) {
+            try { ws.current.close() } catch {}
+            ws.current = null
+          }
+          // Reset reconnect counter so onclose's auto-retry doesn't
+          // count this against the budget.
+          reconnectCount.current = 0
+          connect()
+        } else if (event === 'SIGNED_OUT') {
+          if (ws.current) {
+            try { ws.current.close() } catch {}
+            ws.current = null
+          }
+        }
+      })
+      authSub = handle?.data ? { subscription: handle.data.subscription } : null
+    } catch (error) {
+      logger.error('WebSocket auth listener setup failed:', error)
+    }
+
     return () => {
+      try { authSub?.subscription.unsubscribe() } catch {}
       disconnect()
     }
   }, [connect, disconnect])
 
   return {
     isConnected,
+    connectionFailed,
     lastMessage,
     sendMessage,
     subscribe,
@@ -228,15 +296,30 @@ export function useWebSocket(options: WebSocketOptions = {}) {
 
 export function usePriceUpdates(symbols: string[]) {
   const [prices, setPrices] = useState<Record<string, PriceUpdate>>({})
+  const pendingRef = useRef<Record<string, PriceUpdate>>({})
+  const flushTimerRef = useRef<NodeJS.Timeout | null>(null)
+
+  // Cleanup flush timer on unmount
+  useEffect(() => {
+    return () => {
+      if (flushTimerRef.current) clearTimeout(flushTimerRef.current)
+    }
+  }, [])
 
   const handleMessage = useCallback((message: WebSocketMessage) => {
     if (message.type === 'price_update') {
       const priceData = message.data as PriceUpdate
+      // Accumulate in ref (no re-render)
+      pendingRef.current[priceData.symbol] = priceData
 
-      setPrices((prev) => ({
-        ...prev,
-        [priceData.symbol]: priceData,
-      }))
+      // Flush to state at most every 500ms
+      if (!flushTimerRef.current) {
+        flushTimerRef.current = setTimeout(() => {
+          setPrices((prev) => ({ ...prev, ...pendingRef.current }))
+          pendingRef.current = {}
+          flushTimerRef.current = null
+        }, 500)
+      }
     }
   }, [])
 

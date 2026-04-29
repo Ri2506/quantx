@@ -1,5 +1,5 @@
 """
-SwingAI Portfolio-Level Backtest
+Quant X Portfolio-Level Backtest
 =================================
 Runs all 15 strategies across the full alpha universe (200+ stocks)
 over 5 years and produces comprehensive analytics:
@@ -255,7 +255,7 @@ def run_portfolio_backtest(
     result = PortfolioBacktestResult(config=config)
 
     print(f"\n{'='*70}")
-    print(f"SWINGAI PORTFOLIO BACKTEST")
+    print(f"QUANT X PORTFOLIO BACKTEST")
     print(f"{'='*70}")
     print(f"Universe: {len(symbols)} stocks | Strategies: {len(strategies)}")
     print(f"Period: {period} | Capital: ₹{config.initial_capital:,.0f}")
@@ -868,7 +868,7 @@ def main():
     """Run the full portfolio backtest from command line."""
     import argparse
 
-    parser = argparse.ArgumentParser(description="SwingAI Portfolio Backtest")
+    parser = argparse.ArgumentParser(description="Quant X Portfolio Backtest")
     parser.add_argument("--stocks", type=int, default=250,
                         help="Max stocks to test (default: 250)")
     parser.add_argument("--period", type=str, default="5y",

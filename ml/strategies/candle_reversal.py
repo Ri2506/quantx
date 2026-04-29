@@ -65,14 +65,9 @@ class CandleReversal(BaseStrategy):
         if pd.isna(ema200) or close < ema200:
             return None
 
-        # --- Weekly trend aligned ---
-        weekly_aligned = curr.get('weekly_trend_aligned', None)
-        if pd.isna(weekly_aligned) or not weekly_aligned:
-            return None
-
-        # --- RSI: pullback zone (20-48) — widened for uptrend pullbacks ---
+        # --- RSI: pullback zone (20-55) — must be pulling back, not chasing ---
         rsi = curr.get('rsi_14', None)
-        if pd.isna(rsi) or rsi > 48 or rsi < 20:
+        if pd.isna(rsi) or rsi > 55 or rsi < 20:
             return None
 
         # --- Volume confirmation (1.1x — candle patterns already gate volume) ---
@@ -194,6 +189,11 @@ class CandleReversal(BaseStrategy):
         if sr_touch_count >= 4:
             confidence += 3
 
+        # Weekly trend bonus (not a gate)
+        weekly_aligned = curr.get('weekly_trend_aligned', None)
+        if not pd.isna(weekly_aligned) and weekly_aligned:
+            confidence += 5
+
         # Universal confluence (Golden Cross, ADX, MACD)
         conf_bonus, conf_reasons = self.confluence_bonus(curr)
         confidence += conf_bonus
@@ -203,7 +203,6 @@ class CandleReversal(BaseStrategy):
             f"{candle_label} at {support_name}",
             f"RSI={rsi:.1f} (pullback zone)",
             f"Volume {vol_ratio:.1f}x avg",
-            "Weekly trend aligned",
             f"Above 200-EMA ({ema200:.2f})",
         ] + conf_reasons
 
@@ -249,12 +248,17 @@ class CandleReversal(BaseStrategy):
                 and position.stop_loss < position.entry_price):
             position.stop_loss = position.entry_price
 
-        # 4. Trail with 10-EMA after 1.5R
+        # 4. Trail with 9-EMA after 1.5R
         if position.highest_since_entry >= position.entry_price + 1.5 * risk:
-            ema10 = curr.get('ema_9', 0)
-            if not pd.isna(ema10) and ema10 > 0:
-                trail = ema10 - position.entry_price * 0.002
+            ema9 = curr.get('ema_9', 0)
+            if not pd.isna(ema9) and ema9 > 0:
+                trail = ema9 - position.entry_price * 0.002
                 if trail > position.stop_loss and trail < close:
                     position.stop_loss = trail
+
+        # 5. Time exit (force close losing positions past max hold)
+        time_exit = self._check_time_exit(df, position)
+        if time_exit:
+            return time_exit
 
         return None

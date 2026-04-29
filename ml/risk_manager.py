@@ -1,5 +1,5 @@
 """
-SwingAI Risk Manager
+Quant X Risk Manager
 =====================
 Production-grade risk management for real money trading.
 
@@ -41,6 +41,9 @@ class RiskConfig:
     weekly_loss_limit_pct: float = 8.0  # Reduce size at 8% weekly loss
     monthly_loss_limit_pct: float = 15.0  # Pause at 15% monthly loss
 
+    # Max drawdown protection
+    max_drawdown_pct: float = 20.0  # Halt at 20% drawdown from peak equity
+
     # Consecutive loss handling
     consecutive_loss_reduce_after: int = 3  # Reduce size after 3 consecutive losses
     consecutive_loss_size_mult: float = 0.5  # Reduce to 50%
@@ -64,10 +67,13 @@ class RiskManager:
         self._halt_daily: bool = False
         self._halt_weekly: bool = False
         self._halt_monthly: bool = False
+        self._halt_drawdown: bool = False
+        self._peak_equity: float = self.config.account_capital
+        self._current_equity: float = self.config.account_capital
 
     @property
     def is_halted(self) -> bool:
-        return self._halt_daily or self._halt_weekly or self._halt_monthly
+        return self._halt_daily or self._halt_weekly or self._halt_monthly or self._halt_drawdown
 
     @property
     def halt_reason(self) -> str:
@@ -78,6 +84,9 @@ class RiskManager:
             reasons.append(f"Weekly loss limit hit: {self.weekly_pnl:.1f}%")
         if self._halt_monthly:
             reasons.append(f"Monthly loss limit hit: {self.monthly_pnl:.1f}%")
+        if self._halt_drawdown:
+            dd_pct = (self._peak_equity - self._current_equity) / self._peak_equity * 100 if self._peak_equity > 0 else 0
+            reasons.append(f"Max drawdown hit: {dd_pct:.1f}% from peak")
         return " | ".join(reasons)
 
     def calculate_position_size(
@@ -217,6 +226,7 @@ class RiskManager:
         self._halt_daily = False
         self._halt_weekly = False
         self._halt_monthly = False
+        self._halt_drawdown = False
 
     @property
     def monthly_trade_limit_reached(self) -> bool:
@@ -224,11 +234,35 @@ class RiskManager:
         limit = self.config.max_trades_per_month
         return limit > 0 and self.monthly_trades >= limit
 
+    def update_equity(self, current_equity: float):
+        """
+        Update current equity and check max drawdown limit.
+
+        Call this after each trade closes or at end of each trading day.
+
+        Args:
+            current_equity: Current account equity in INR.
+        """
+        self._current_equity = current_equity
+
+        if current_equity > self._peak_equity:
+            self._peak_equity = current_equity
+
+        if self._peak_equity > 0 and self.config.max_drawdown_pct > 0:
+            drawdown_pct = (self._peak_equity - current_equity) / self._peak_equity * 100
+            if drawdown_pct >= self.config.max_drawdown_pct:
+                self._halt_drawdown = True
+                logger.critical(
+                    f"Max drawdown limit hit: {drawdown_pct:.1f}% "
+                    f"(peak={self._peak_equity:.0f}, current={current_equity:.0f})"
+                )
+
     def resume_trading(self):
         """Manually resume trading after a halt."""
         self._halt_daily = False
         self._halt_weekly = False
         self._halt_monthly = False
+        self._halt_drawdown = False
         logger.info("Trading resumed manually")
 
     def calculate_execution_cost(self, price: float, quantity: int, is_sell: bool = False) -> float:

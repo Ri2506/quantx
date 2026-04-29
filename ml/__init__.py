@@ -1,6 +1,6 @@
 """
 ================================================================================
-SWINGAI ML MODULE
+QUANT X ML MODULE
 ================================================================================
 Production algo swing trading bot with 6 rule-based strategies.
 

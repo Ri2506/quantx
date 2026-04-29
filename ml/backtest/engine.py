@@ -1,5 +1,5 @@
 """
-SwingAI Backtest Engine
+Quant X Backtest Engine
 ========================
 Production-grade backtesting with:
 - Bar-by-bar simulation (no look-ahead bias)
@@ -141,8 +141,9 @@ class BacktestEngine:
         Returns:
             BacktestResult with all trades and metrics
         """
-        # Compute indicators
-        df = compute_all_indicators(df)
+        # Compute indicators (skip if already computed — e.g. pre-computed by caller)
+        if 'ema_200' not in df.columns:
+            df = compute_all_indicators(df)
         n = len(df)
 
         if n < self.config.start_bar + 10:
@@ -579,7 +580,7 @@ class BacktestEngine:
                       for t in trades if t.net_pnl_pct <= 0]
         total_wins = sum(wins_amt) if wins_amt else 0
         total_losses = abs(sum(losses_amt)) if losses_amt else 0
-        result.profit_factor = round(total_wins / total_losses, 2) if total_losses > 0 else float('inf')
+        result.profit_factor = round(total_wins / total_losses, 2) if total_losses > 0 else None
 
         # Sharpe ratio (annualized by trades per year, ddof=1 for sample std)
         if len(pnls) > 1:

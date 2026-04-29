@@ -1,6 +1,6 @@
 """
 ================================================================================
-SWINGAI - CUTTING-EDGE RISK MANAGEMENT ENGINE
+QUANT X - CUTTING-EDGE RISK MANAGEMENT ENGINE
 ================================================================================
 5-Layer Risk Management for Maximum Returns with Minimum Drawdown
 Handles: Equity, Futures, Options with proper margin & lot calculations
@@ -91,7 +91,7 @@ RISK_PROFILES = {
         name="Conservative",
         risk_per_trade=2.0,
         max_positions=3,
-        min_confidence=75,
+        min_confidence=20,
         max_sector_exposure=30,
         max_daily_loss=3.0,
         max_weekly_loss=5.0,
@@ -104,7 +104,7 @@ RISK_PROFILES = {
         name="Moderate",
         risk_per_trade=3.0,
         max_positions=5,
-        min_confidence=70,
+        min_confidence=15,
         max_sector_exposure=40,
         max_daily_loss=5.0,
         max_weekly_loss=8.0,
@@ -117,7 +117,7 @@ RISK_PROFILES = {
         name="Aggressive",
         risk_per_trade=5.0,
         max_positions=8,
-        min_confidence=65,
+        min_confidence=10,
         max_sector_exposure=50,
         max_daily_loss=7.0,
         max_weekly_loss=12.0,
@@ -231,26 +231,30 @@ class RiskManagementEngine:
             return False, f"Confidence {signal.confidence}% below minimum {profile.min_confidence}%"
         
         # Check risk:reward
-        if signal.direction == Direction.LONG:
-            risk = signal.entry_price - signal.stop_loss
-            reward = signal.target - signal.entry_price
+        # OPTIONS selling strategies (straddle/strangle) may have sl=0 (risk managed via margin)
+        if signal.segment == Segment.OPTIONS and signal.stop_loss == 0:
+            pass  # skip R:R and SL distance checks for options with no explicit SL
         else:
-            risk = signal.stop_loss - signal.entry_price
-            reward = signal.entry_price - signal.target
-        
-        if risk <= 0:
-            return False, "Invalid stop loss - no risk defined"
-        
-        rr_ratio = reward / risk
-        if rr_ratio < 1.5:
-            return False, f"Risk:Reward {rr_ratio:.2f} below minimum 1.5"
-        
-        # Check stop loss distance (max 5% for equity, 3% for F&O)
-        sl_percent = abs(signal.entry_price - signal.stop_loss) / signal.entry_price * 100
-        max_sl = 5.0 if signal.segment == Segment.EQUITY else 3.0
-        
-        if sl_percent > max_sl:
-            return False, f"Stop loss {sl_percent:.2f}% too wide (max {max_sl}%)"
+            if signal.direction == Direction.LONG:
+                risk = signal.entry_price - signal.stop_loss
+                reward = signal.target - signal.entry_price
+            else:
+                risk = signal.stop_loss - signal.entry_price
+                reward = signal.entry_price - signal.target
+
+            if risk <= 0:
+                return False, "Invalid stop loss - no risk defined"
+
+            rr_ratio = reward / risk
+            if rr_ratio < 1.5:
+                return False, f"Risk:Reward {rr_ratio:.2f} below minimum 1.5"
+
+            # Check stop loss distance (max 5% for equity, 3% for F&O)
+            sl_percent = abs(signal.entry_price - signal.stop_loss) / max(signal.entry_price, 1) * 100
+            max_sl = 5.0 if signal.segment == Segment.EQUITY else 3.0
+
+            if sl_percent > max_sl:
+                return False, f"Stop loss {sl_percent:.2f}% too wide (max {max_sl}%)"
         
         return True, "Signal quality check passed"
     
@@ -666,10 +670,148 @@ class RiskManagementEngine:
                 breakeven_sl = entry_price - (entry_price * 0.001)
                 extra_profit = current_profit - initial_risk
                 trailing_sl = breakeven_sl - (extra_profit * 0.5)
-                
+
                 return min(initial_sl, trailing_sl)
-            
+
             return initial_sl
+
+    # ==========================================================================
+    # PR 132 — VIX overlay + Kelly + portfolio VaR for AutoPilot (F4)
+    # ==========================================================================
+    #
+    # The Step 1 §F4 deterministic VIX ladder applied as a multiplier on
+    # AutoPilot's gross equity exposure. Returns the *equity exposure cap*
+    # (0..1). Cash absorbs the residual.
+    #
+    # Source of truth:
+    #   <15  → 100% equity
+    #   15-18 → 85%
+    #   18-22 → 70%
+    #   22-27 → 50%
+    #   27-35 → 30%
+    #   >35  → 15%
+
+    @staticmethod
+    def vix_exposure_cap(vix_level: float) -> float:
+        """Map current India VIX level → max gross equity weight."""
+        try:
+            v = float(vix_level)
+        except (TypeError, ValueError):
+            return 0.70  # safe default when VIX is unknown
+        if v < 15:  return 1.00
+        if v < 18:  return 0.85
+        if v < 22:  return 0.70
+        if v < 27:  return 0.50
+        if v < 35:  return 0.30
+        return 0.15
+
+    @staticmethod
+    def kelly_fraction(
+        win_rate: float,
+        avg_win: float,
+        avg_loss: float,
+        *,
+        cap: float = 0.25,
+    ) -> float:
+        """Kelly criterion position fraction.
+
+        f* = W − (1 − W) / R   where R = avg_win / avg_loss
+
+        Capped at ``cap`` (default 25%) per Step 1 §F4. Returns 0 for
+        negative-edge strategies so AutoPilot stays out of bad regimes.
+        """
+        if avg_loss <= 0 or avg_win <= 0:
+            return 0.0
+        try:
+            w = max(0.0, min(1.0, float(win_rate)))
+            r = float(avg_win) / float(avg_loss)
+            f = w - (1.0 - w) / r
+        except (TypeError, ValueError, ZeroDivisionError):
+            return 0.0
+        if f <= 0:
+            return 0.0
+        # Half-Kelly is the practical default; the 25% cap above gives a
+        # hard ceiling regardless of the underlying edge.
+        return min(cap, f * 0.5)
+
+    @staticmethod
+    def portfolio_var_95(
+        weights: Dict[str, float],
+        cov_matrix: Dict[str, Dict[str, float]],
+        capital: float,
+    ) -> float:
+        """1-day 95% parametric VaR for the proposed weight vector.
+
+        Returns absolute ₹ loss at the 5th percentile assuming Gaussian
+        returns. AutoPilot rejects any rebalance whose VaR exceeds
+        ``RiskProfile.max_daily_loss_pct × capital``.
+
+        cov_matrix is keyed by symbol → symbol → covariance(daily).
+        """
+        symbols = list(weights.keys())
+        if not symbols:
+            return 0.0
+        try:
+            import numpy as np  # noqa: PLC0415
+        except ImportError:
+            return 0.0
+        w = np.array([weights[s] for s in symbols], dtype=float)
+        cov = np.array(
+            [[cov_matrix.get(a, {}).get(b, 0.0) for b in symbols] for a in symbols],
+            dtype=float,
+        )
+        try:
+            port_var_daily = float(w @ cov @ w)
+            port_std_daily = max(0.0, port_var_daily) ** 0.5
+        except Exception:
+            return 0.0
+        # 95% one-tailed parametric VaR = 1.645 σ; multiply by capital.
+        return 1.645 * port_std_daily * float(capital)
+
+    def apply_autopilot_overlays(
+        self,
+        target_weights: Dict[str, float],
+        *,
+        vix_level: float,
+        regime: str,
+        capital: float,
+        cov_matrix: Optional[Dict[str, Dict[str, float]]] = None,
+        max_daily_loss_pct: float = 2.0,
+    ) -> Tuple[Dict[str, float], Dict[str, Any]]:
+        """Apply VIX overlay + bear-regime halving + VaR cap to RL output.
+
+        Returns ``(adjusted_weights, diagnostics)``. Diagnostics carry
+        the cap multipliers used so AutoPilot can render "AI moved 20% to
+        cash because VIX spiked to 22" in the dashboard.
+        """
+        cap = self.vix_exposure_cap(vix_level)
+        bear_scale = 0.5 if str(regime).lower() == "bear" else 1.0
+        gross = sum(max(0.0, w) for w in target_weights.values())
+        scale = 1.0
+        if gross > 0:
+            scale = min(1.0, (cap * bear_scale) / gross)
+        adjusted = {k: max(0.0, v) * scale for k, v in target_weights.items()}
+
+        var_loss = 0.0
+        var_blocked = False
+        if cov_matrix:
+            var_loss = self.portfolio_var_95(adjusted, cov_matrix, capital)
+            var_limit = capital * (max_daily_loss_pct / 100.0)
+            if var_loss > var_limit and var_limit > 0:
+                # Scale down uniformly until VaR fits the per-day limit.
+                reduce = var_limit / var_loss
+                adjusted = {k: v * reduce for k, v in adjusted.items()}
+                var_blocked = True
+                var_loss *= reduce
+
+        return adjusted, {
+            "vix_level": float(vix_level),
+            "vix_exposure_cap": cap,
+            "bear_scale": bear_scale,
+            "applied_scale": scale,
+            "var_95_inr": var_loss,
+            "var_capped": var_blocked,
+        }
 
 
 # ============================================================================

@@ -1,396 +1,333 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { motion } from 'framer-motion'
 import Link from 'next/link'
 import {
-  Target,
-  TrendingUp,
   ArrowUp,
   ArrowDown,
-  Sparkles,
-  Activity,
-  Filter,
   Clock,
-  AlertCircle,
-  ChevronRight,
-  Zap,
-  BarChart3,
-  Shield,
+  Signal,
 } from 'lucide-react'
-import Card3D from '@/components/ui/Card3D'
-import ScrollReveal from '@/components/ui/ScrollReveal'
-import StatusDot from '@/components/ui/StatusDot'
+import { api } from '@/lib/api'
+import type { Signal as ApiSignal, SignalsTodayResponse } from '@/lib/api'
+import ConfidenceMeter from '@/components/ui/ConfidenceMeter'
+import ModelScoreBadge from '@/components/ui/ModelScoreBadge'
+import AppLayout from '@/components/shared/AppLayout'
 
-interface Signal {
+interface DisplaySignal {
   id: string
   symbol: string
   name: string
-  direction: 'LONG'
+  direction: 'LONG' | 'SHORT'
   entry_price: number
   target_price: number
   stop_loss: number
   confidence: number
   risk_reward: number
   generated_at: string
-  status: 'active' | 'triggered' | 'expired'
+  status: string
+  catboost_score?: number
+}
+
+type FilterTab = 'all' | 'long' | 'short'
+
+function getTimeAgo(dateString: string): string {
+  const diff = Date.now() - new Date(dateString).getTime()
+  const minutes = Math.floor(diff / 60000)
+  if (minutes < 1) return 'just now'
+  if (minutes < 60) return `${minutes}m ago`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours}h ago`
+  return `${Math.floor(hours / 24)}d ago`
+}
+
+function normalizeSignal(s: ApiSignal): DisplaySignal {
+  return {
+    id: s.id,
+    symbol: s.symbol,
+    name: s.segment ?? s.symbol,
+    direction: s.direction ?? 'LONG',
+    entry_price: s.entry_price,
+    target_price: s.target ?? s.target_1 ?? s.target_2 ?? 0,
+    stop_loss: s.stop_loss,
+    confidence: s.confidence,
+    risk_reward: s.risk_reward_ratio ?? s.risk_reward ?? 0,
+    generated_at: s.created_at ?? s.generated_at ?? s.date ?? new Date().toISOString(),
+    status: s.status,
+    catboost_score: s.catboost_score,
+  }
+}
+
+function SkeletonCard() {
+  return (
+    <div className="glass-card animate-pulse rounded-xl border border-d-border p-4">
+      <div className="mb-4 flex items-center gap-3">
+        <div className="h-10 w-10 rounded-full bg-white/5" />
+        <div className="flex-1">
+          <div className="mb-2 h-4 w-24 rounded bg-white/5" />
+          <div className="h-3 w-16 rounded bg-white/5" />
+        </div>
+        <div className="h-6 w-16 rounded-full bg-white/5" />
+      </div>
+      <div className="mb-4 grid grid-cols-3 gap-3">
+        <div>
+          <div className="mb-1 h-3 w-10 rounded bg-white/5" />
+          <div className="h-5 w-20 rounded bg-white/5" />
+        </div>
+        <div>
+          <div className="mb-1 h-3 w-10 rounded bg-white/5" />
+          <div className="h-5 w-20 rounded bg-white/5" />
+        </div>
+        <div>
+          <div className="mb-1 h-3 w-10 rounded bg-white/5" />
+          <div className="h-5 w-20 rounded bg-white/5" />
+        </div>
+      </div>
+      <div className="h-2 w-full rounded-full bg-white/5" />
+    </div>
+  )
 }
 
 export default function SignalsPage() {
-  const [signals, setSignals] = useState<Signal[]>([])
+  const [signals, setSignals] = useState<DisplaySignal[]>([])
   const [loading, setLoading] = useState(true)
-  const [filter, setFilter] = useState<'all' | 'active' | 'triggered'>('all')
+  const [filter, setFilter] = useState<FilterTab>('all')
 
   useEffect(() => {
     fetchSignals()
   }, [])
 
   const fetchSignals = async () => {
+    setLoading(true)
     try {
-      // Mock signals data - LONG positions only
-      const mockSignals: Signal[] = [
-        {
-          id: '1',
-          symbol: 'RELIANCE',
-          name: 'Reliance Industries Ltd',
-          direction: 'LONG',
-          entry_price: 2847.50,
-          target_price: 3020.00,
-          stop_loss: 2780.00,
-          confidence: 89,
-          risk_reward: 2.57,
-          generated_at: new Date(Date.now() - 2 * 60000).toISOString(),
-          status: 'active',
-        },
-        {
-          id: '2',
-          symbol: 'TCS',
-          name: 'Tata Consultancy Services',
-          direction: 'LONG',
-          entry_price: 3678.90,
-          target_price: 3850.00,
-          stop_loss: 3580.00,
-          confidence: 82,
-          risk_reward: 1.73,
-          generated_at: new Date(Date.now() - 45 * 60000).toISOString(),
-          status: 'active',
-        },
-        {
-          id: '3',
-          symbol: 'HDFCBANK',
-          name: 'HDFC Bank Ltd',
-          direction: 'LONG',
-          entry_price: 1650.00,
-          target_price: 1780.00,
-          stop_loss: 1600.00,
-          confidence: 75,
-          risk_reward: 2.60,
-          generated_at: new Date(Date.now() - 2 * 3600000).toISOString(),
-          status: 'triggered',
-        },
-        {
-          id: '4',
-          symbol: 'INFY',
-          name: 'Infosys Ltd',
-          direction: 'LONG',
-          entry_price: 1523.45,
-          target_price: 1620.00,
-          stop_loss: 1480.00,
-          confidence: 78,
-          risk_reward: 2.22,
-          generated_at: new Date(Date.now() - 4 * 3600000).toISOString(),
-          status: 'active',
-        },
-        {
-          id: '5',
-          symbol: 'BHARTIARTL',
-          name: 'Bharti Airtel Ltd',
-          direction: 'LONG',
-          entry_price: 1547.00,
-          target_price: 1680.00,
-          stop_loss: 1490.00,
-          confidence: 84,
-          risk_reward: 2.33,
-          generated_at: new Date(Date.now() - 6 * 3600000).toISOString(),
-          status: 'expired',
-        },
-      ]
-      setSignals(mockSignals)
+      const response: SignalsTodayResponse = await api.signals.getToday()
+      const raw = response.all_signals ?? []
+      const long = response.long_signals ?? []
+      const short = response.short_signals ?? []
+      const combined = raw.length > 0 ? raw : [...long, ...short]
+      setSignals(combined.map(normalizeSignal))
     } catch (error) {
       console.error('Error fetching signals:', error)
+      setSignals([])
     } finally {
       setLoading(false)
     }
   }
 
-  const filteredSignals = signals.filter(signal => {
+  const filteredSignals = signals.filter((s) => {
     if (filter === 'all') return true
-    return signal.status === filter
+    if (filter === 'long') return s.direction === 'LONG'
+    if (filter === 'short') return s.direction === 'SHORT'
+    return true
   })
 
-  const getTimeAgo = (dateString: string) => {
-    const diff = Date.now() - new Date(dateString).getTime()
-    const minutes = Math.floor(diff / 60000)
-    if (minutes < 60) return `${minutes}m ago`
-    const hours = Math.floor(minutes / 60)
-    if (hours < 24) return `${hours}h ago`
-    return `${Math.floor(hours / 24)}d ago`
-  }
-
-  const getStatusDotVariant = (status: Signal['status']): 'live' | 'warning' | 'offline' => {
-    if (status === 'active') return 'live'
-    if (status === 'triggered') return 'warning'
-    return 'offline'
-  }
-
-  if (loading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-background-primary">
-        <div className="text-center">
-          <div className="loader-rings mx-auto" />
-          <p className="mt-6 text-lg text-text-secondary">Scanning markets for AI signals...</p>
-        </div>
-      </div>
-    )
-  }
-
   return (
-    <div className="min-h-screen bg-background-primary px-4 py-6 md:px-6 md:py-8">
-      <div className="mx-auto max-w-7xl">
-        {/* Header */}
-        <ScrollReveal direction="up" delay={0}>
-          <div className="mb-10">
-            <div className="flex flex-col-reverse gap-4 sm:flex-row sm:items-center sm:justify-between">
-              <div>
-                <div className="mb-3 flex items-center gap-3">
-                  <StatusDot status="live" label="Live" />
-                  <span className="text-xs font-medium uppercase tracking-wider text-text-muted">
-                    Real-time Engine
-                  </span>
-                </div>
-                <h1 className="mb-3 text-3xl font-bold tracking-tight text-text-primary md:text-4xl lg:text-5xl">
-                  <span className="gradient-text-professional">AI Trading Signals</span>
-                </h1>
-                <p className="max-w-lg text-lg text-text-secondary">
-                  Real-time swing trade signals powered by deep learning models and multi-timeframe analysis
-                </p>
-              </div>
-              <Link
-                href="/dashboard"
-                className="glass-card-neu self-start rounded-xl border border-white/[0.04] px-5 py-2.5 text-sm font-medium text-text-primary transition hover:border-neon-cyan/20 hover:shadow-glow-sm sm:self-auto"
-              >
-                <span className="sm:hidden">&larr;</span>
-                <span className="hidden sm:inline">&larr; Back to Dashboard</span>
-              </Link>
-            </div>
-          </div>
-        </ScrollReveal>
+    <AppLayout>
+    <div className="relative overflow-hidden px-4 py-6 md:px-6 md:py-8">
+      <style>{`
+        @keyframes signal-fade-in {
+          from { opacity: 0; transform: translateY(12px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+      `}</style>
+      {/* Ambient glow */}
+      <div className="pointer-events-none fixed right-0 top-20 h-[400px] w-[400px] rounded-full bg-primary/[0.02] blur-[120px]" />
 
-        {/* Stats Overview */}
-        <ScrollReveal direction="up" delay={0.1}>
-          <div className="mb-10 grid grid-cols-2 gap-4 md:grid-cols-4">
-            {[
-              {
-                label: 'Active Signals',
-                value: signals.filter(s => s.status === 'active').length,
-                icon: <Zap className="h-5 w-5 text-neon-cyan" />,
-                color: 'text-neon-cyan',
-              },
-              {
-                label: 'Avg Confidence',
-                value: `${Math.round(signals.reduce((a, b) => a + b.confidence, 0) / signals.length)}%`,
-                icon: <Sparkles className="h-5 w-5 text-neon-green" />,
-                color: 'text-neon-green',
-              },
-              {
-                label: 'Triggered Today',
-                value: signals.filter(s => s.status === 'triggered').length,
-                icon: <Target className="h-5 w-5 text-neon-purple" />,
-                color: 'text-neon-purple',
-              },
-              {
-                label: 'Avg Risk:Reward',
-                value: `${(signals.reduce((a, b) => a + b.risk_reward, 0) / signals.length).toFixed(2)}:1`,
-                icon: <Shield className="h-5 w-5 text-neon-gold" />,
-                color: 'text-neon-gold',
-              },
-            ].map((stat, i) => (
-              <Card3D key={stat.label} maxTilt={4}>
-                <div className="glass-card-neu rounded-2xl border border-white/[0.04] p-6 transition hover:border-neon-cyan/20">
-                  <div className="mb-3 flex items-center justify-between">
-                    <span className="text-sm font-medium text-text-secondary">{stat.label}</span>
-                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-white/[0.04]">
-                      {stat.icon}
-                    </div>
-                  </div>
-                  <div className={`text-3xl font-bold ${stat.color}`}>{stat.value}</div>
-                </div>
-              </Card3D>
+      <div className="relative mx-auto max-w-7xl">
+
+        {/* Header */}
+        <div className="mb-8">
+          <Link
+            href="/dashboard"
+            className="group mb-4 inline-flex items-center gap-1.5 text-sm text-primary transition-colors hover:text-primary-hover"
+          >
+            <span className="transition-transform group-hover:-translate-x-0.5">&larr;</span> Dashboard
+          </Link>
+          <h1 className="text-3xl font-bold tracking-tight text-white md:text-4xl">
+            AI Trading Signals
+          </h1>
+          <p className="mt-2 max-w-lg text-d-text-secondary">
+            Real-time swing trade signals powered by deep learning models and multi-timeframe analysis.
+          </p>
+        </div>
+
+        {/* Filter Tabs */}
+        <div className="mb-8 flex flex-wrap items-center gap-2">
+          {(['all', 'long', 'short'] as const).map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setFilter(tab)}
+              className={`rounded-full px-5 py-2 text-sm font-medium transition-all duration-200 ${
+                filter === tab
+                  ? 'bg-primary text-black shadow-[0_0_16px_-4px_rgba(79,236,205,0.4)]'
+                  : 'border border-d-border bg-white/[0.03] text-d-text-muted hover:border-primary/30 hover:text-white'
+              }`}
+            >
+              {tab === 'all' && 'All Signals'}
+              {tab === 'long' && 'Long'}
+              {tab === 'short' && 'Short'}
+            </button>
+          ))}
+          <span className="ml-auto rounded-full border border-d-border bg-white/[0.03] px-3 py-1 text-xs text-d-text-muted">
+            {filteredSignals.length} signal{filteredSignals.length !== 1 ? 's' : ''}
+          </span>
+        </div>
+
+        {/* Loading Skeleton */}
+        {loading && (
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <SkeletonCard key={i} />
             ))}
           </div>
-        </ScrollReveal>
+        )}
 
-        {/* Filters */}
-        <ScrollReveal direction="up" delay={0.15}>
-          <div className="mb-8 flex flex-wrap items-center gap-3">
-            <Filter className="h-5 w-5 text-text-muted" />
-            <div className="flex flex-wrap gap-2">
-              {(['all', 'active', 'triggered'] as const).map((f) => (
-                <button
-                  key={f}
-                  onClick={() => setFilter(f)}
-                  className={`rounded-xl px-5 py-2.5 text-sm font-medium transition-all ${
-                    filter === f
-                      ? 'bg-neon-cyan/10 text-neon-cyan border border-neon-cyan/20 shadow-glow-sm'
-                      : 'glass-card-neu border border-white/[0.04] text-text-secondary hover:border-neon-cyan/20 hover:text-text-primary'
-                  }`}
-                >
-                  {f === 'all' && 'All Signals'}
-                  {f === 'active' && 'Active'}
-                  {f === 'triggered' && 'Triggered'}
-                </button>
-              ))}
-            </div>
-          </div>
-        </ScrollReveal>
-
-        {/* Signals List */}
-        <div className="space-y-5">
-          {filteredSignals.map((signal, index) => (
-            <ScrollReveal key={signal.id} direction="up" delay={0.05 * index}>
-              <Card3D maxTilt={3}>
-                <Link href={`/signals/${signal.id}`} className="block">
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.08 }}
-                    className="glass-card-neu group overflow-hidden rounded-2xl border border-white/[0.04] transition-all hover:border-neon-cyan/20 hover:shadow-glow-sm"
+        {/* Signal Cards Grid */}
+        {!loading && filteredSignals.length > 0 && (
+          <div className="grid grid-cols-1 gap-5 md:grid-cols-2 xl:grid-cols-3">
+            {filteredSignals.map((signal, idx) => {
+              const isLong = signal.direction === 'LONG'
+              return (
+                <Link key={signal.id} href={`/signals/${signal.id}`}>
+                  <div
+                    className="glass-card group flex h-full cursor-pointer flex-col rounded-xl border border-d-border p-4 transition-all duration-200 hover:border-d-border-hover"
+                    style={{
+                      animation: `signal-fade-in 0.4s ease-out ${idx * 0.06}s both`,
+                    }}
                   >
-                    {/* Signal Header */}
-                    <div className="border-b border-white/[0.04] bg-white/[0.02] px-4 py-4 sm:px-6">
-                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                        <div className="flex items-center gap-4">
-                          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-neon-green/10 shadow-glow-success/20">
-                            <TrendingUp className="h-5 w-5 text-neon-green" />
-                          </div>
-                          <div>
-                            <div className="flex flex-wrap items-center gap-2.5">
-                              <span className="text-lg font-bold text-text-primary">
-                                {signal.symbol}
-                              </span>
-                              <span className="badge-glass-neu-success rounded-md px-2.5 py-0.5 text-xs font-bold">
-                                BUY
-                              </span>
-                            </div>
-                            <span className="text-sm text-text-secondary">{signal.name}</span>
-                          </div>
+
+                    {/* Top: Avatar + Name + Direction Badge */}
+                    <div className="mb-4 flex items-center gap-3">
+                      <div className={`flex h-10 w-10 items-center justify-center rounded-full text-sm font-bold ${
+                        isLong ? 'bg-up/10 text-up' : 'bg-down/10 text-down'
+                      }`}>
+                        {signal.symbol.charAt(0)}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate font-semibold text-white transition-colors group-hover:text-primary">{signal.symbol}</div>
+                        <div className="truncate text-xs text-d-text-muted">{signal.name}</div>
+                      </div>
+                      <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold ${
+                        isLong ? 'bg-up/10 text-up' : 'bg-down/10 text-down'
+                      }`}>
+                        {isLong ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
+                        {signal.direction}
+                      </span>
+                    </div>
+
+                    {/* Price Levels */}
+                    <div className="mb-4 grid grid-cols-3 gap-3">
+                      <div className="rounded-lg bg-white/[0.03] p-2">
+                        <div className="mb-0.5 text-[10px] font-medium uppercase tracking-wider text-d-text-muted">Entry</div>
+                        <div className="font-mono num-display text-sm font-semibold text-primary">
+                          {'\u20B9'}{signal.entry_price.toFixed(2)}
                         </div>
-                        <div className="flex flex-wrap items-center gap-3 pl-15 sm:gap-5 sm:pl-0">
-                          <span className="flex items-center gap-1.5">
-                            <StatusDot status={getStatusDotVariant(signal.status)} />
-                            <span className={`text-xs font-semibold uppercase tracking-wide ${
-                              signal.status === 'active' ? 'text-neon-green' :
-                              signal.status === 'triggered' ? 'text-neon-gold' :
-                              'text-text-muted'
-                            }`}>
-                              {signal.status}
-                            </span>
-                          </span>
-                          <div className="flex items-center gap-1.5 text-sm text-text-muted">
-                            <Clock className="h-4 w-4" />
-                            {getTimeAgo(signal.generated_at)}
-                          </div>
-                          <div className="flex items-center gap-1.5 rounded-full bg-neon-cyan/10 px-4 py-1.5 border border-neon-cyan/20">
-                            <Sparkles className="h-4 w-4 text-neon-cyan" />
-                            <span className="text-sm font-bold text-neon-cyan">{signal.confidence}%</span>
-                          </div>
-                          <ChevronRight className="hidden h-5 w-5 text-text-muted transition-transform group-hover:translate-x-1 group-hover:text-neon-cyan sm:block" />
+                      </div>
+                      <div className="rounded-lg bg-white/[0.03] p-2">
+                        <div className="mb-0.5 text-[10px] font-medium uppercase tracking-wider text-d-text-muted">Target</div>
+                        <div className="font-mono num-display text-sm font-semibold text-up">
+                          {'\u20B9'}{signal.target_price.toFixed(2)}
+                        </div>
+                      </div>
+                      <div className="rounded-lg bg-white/[0.03] p-2">
+                        <div className="mb-0.5 text-[10px] font-medium uppercase tracking-wider text-d-text-muted">SL</div>
+                        <div className="font-mono num-display text-sm font-semibold text-down">
+                          {'\u20B9'}{signal.stop_loss.toFixed(2)}
                         </div>
                       </div>
                     </div>
 
-                    {/* Signal Data Grid */}
-                    <div className="grid grid-cols-2 gap-4 p-4 sm:p-6 md:grid-cols-4">
-                      <div>
-                        <div className="mb-1.5 text-xs font-medium uppercase tracking-wider text-text-muted">
-                          Entry Price
-                        </div>
-                        <div className="glass-neu-inset rounded-xl px-4 py-3 text-center">
-                          <div className="text-lg font-bold text-neon-cyan">
-                            ₹{signal.entry_price.toFixed(2)}
-                          </div>
-                        </div>
+                    {/* Confidence Meter + ML Score */}
+                    <div className="mb-3">
+                      <div className="mb-1.5 flex items-center justify-between">
+                        <span className="text-[10px] font-medium uppercase tracking-wider text-d-text-muted">Confidence</span>
+                        {signal.catboost_score != null && signal.catboost_score > 0 && (
+                          <ModelScoreBadge score={signal.catboost_score} />
+                        )}
                       </div>
-                      <div>
-                        <div className="mb-1.5 text-xs font-medium uppercase tracking-wider text-text-muted">
-                          Target
-                        </div>
-                        <div className="glass-neu-inset rounded-xl px-4 py-3 text-center">
-                          <div className="flex items-center justify-center gap-1.5 text-lg font-bold text-neon-green">
-                            <ArrowUp className="h-4 w-4" />
-                            ₹{signal.target_price.toFixed(2)}
-                          </div>
-                        </div>
-                      </div>
-                      <div>
-                        <div className="mb-1.5 text-xs font-medium uppercase tracking-wider text-text-muted">
-                          Stop Loss
-                        </div>
-                        <div className="glass-neu-inset rounded-xl px-4 py-3 text-center">
-                          <div className="flex items-center justify-center gap-1.5 text-lg font-bold text-danger">
-                            <ArrowDown className="h-4 w-4" />
-                            ₹{signal.stop_loss.toFixed(2)}
-                          </div>
-                        </div>
-                      </div>
-                      <div>
-                        <div className="mb-1.5 text-xs font-medium uppercase tracking-wider text-text-muted">
-                          Risk:Reward
-                        </div>
-                        <div className="glass-neu-inset rounded-xl px-4 py-3 text-center">
-                          <div className="text-lg font-bold text-neon-purple">
-                            {signal.risk_reward.toFixed(2)}:1
-                          </div>
-                        </div>
-                      </div>
+                      <ConfidenceMeter score={signal.confidence} size="sm" showValue />
                     </div>
 
-                    {/* Confidence Bar */}
-                    <div className="border-t border-white/[0.04] px-6 py-3">
-                      <div className="flex items-center gap-3">
-                        <span className="text-xs font-medium text-text-muted">AI Confidence</span>
-                        <div className="flex-1 overflow-hidden rounded-full bg-white/[0.04] h-1.5">
-                          <motion.div
-                            initial={{ width: 0 }}
-                            animate={{ width: `${signal.confidence}%` }}
-                            transition={{ duration: 1, delay: index * 0.1 + 0.3 }}
-                            className="h-full rounded-full bg-gradient-to-r from-neon-cyan to-neon-green"
-                            style={{ boxShadow: '0 0 8px rgba(0, 229, 255, 0.4)' }}
-                          />
-                        </div>
-                        <span className="text-xs font-bold text-neon-cyan">{signal.confidence}%</span>
-                      </div>
+                    {/* Footer: R:R + Time */}
+                    <div className="mt-auto flex items-center justify-between border-t border-d-border pt-3">
+                      <span className="text-xs text-d-text-muted">
+                        R:R <span className="font-mono num-display font-medium text-white">{signal.risk_reward.toFixed(2)}:1</span>
+                      </span>
+                      <span className="flex items-center gap-1 text-xs text-d-text-muted">
+                        <Clock className="h-3 w-3" />
+                        {getTimeAgo(signal.generated_at)}
+                      </span>
                     </div>
-                  </motion.div>
+                  </div>
                 </Link>
-              </Card3D>
-            </ScrollReveal>
-          ))}
-        </div>
+              )
+            })}
+          </div>
+        )}
 
         {/* Empty State */}
-        {filteredSignals.length === 0 && (
-          <ScrollReveal direction="up" delay={0.1}>
-            <div className="glass-card-neu rounded-2xl border border-white/[0.04] p-16 text-center">
-              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-white/[0.04]">
-                <AlertCircle className="h-8 w-8 text-text-muted" />
+        {!loading && filteredSignals.length === 0 && (
+          <div className="flex flex-col items-center justify-center py-24 text-center">
+            {/* Animated radar/scanner SVG */}
+            <div className="relative mb-6 flex h-[120px] w-[120px] items-center justify-center">
+              <svg viewBox="0 0 120 120" width="120" height="120" className="absolute inset-0 text-white/10">
+                {/* Outer ring */}
+                <circle cx="60" cy="60" r="54" fill="none" stroke="currentColor" strokeWidth="1.5" />
+                {/* Middle ring */}
+                <circle cx="60" cy="60" r="38" fill="none" stroke="currentColor" strokeWidth="1" />
+                {/* Inner ring */}
+                <circle cx="60" cy="60" r="22" fill="none" stroke="currentColor" strokeWidth="0.75" />
+                {/* Center dot */}
+                <circle cx="60" cy="60" r="3" className="text-primary" fill="currentColor" opacity="0.6" />
+                {/* Cross hairs */}
+                <line x1="60" y1="2" x2="60" y2="18" stroke="currentColor" strokeWidth="0.75" />
+                <line x1="60" y1="102" x2="60" y2="118" stroke="currentColor" strokeWidth="0.75" />
+                <line x1="2" y1="60" x2="18" y2="60" stroke="currentColor" strokeWidth="0.75" />
+                <line x1="102" y1="60" x2="118" y2="60" stroke="currentColor" strokeWidth="0.75" />
+              </svg>
+              {/* Rotating sweep line */}
+              <div
+                className="absolute inset-0"
+                style={{
+                  animation: 'radar-sweep 3s linear infinite',
+                }}
+              >
+                <svg viewBox="0 0 120 120" width="120" height="120">
+                  <defs>
+                    <linearGradient id="sweepGrad" x1="0" y1="0" x2="1" y2="0">
+                      <stop offset="0%" stopColor="#00F0FF" stopOpacity="0" />
+                      <stop offset="100%" stopColor="#00F0FF" stopOpacity="0.5" />
+                    </linearGradient>
+                  </defs>
+                  {/* Sweep cone */}
+                  <path
+                    d="M60,60 L60,6 A54,54 0 0,1 105,35 Z"
+                    fill="url(#sweepGrad)"
+                    opacity="0.15"
+                  />
+                  {/* Sweep line */}
+                  <line x1="60" y1="60" x2="60" y2="6" className="text-primary" stroke="currentColor" strokeWidth="1.5" opacity="0.6" />
+                </svg>
               </div>
-              <p className="text-lg font-medium text-text-secondary">No signals found for the selected filter</p>
-              <p className="mt-2 text-sm text-text-muted">Try selecting a different filter or check back later</p>
+              {/* Ambient glow behind radar */}
+              <div className="pointer-events-none absolute inset-0 rounded-full bg-primary/[0.04] blur-xl" />
+              <style>{`
+                @keyframes radar-sweep {
+                  from { transform: rotate(0deg); }
+                  to { transform: rotate(360deg); }
+                }
+              `}</style>
             </div>
-          </ScrollReveal>
+            <h3 className="mb-1 text-lg font-semibold text-white">No signals found</h3>
+            <p className="max-w-xs text-sm text-d-text-muted">
+              {filter !== 'all'
+                ? `No ${filter} signals available right now. Try switching to "All Signals".`
+                : 'The AI engine hasn\'t generated any signals yet. Check back soon.'}
+            </p>
+          </div>
         )}
       </div>
     </div>
+    </AppLayout>
   )
 }

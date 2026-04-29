@@ -1,5 +1,5 @@
 """
-SwingAI Strategy Base Classes
+Quant X Strategy Base Classes
 =============================
 Base interface for all 15 trading strategies.
 Each strategy is a standalone trading system: scan → signal → manage → exit.
@@ -119,6 +119,14 @@ class BaseStrategy(ABC):
         """Find the highest high in the last `lookback` bars."""
         start = max(0, idx - lookback)
         return df['high'].iloc[start:idx + 1].max()
+
+    def _check_time_exit(self, df: pd.DataFrame, position: 'Position') -> Optional[ExitSignal]:
+        """Force exit losing positions held beyond max_hold_bars."""
+        if position.hold_days >= self.max_hold_bars:
+            close = float(df.iloc[-1]['close'])
+            if close <= position.entry_price:
+                return ExitSignal(reason="time_exit", exit_price=close)
+        return None
 
     @staticmethod
     def confluence_bonus(curr) -> tuple:

@@ -1,0 +1,41 @@
+# ============================================================================
+# QUANT X — TRAINING-ONLY DEPENDENCIES (PR 151)
+# ----------------------------------------------------------------------------
+# The API container does not need these. They're only required on the
+# GPU box that runs ``python -m ml.training.runner --all``.
+#
+# Install order:
+#   pip install -r requirements.txt        # API + inference
+#   pip install -r requirements-train.txt  # training extras
+# ============================================================================
+
+-r requirements.txt
+
+# ── F5 AI SIP portfolio optimization ───────────────────────────────────────
+PyPortfolioOpt>=1.5.5
+
+# ── F3 Momentum zero-shot forecasters (PR 137) ─────────────────────────────
+# Install via git+ for TimesFM until the maintainer ships a Python-3.12
+# wheel on PyPI. Chronos-Bolt is on PyPI directly.
+chronos-forecasting>=1.4.0
+# timesfm[torch] @ git+https://github.com/google-research/timesfm.git@master
+
+# ── F8 RegimeIQ HMM ────────────────────────────────────────────────────────
+hmmlearn>=0.3.0
+
+# ── F2 Swing TFT + F6 VolCast TFT ──────────────────────────────────────────
+pytorch-forecasting>=1.4.0
+lightning>=2.1.3
+
+# ── Tabular ML stack ───────────────────────────────────────────────────────
+lightgbm>=4.1.0
+xgboost>=2.0.0
+scikit-learn>=1.4.0
+
+# ── Data ingest used only at training time ─────────────────────────────────
+yfinance>=0.2.36
+nsepy>=0.8                      # bhavcopy + corporate actions feed
+jugaad-data>=0.30               # historical bhavcopy fallback
+
+# ── F4 RL training extras (gymnasium + SB3 already in requirements.txt) ────
+# (no extras here — SB3 is sufficient for PPO+DDPG+A2C on Mlp policies)

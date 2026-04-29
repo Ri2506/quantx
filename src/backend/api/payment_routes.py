@@ -1,6 +1,6 @@
 """
 ================================================================================
-SWINGAI - RAZORPAY PAYMENT ROUTES
+QUANT X - RAZORPAY PAYMENT ROUTES
 ================================================================================
 Complete payment integration with:
 - Order creation
@@ -27,6 +27,12 @@ from ..core.config import settings
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/payments", tags=["Payments"])
+
+
+def _get_current_user_dep():
+    """Lazy import to avoid circular dependency with app.py."""
+    from ..api.app import get_current_user
+    return get_current_user
 
 # ============================================================================
 # SCHEMAS
@@ -109,17 +115,9 @@ async def get_or_create_payment(
     amount: int
 ) -> Dict:
     """
-    Idempotent payment creation - returns existing payment if order_id exists.
+    Idempotent payment creation — uses upsert with razorpay_order_id UNIQUE
+    constraint to prevent race conditions from concurrent requests.
     """
-    # Check if payment already exists
-    existing = supabase.table("payments").select("*").eq(
-        "razorpay_order_id", razorpay_order_id
-    ).execute()
-    
-    if existing.data:
-        return existing.data[0]
-    
-    # Create new payment record
     payment = {
         "user_id": user_id,
         "razorpay_order_id": razorpay_order_id,
@@ -128,8 +126,11 @@ async def get_or_create_payment(
         "billing_period": billing_period,
         "status": "pending"
     }
-    
-    result = supabase.table("payments").insert(payment).execute()
+
+    # Upsert: insert or return existing row (relies on UNIQUE index on razorpay_order_id)
+    result = supabase.table("payments").upsert(
+        payment, on_conflict="razorpay_order_id"
+    ).execute()
     return result.data[0] if result.data else payment
 
 async def process_successful_payment(
@@ -146,16 +147,16 @@ async def process_successful_payment(
     payment = supabase.table("payments").select("*").eq(
         "id", payment_id
     ).single().execute()
-    
+
     if not payment.data:
         logger.error(f"Payment not found: {payment_id}")
         return False
-    
+
     # Check if already processed (idempotency)
     if payment.data["status"] == "completed":
         logger.info(f"Payment {payment_id} already completed - skipping")
         return False
-    
+
     # Update payment record
     supabase.table("payments").update({
         "razorpay_payment_id": razorpay_payment_id,
@@ -163,23 +164,71 @@ async def process_successful_payment(
         "status": "completed",
         "completed_at": datetime.utcnow().isoformat()
     }).eq("id", payment_id).execute()
-    
+
     # Activate subscription
     user_id = payment.data["user_id"]
     plan_id = payment.data["plan_id"]
     billing_period = payment.data["billing_period"]
-    
+
     subscription_end = calculate_subscription_end(billing_period)
-    
+
+    # PR 26 — resolve plan name → tier string before the profile write so we
+    # only do one user_profiles update instead of two.
+    previous_tier = _current_user_tier(supabase, user_id)
+    new_tier = _resolve_tier_from_plan(supabase, plan_id) or previous_tier
+
+    # PR 44 — consume accumulated referral credit (N12). Extends
+    # subscription_end by 30 days per credited month. The consume helper
+    # zeroes the column, so a retry of this payment won't re-apply.
+    referral_bonus_days = 0
+    try:
+        from ..services.referrals import consume_referral_credit
+        bonus_months = consume_referral_credit(user_id, supabase_client=supabase)
+        if bonus_months > 0:
+            referral_bonus_days = bonus_months * 30
+            subscription_end = subscription_end + timedelta(days=referral_bonus_days)
+            logger.info(
+                "Payment %s — referral credit consumed: user=%s +%d months (+%d days)",
+                payment_id, user_id, bonus_months, referral_bonus_days,
+            )
+    except Exception as ref_exc:
+        logger.warning("referral credit consume skipped for %s: %s", user_id, ref_exc)
+
     supabase.table("user_profiles").update({
         "subscription_plan_id": plan_id,
         "subscription_status": "active",
         "subscription_start": datetime.utcnow().isoformat(),
-        "subscription_end": subscription_end.isoformat()
+        "subscription_end": subscription_end.isoformat(),
+        "tier": new_tier,
     }).eq("id", user_id).execute()
-    
-    logger.info(f"Payment {payment_id} processed - subscription activated for user {user_id}")
-    
+
+    logger.info(
+        "Payment %s processed — subscription activated for user %s (%s → %s, +%d bonus days)",
+        payment_id, user_id, previous_tier, new_tier, referral_bonus_days,
+    )
+
+    # PR 26 — notify the rest of the stack that the tier changed.
+    if new_tier != previous_tier:
+        await _emit_tier_change(
+            supabase=supabase,
+            user_id=user_id,
+            previous=previous_tier,
+            new=new_tier,
+            plan_id=plan_id,
+            payment_id=payment_id,
+            direction="upgrade",
+        )
+
+        # PR 42 — N12 referral reward. On first paid upgrade (free → pro/elite)
+        # both the referrer and this user get +1 month Pro credit. Fire once;
+        # the resolver guards against double-reward via status=rewarded.
+        if previous_tier == "free" and new_tier in {"pro", "elite"}:
+            try:
+                from ..services.referrals import credit_referral_on_first_paid
+                credit_referral_on_first_paid(user_id, supabase_client=supabase)
+            except Exception as ref_exc:
+                logger.warning("referral credit skipped for %s: %s", user_id, ref_exc)
+
     return True
 
 async def process_failed_payment(
@@ -247,21 +296,159 @@ async def process_refund(
     # Revert subscription if full refund
     if refund_amount >= payment.data["amount"]:
         user_id = payment.data["user_id"]
-        
+
         # Get free plan
         free_plan = supabase.table("subscription_plans").select("id").eq(
             "name", "free"
         ).single().execute()
-        
+
+        previous_tier = _current_user_tier(supabase, user_id)
+
         supabase.table("user_profiles").update({
             "subscription_plan_id": free_plan.data["id"] if free_plan.data else None,
             "subscription_status": "free",
-            "subscription_end": None
+            "subscription_end": None,
+            "tier": "free",
         }).eq("id", user_id).execute()
-        
+
         logger.info(f"Full refund processed - subscription reverted for user {user_id}")
-    
+
+        # PR 26 — emit tier_downgraded so Copilot caps + feature gates flip
+        # back to Free immediately.
+        if previous_tier != "free":
+            await _emit_tier_change(
+                supabase=supabase,
+                user_id=user_id,
+                previous=previous_tier,
+                new="free",
+                plan_id=free_plan.data["id"] if free_plan.data else None,
+                payment_id=payment.data["id"],
+                direction="downgrade",
+            )
+
     return True
+
+
+# ============================================================================
+# PR 26 — tier resolver + change emitter (shared by success + refund paths)
+# ============================================================================
+
+
+def _resolve_tier_from_plan(supabase: Client, plan_id: str) -> Optional[str]:
+    """Map ``subscription_plans.name`` → Tier enum value.
+
+    Canonical plan names in the DB: ``free`` / ``pro`` / ``elite``. Returns
+    None when the plan lookup fails (caller falls back to previous tier
+    so we never accidentally downgrade a paying user on a DB blip).
+    """
+    try:
+        row = (
+            supabase.table("subscription_plans")
+            .select("name")
+            .eq("id", plan_id)
+            .limit(1)
+            .execute()
+        )
+        rows = row.data or []
+        if not rows:
+            return None
+        name = str(rows[0].get("name") or "").strip().lower()
+        if name in ("free", "pro", "elite"):
+            return name
+        # Legacy plan names — normalize.
+        if "elite" in name or "premium" in name:
+            return "elite"
+        if "pro" in name or "plus" in name:
+            return "pro"
+        return "free"
+    except Exception as exc:
+        logger.warning("plan→tier lookup failed for %s: %s", plan_id, exc)
+        return None
+
+
+def _current_user_tier(supabase: Client, user_id: str) -> str:
+    """Read the user's current tier column; default to ``free`` on any error."""
+    try:
+        row = (
+            supabase.table("user_profiles")
+            .select("tier")
+            .eq("id", user_id)
+            .limit(1)
+            .execute()
+        )
+        rows = row.data or []
+        return str((rows[0] or {}).get("tier") or "free").strip().lower() or "free"
+    except Exception:
+        return "free"
+
+
+async def _emit_tier_change(
+    *,
+    supabase: Client,
+    user_id: str,
+    previous: str,
+    new: str,
+    plan_id: Optional[str],
+    payment_id: str,
+    direction: str,
+) -> None:
+    """Fan-out side-effects when a user's tier flips.
+
+    - Invalidate the in-process tier cache (PR 14) so the next gate check
+      sees the new tier without the 60s TTL wait.
+    - Emit a ``tier_upgraded`` / ``tier_downgraded`` PostHog event with
+      the payment_id + plan_id so conversion-funnel dashboards stay honest.
+    - Refresh PostHog user context so distinct_id properties carry the
+      new tier for every subsequent event.
+    - Broadcast the ``tier_upgraded`` WS event via PR 13 event_bus so
+      any active frontend session re-fetches ``/api/user/tier`` and
+      unlocks the newly-available features live.
+    """
+    # 1) cache bust
+    try:
+        from ..core.tiers import invalidate_user_tier_cache
+        invalidate_user_tier_cache(user_id)
+    except Exception as exc:
+        logger.debug("tier cache invalidate skipped: %s", exc)
+
+    # 2) PostHog analytics + identify
+    try:
+        from ..observability import EventName, set_user_context, track
+        track(
+            EventName.TIER_UPGRADED if direction == "upgrade" else EventName.TIER_DOWNGRADED,
+            user_id,
+            {
+                "previous_tier": previous,
+                "new_tier": new,
+                "plan_id": plan_id,
+                "payment_id": payment_id,
+            },
+        )
+        set_user_context(user_id, {"tier": new})
+    except Exception as exc:
+        logger.debug("PostHog tier-change emit skipped: %s", exc)
+
+    # 3) Real-time event bus so frontend hides tier-gate locks immediately
+    try:
+        from ..services.event_bus import MessageType, emit_event
+        await emit_event(
+            MessageType.NOTIFICATION,
+            {
+                "type": f"tier_{direction}d",
+                "title": f"Tier {direction}d to {new.title()}",
+                "message": (
+                    "Your plan just upgraded. New features unlocked — reload the page to see them."
+                    if direction == "upgrade"
+                    else "Your plan downgraded to Free after refund."
+                ),
+                "previous_tier": previous,
+                "new_tier": new,
+                "priority": "high",
+            },
+            user_id=user_id,
+        )
+    except Exception as exc:
+        logger.debug("EventBus tier-change emit skipped: %s", exc)
 
 # ============================================================================
 # API ENDPOINTS
@@ -270,17 +457,11 @@ async def process_refund(
 @router.post("/create-order")
 async def create_order(
     data: CreateSubscriptionOrder,
-    user = None  # Will be injected by dependency
+    user = Depends(_get_current_user_dep()),
 ):
     """
     Create a Razorpay order for subscription payment.
     """
-    from ..api.app import get_current_user
-    
-    # This will be called with proper dependency injection from app.py
-    # For now, we handle the case where user might be None
-    if user is None:
-        raise HTTPException(status_code=401, detail="Authentication required")
     
     supabase = get_supabase_admin()
     rzp = get_razorpay_client()
@@ -347,13 +528,11 @@ async def create_order(
 @router.post("/verify")
 async def verify_payment(
     data: VerifyPaymentRequest,
-    user = None
+    user = Depends(_get_current_user_dep()),
 ):
     """
     Verify Razorpay payment signature and activate subscription.
     """
-    if user is None:
-        raise HTTPException(status_code=401, detail="Authentication required")
     
     supabase = get_supabase_admin()
     
@@ -420,14 +599,17 @@ async def handle_webhook(
     """
     # Get raw body for signature verification
     body = await request.body()
-    
-    # Verify webhook signature
-    webhook_secret = getattr(settings, 'RAZORPAY_WEBHOOK_SECRET', settings.RAZORPAY_KEY_SECRET)
-    
-    if x_razorpay_signature:
-        if not verify_webhook_signature(body, x_razorpay_signature, webhook_secret):
-            logger.warning("Invalid webhook signature")
-            raise HTTPException(status_code=400, detail="Invalid signature")
+
+    # Verify webhook signature (MANDATORY — reject unsigned requests)
+    webhook_secret = settings.RAZORPAY_WEBHOOK_SECRET or settings.RAZORPAY_KEY_SECRET
+
+    if not x_razorpay_signature:
+        logger.warning("Webhook request missing X-Razorpay-Signature header")
+        raise HTTPException(status_code=400, detail="Missing signature")
+
+    if not verify_webhook_signature(body, x_razorpay_signature, webhook_secret):
+        logger.warning("Invalid webhook signature")
+        raise HTTPException(status_code=400, detail="Invalid signature")
     
     # Parse payload
     try:
@@ -556,12 +738,10 @@ async def initiate_refund(
 # ============================================================================
 
 @router.get("/subscription-status")
-async def get_subscription_status(user = None):
+async def get_subscription_status(user = Depends(_get_current_user_dep())):
     """
     Get current user's subscription status.
     """
-    if user is None:
-        raise HTTPException(status_code=401, detail="Authentication required")
     
     supabase = get_supabase_admin()
     

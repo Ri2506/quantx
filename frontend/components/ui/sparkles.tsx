@@ -26,7 +26,7 @@ export function Sparkles({
   return (
     <div
       className={cn(
-        "pointer-events-none absolute inset-0 mix-blend-screen animate-float",
+        "pointer-events-none absolute inset-0 mix-blend-screen",
         className
       )}
       style={{

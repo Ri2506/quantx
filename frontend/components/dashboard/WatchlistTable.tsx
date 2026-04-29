@@ -1,5 +1,5 @@
 // ============================================================================
-// SWINGAI - WATCHLIST TABLE COMPONENT
+// QUANT X - WATCHLIST TABLE COMPONENT
 // Real-time sortable, filterable watchlist
 // ============================================================================
 
@@ -88,13 +88,13 @@ export default function WatchlistTable({
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-background-surface/50 backdrop-blur-xl rounded-2xl border border-gray-800 overflow-hidden"
+      className="bg-background-surface rounded-2xl border border-d-border overflow-hidden"
     >
       {/* Header */}
-      <div className="flex items-center justify-between p-6 border-b border-gray-800">
+      <div className="flex items-center justify-between p-6 border-b border-d-border">
         <div>
-          <h3 className="text-lg font-bold text-text-primary">Watchlist</h3>
-          <p className="text-sm text-text-secondary">{filteredStocks.length} stocks</p>
+          <h3 className="text-lg font-bold text-white">Watchlist</h3>
+          <p className="text-sm text-white/60">{filteredStocks.length} stocks</p>
         </div>
 
         {/* Filter Buttons */}
@@ -104,7 +104,7 @@ export default function WatchlistTable({
             className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
               filter === 'all'
                 ? 'bg-primary text-white'
-                : 'bg-background-elevated text-text-secondary hover:text-text-primary'
+                : 'bg-background-elevated text-white/60 hover:text-white'
             }`}
           >
             All
@@ -113,8 +113,8 @@ export default function WatchlistTable({
             onClick={() => setFilter('gainers')}
             className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
               filter === 'gainers'
-                ? 'bg-success text-white'
-                : 'bg-background-elevated text-text-secondary hover:text-text-primary'
+                ? 'bg-up text-white'
+                : 'bg-background-elevated text-white/60 hover:text-white'
             }`}
           >
             Gainers
@@ -123,8 +123,8 @@ export default function WatchlistTable({
             onClick={() => setFilter('losers')}
             className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-all ${
               filter === 'losers'
-                ? 'bg-danger text-white'
-                : 'bg-background-elevated text-text-secondary hover:text-text-primary'
+                ? 'bg-down text-white'
+                : 'bg-background-elevated text-white/60 hover:text-white'
             }`}
           >
             Losers
@@ -140,7 +140,7 @@ export default function WatchlistTable({
               <th className="px-6 py-3 text-left">
                 <button
                   onClick={() => handleSort('symbol')}
-                  className="flex items-center gap-1 text-xs font-medium text-text-muted hover:text-text-primary transition-colors"
+                  className="flex items-center gap-1 text-xs font-medium text-d-text-muted hover:text-white transition-colors"
                 >
                   Symbol
                   <ArrowUpDown className="w-3 h-3" />
@@ -149,7 +149,7 @@ export default function WatchlistTable({
               <th className="px-6 py-3 text-right">
                 <button
                   onClick={() => handleSort('price')}
-                  className="flex items-center gap-1 ml-auto text-xs font-medium text-text-muted hover:text-text-primary transition-colors"
+                  className="flex items-center gap-1 ml-auto text-xs font-medium text-d-text-muted hover:text-white transition-colors"
                 >
                   LTP
                   <ArrowUpDown className="w-3 h-3" />
@@ -158,7 +158,7 @@ export default function WatchlistTable({
               <th className="px-6 py-3 text-right">
                 <button
                   onClick={() => handleSort('change')}
-                  className="flex items-center gap-1 ml-auto text-xs font-medium text-text-muted hover:text-text-primary transition-colors"
+                  className="flex items-center gap-1 ml-auto text-xs font-medium text-d-text-muted hover:text-white transition-colors"
                 >
                   Change
                   <ArrowUpDown className="w-3 h-3" />
@@ -167,7 +167,7 @@ export default function WatchlistTable({
               <th className="px-6 py-3 text-right">
                 <button
                   onClick={() => handleSort('changePercent')}
-                  className="flex items-center gap-1 ml-auto text-xs font-medium text-text-muted hover:text-text-primary transition-colors"
+                  className="flex items-center gap-1 ml-auto text-xs font-medium text-d-text-muted hover:text-white transition-colors"
                 >
                   Change %
                   <ArrowUpDown className="w-3 h-3" />
@@ -176,21 +176,21 @@ export default function WatchlistTable({
               <th className="px-6 py-3 text-right">
                 <button
                   onClick={() => handleSort('volume')}
-                  className="flex items-center gap-1 ml-auto text-xs font-medium text-text-muted hover:text-text-primary transition-colors"
+                  className="flex items-center gap-1 ml-auto text-xs font-medium text-d-text-muted hover:text-white transition-colors"
                 >
                   Volume
                   <ArrowUpDown className="w-3 h-3" />
                 </button>
               </th>
               <th className="px-6 py-3 text-right">
-                <span className="text-xs font-medium text-text-muted">Market Cap</span>
+                <span className="text-xs font-medium text-d-text-muted">Market Cap</span>
               </th>
               <th className="px-6 py-3 text-right">
-                <span className="text-xs font-medium text-text-muted">Actions</span>
+                <span className="text-xs font-medium text-d-text-muted">Actions</span>
               </th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-800">
+          <tbody className="divide-y divide-d-border">
             {filteredStocks.map((stock, index) => {
               const isPositive = stock.change >= 0
 
@@ -213,20 +213,20 @@ export default function WatchlistTable({
                           className={`w-4 h-4 ${
                             stock.isFavorite
                               ? 'fill-warning text-warning'
-                              : 'text-text-muted hover:text-warning'
+                              : 'text-d-text-muted hover:text-warning'
                           }`}
                         />
                       </button>
                       <div>
-                        <div className="font-bold text-text-primary">{stock.symbol}</div>
-                        <div className="text-xs text-text-muted">{stock.name}</div>
+                        <div className="font-bold text-white">{stock.symbol}</div>
+                        <div className="text-xs text-d-text-muted">{stock.name}</div>
                       </div>
                     </div>
                   </td>
 
                   {/* Price */}
                   <td className="px-6 py-4 text-right">
-                    <div className="font-mono text-text-primary font-medium">
+                    <div className="font-mono text-white font-medium">
                       ₹{stock.price.toFixed(2)}
                     </div>
                   </td>
@@ -235,7 +235,7 @@ export default function WatchlistTable({
                   <td className="px-6 py-4 text-right">
                     <div
                       className={`font-mono font-medium ${
-                        isPositive ? 'text-success' : 'text-danger'
+                        isPositive ? 'text-up' : 'text-down'
                       }`}
                     >
                       {isPositive ? '+' : ''}₹{stock.change.toFixed(2)}
@@ -247,8 +247,8 @@ export default function WatchlistTable({
                     <div
                       className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-sm font-bold ${
                         isPositive
-                          ? 'bg-success/20 text-success'
-                          : 'bg-danger/20 text-danger'
+                          ? 'bg-up/20 text-up'
+                          : 'bg-down/20 text-down'
                       }`}
                     >
                       {isPositive ? (
@@ -263,14 +263,14 @@ export default function WatchlistTable({
 
                   {/* Volume */}
                   <td className="px-6 py-4 text-right">
-                    <div className="text-text-secondary text-sm">
+                    <div className="text-white/60 text-sm">
                       {(stock.volume / 1000000).toFixed(2)}M
                     </div>
                   </td>
 
                   {/* Market Cap */}
                   <td className="px-6 py-4 text-right">
-                    <div className="text-text-secondary text-sm">{stock.marketCap}</div>
+                    <div className="text-white/60 text-sm">{stock.marketCap}</div>
                   </td>
 
                   {/* Actions */}
@@ -284,7 +284,7 @@ export default function WatchlistTable({
                           className="p-2 rounded-lg hover:bg-background-surface transition-colors"
                           title="View Chart"
                         >
-                          <Eye className="w-4 h-4 text-text-muted" />
+                          <Eye className="w-4 h-4 text-d-text-muted" />
                         </motion.button>
                       )}
 
@@ -308,7 +308,7 @@ export default function WatchlistTable({
                           className="p-2 rounded-lg hover:bg-background-surface transition-colors"
                           title="Remove"
                         >
-                          <X className="w-4 h-4 text-danger" />
+                          <X className="w-4 h-4 text-down" />
                         </motion.button>
                       )}
                     </div>
@@ -323,8 +323,8 @@ export default function WatchlistTable({
       {/* Empty State */}
       {filteredStocks.length === 0 && (
         <div className="p-12 text-center">
-          <Star className="w-12 h-12 text-text-muted mx-auto mb-3 opacity-50" />
-          <p className="text-text-muted mb-2">No stocks in watchlist</p>
+          <Star className="w-12 h-12 text-d-text-muted mx-auto mb-3 opacity-50" />
+          <p className="text-d-text-muted mb-2">No stocks in watchlist</p>
           <button className="text-sm text-primary hover:text-primary-dark font-medium">
             <Plus className="w-4 h-4 inline mr-1" />
             Add stocks

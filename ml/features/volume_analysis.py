@@ -1,5 +1,5 @@
 """
-SwingAI Advanced Volume Analysis
+Quant X Advanced Volume Analysis
 ==================================
 Wyckoff-inspired volume analysis and Volume Price Analysis (VPA) signals.
 

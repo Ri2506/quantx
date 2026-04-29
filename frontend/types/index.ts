@@ -1,6 +1,6 @@
 // ============================================================================
-// SWINGAI - TYPESCRIPT TYPE DEFINITIONS
-// Global types for SwingAI platform
+// QUANT X - TYPESCRIPT TYPE DEFINITIONS
+// Global types for Quant X platform
 // ============================================================================
 
 // ============================================================================
@@ -77,9 +77,9 @@ export interface Signal {
   confidence: number // 0-100
   risk_reward_ratio?: number
   risk_reward?: number
-  catboost_score?: number
-  tft_score?: number
-  stockformer_score?: number
+  catboost_score?: number       // DB legacy name → ML meta-labeler (RandomForest) score
+  tft_score?: number            // DB legacy name → TFT price-forecast bullish score
+  stockformer_score?: number    // DB legacy name → raw strategy confidence
   position_size?: number
   model_predictions?: ModelPredictions
   technical_analysis?: TechnicalAnalysis
@@ -88,6 +88,12 @@ export interface Signal {
   reasons?: string[]
   is_premium?: boolean
   tft_prediction?: Record<string, any>
+  sentiment_score?: number        // -1 to +1
+  sentiment_label?: string        // "bullish" | "bearish" | "neutral"
+  regime_context?: string         // "bull" | "sideways" | "bear"
+  regime_confidence?: number      // 0-1
+  lgbm_score?: number            // 0-1 (internal field, not displayed by name)
+  ensemble_confidence?: number    // 0-100
   status: SignalStatus
   created_at?: string
   generated_at?: string
@@ -114,6 +120,12 @@ export type SignalStatus =
   | 'closed'
   | 'rejected'
 
+/**
+ * Model predictions — keys use DB legacy names for API compatibility.
+ *   catboost    → ML meta-labeler (RandomForest breakout filter)
+ *   tft         → TFT price forecaster (5-bar quantile)
+ *   stockformer → Raw strategy confidence
+ */
 export interface ModelPredictions {
   catboost?: {
     prediction: 'LONG' | 'SHORT'
@@ -128,7 +140,7 @@ export interface ModelPredictions {
     confidence: number
   }
   ensemble_confidence?: number
-  model_agreement?: number // 0-1 or model count
+  model_agreement?: number // count of models agreeing (1-5)
 }
 
 export interface TechnicalAnalysis {
@@ -312,7 +324,7 @@ export interface AssistantChatRequest {
 }
 
 export interface AssistantUsage {
-  tier: 'free' | 'pro'
+  tier: 'free' | 'pro' | 'elite'
   credits_limit: number
   credits_used: number
   credits_remaining: number
@@ -596,9 +608,11 @@ export interface PriceUpdate {
   symbol: string
   ltp: number
   change: number
+  change_percent: number
   change_percentage: number
   volume: number
   timestamp: string
+  source?: 'broker' | 'truedata' | 'yfinance'
 }
 
 // ============================================================================
@@ -650,4 +664,155 @@ export interface TradeFilters {
 export type SortOption = {
   field: string
   order: 'asc' | 'desc'
+}
+
+// ============================================================================
+// PATTERN DETECTION
+// ============================================================================
+
+export interface PatternResult {
+  symbol: string
+  exchange: string
+  pattern_type: string
+  trend: 'bullish' | 'bearish'
+  target_price: number
+  current_price: number
+  confidence?: number
+  detected_at: string
+}
+
+// ============================================================================
+// QUANTAI ALPHA PICKS
+// ============================================================================
+
+export interface SwingCandidate {
+  symbol: string
+  sector: string
+  price: number
+  change_percent: number
+  entry_min: number
+  entry_max: number
+  target: number
+  stop_loss: number
+  confidence_score: number
+}
+
+// ============================================================================
+// STRATEGY MARKETPLACE
+// ============================================================================
+
+export type StrategyCategory =
+  | 'options_buying'
+  | 'credit_spread'
+  | 'short_strangle'
+  | 'short_straddle'
+  | 'equity_investing'
+  | 'equity_swing'
+
+export type RiskLevel = 'low' | 'medium' | 'high' | 'very_high'
+
+export interface ConfigurableParam {
+  key: string
+  label: string
+  type: 'select' | 'number' | 'boolean'
+  options?: (string | number)[]
+  min?: number
+  max?: number
+}
+
+export interface StrategyCatalog {
+  id: string
+  slug: string
+  name: string
+  description?: string
+  category: StrategyCategory
+  segment: 'EQUITY' | 'OPTIONS'
+  template_slug: string
+  strategy_class: string
+  default_params: Record<string, unknown>
+  configurable_params: ConfigurableParam[]
+  min_capital: number
+  risk_level: RiskLevel
+  requires_fo_enabled: boolean
+  supported_symbols: string[]
+  tier_required: SubscriptionTier
+  icon?: string
+  tags: string[]
+  is_featured: boolean
+  sort_order: number
+  backtest_total_return?: number
+  backtest_cagr?: number
+  backtest_win_rate?: number
+  backtest_profit_factor?: number
+  backtest_sharpe?: number
+  backtest_max_drawdown?: number
+  backtest_total_trades?: number
+  is_active: boolean
+  created_at: string
+}
+
+export interface StrategyDeployment {
+  id: string
+  user_id: string
+  strategy_id: string
+  custom_params: Record<string, unknown>
+  allocated_capital: number
+  max_positions: number
+  trade_mode: TradingMode
+  is_active: boolean
+  is_paused: boolean
+  activated_at?: string
+  paused_at?: string
+  total_pnl: number
+  total_trades: number
+  winning_trades: number
+  losing_trades: number
+  last_signal_at?: string
+  created_at: string
+  strategy_catalog?: StrategyCatalog
+}
+
+export interface StrategyBacktestPoint {
+  date: string
+  equity: number
+  drawdown?: number
+}
+
+export interface MonthlyReturn {
+  year: number
+  month: number
+  return_pct: number
+}
+
+export interface BacktestTrade {
+  date: string
+  symbol: string
+  entry: number
+  exit: number
+  pnl: number
+  exit_reason: string
+}
+
+export interface StrategyBacktest {
+  id: string
+  strategy_id: string
+  params: Record<string, unknown>
+  period_start: string
+  period_end: string
+  total_return: number
+  cagr: number
+  win_rate: number
+  profit_factor: number
+  sharpe_ratio: number
+  sortino_ratio: number
+  max_drawdown: number
+  max_drawdown_duration_days: number
+  total_trades: number
+  avg_trade_return: number
+  avg_winner: number
+  avg_loser: number
+  avg_hold_hours: number
+  equity_curve: StrategyBacktestPoint[]
+  monthly_returns: MonthlyReturn[]
+  trade_log: BacktestTrade[]
 }

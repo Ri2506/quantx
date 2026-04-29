@@ -1,4 +1,4 @@
-"""SwingAI Services Package."""
+"""Swing AI Services Package."""
 
 SignalGenerator = None
 GeneratedSignal = None
@@ -11,8 +11,7 @@ TradeExecutor = None
 ZerodhaBroker = None
 AngelOneBroker = None
 UpstoxBroker = None
-PKScreenerIntegration = None
-SwingScreener = None
+UniverseScreener = None
 
 try:
     from .signal_generator import SignalGenerator, GeneratedSignal
@@ -35,7 +34,7 @@ except Exception:
     pass
 
 try:
-    from .pkscreener_integration import PKScreenerIntegration, SwingScreener
+    from .universe_screener import UniverseScreener
 except Exception:
     pass
 
@@ -43,23 +42,22 @@ __all__ = [
     # Signal Generation
     "SignalGenerator",
     "GeneratedSignal",
-    
+
     # Risk Management
     "RiskManagementEngine",
     "FOCalculator",
-    
+
     # F&O Trading
     "FOTradingEngine",
     "FORiskManager",
-    
+
     # Broker Integration
     "BrokerFactory",
     "TradeExecutor",
     "ZerodhaBroker",
     "AngelOneBroker",
     "UpstoxBroker",
-    
+
     # Screener
-    "PKScreenerIntegration",
-    "SwingScreener",
+    "UniverseScreener",
 ]

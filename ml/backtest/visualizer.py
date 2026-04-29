@@ -1,5 +1,5 @@
 """
-SwingAI Backtest Trade Visualizer
+Quant X Backtest Trade Visualizer
 ==================================
 Generates professional candlestick charts for backtest trades.
 
@@ -343,7 +343,7 @@ def main():
     """Run visualizer from command line."""
     import argparse
 
-    parser = argparse.ArgumentParser(description="SwingAI Backtest Trade Visualizer")
+    parser = argparse.ArgumentParser(description="Quant X Backtest Trade Visualizer")
     parser.add_argument("--stock", type=str, default=None, help="Stock filter (e.g., RELIANCE)")
     parser.add_argument("--strategy", type=str, default=None, help="Strategy filter")
     parser.add_argument("--trades", type=int, default=20, help="Max trades to plot")
@@ -352,7 +352,7 @@ def main():
     args = parser.parse_args()
 
     print(f"\n{'='*60}")
-    print(f"SWINGAI TRADE VISUALIZER")
+    print(f"QUANT X TRADE VISUALIZER")
     print(f"{'='*60}")
 
     # 1. Load universe and fetch data

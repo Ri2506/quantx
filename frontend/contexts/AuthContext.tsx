@@ -1,16 +1,17 @@
 // ============================================================================
-// SWINGAI - AUTH CONTEXT (PRODUCTION READY)
+// QUANT X - AUTH CONTEXT (PRODUCTION READY)
 // Global authentication state management
 // Removed dev-mode mock user fallbacks for production builds
 // ============================================================================
 
 'use client'
 
-import { createContext, useContext, useEffect, useState } from 'react'
+import { createContext, useContext, useEffect, useState, useMemo, useCallback } from 'react'
 import { User } from '@supabase/supabase-js'
 import { supabase, getUserProfile, createUserProfile } from '../lib/supabase'
 import { UserProfile } from '../types'
 import { useRouter } from 'next/navigation'
+import { logger } from '../lib/logger'
 
 // ============================================================================
 // TYPES
@@ -45,38 +46,6 @@ const isSupabaseConfigured = Boolean(
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 )
 
-// Check if we're in production build
-const isProduction = process.env.NODE_ENV === 'production'
-const isDemoMode = process.env.NEXT_PUBLIC_DEMO_MODE === 'true'
-const allowDemo = isDemoMode && !isProduction
-
-const demoCreatedAt = new Date().toISOString()
-const DEMO_USER = {
-  id: 'demo-user',
-  email: 'demo@swingai.local',
-  app_metadata: {},
-  user_metadata: { full_name: 'Demo User' },
-  aud: 'authenticated',
-  created_at: demoCreatedAt,
-} as User
-
-const DEMO_PROFILE: UserProfile = {
-  id: DEMO_USER.id,
-  email: DEMO_USER.email,
-  full_name: 'Demo User',
-  capital: 250000,
-  risk_profile: 'moderate',
-  trading_mode: 'signal_only',
-  max_positions: 5,
-  risk_per_trade: 1,
-  fo_enabled: false,
-  subscription_status: 'trial',
-  broker_connected: false,
-  total_trades: 0,
-  winning_trades: 0,
-  total_pnl: 0,
-  created_at: demoCreatedAt,
-}
 
 // ============================================================================
 // PROVIDER
@@ -89,11 +58,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [error, setError] = useState<string | null>(null)
   const router = useRouter()
 
-  const setDemoSession = () => {
-    setUser(DEMO_USER)
-    setProfile(DEMO_PROFILE)
-  }
-
   // ============================================================================
   // LOAD USER ON MOUNT
   // ============================================================================
@@ -103,12 +67,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         // Check if Supabase is configured
         if (!isSupabaseConfigured) {
-          console.warn('⚠️ Supabase is not configured. Authentication will not work.')
-          if (allowDemo) {
-            setDemoSession()
-          } else if (!isProduction) {
-            console.info('💡 Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in your .env file')
-          }
+          logger.warn('Supabase is not configured. Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in your .env file.')
           setLoading(false)
           return
         }
@@ -116,7 +75,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const { data: { session }, error: sessionError } = await supabase.auth.getSession()
 
         if (sessionError) {
-          console.error('Session error:', sessionError)
+          logger.error('Session error:', sessionError)
           setError('Failed to load session')
           setLoading(false)
           return
@@ -127,7 +86,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           await loadProfile(session.user.id, session.user.email || '')
         }
       } catch (err) {
-        console.error('Error loading user:', err)
+        logger.error('Error loading user:', err)
         setError('Authentication service unavailable')
       } finally {
         setLoading(false)
@@ -142,7 +101,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('Auth state changed:', event)
+        logger.log('Auth state changed:', event)
 
         if (event === 'SIGNED_IN' && session?.user) {
           setUser(session.user)
@@ -176,13 +135,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       
       // If profile doesn't exist, create one
       if (!profileData && email) {
-        console.log('Creating new profile for user:', userId)
+        logger.log('Creating new profile for user:', userId)
         profileData = await createUserProfile(userId, email)
       }
       
       setProfile(profileData as UserProfile)
     } catch (err) {
-      console.error('Error loading profile:', err)
+      logger.error('Error loading profile:', err)
       // Don't set profile error as user might still be valid
       setProfile(null)
     }
@@ -192,36 +151,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // REFRESH PROFILE
   // ============================================================================
 
-  const refreshProfile = async () => {
+  const refreshProfile = useCallback(async () => {
     if (user) {
       await loadProfile(user.id, user.email || '')
     }
-  }
+  }, [user])
 
   // ============================================================================
   // CLEAR ERROR
   // ============================================================================
 
-  const clearError = () => {
+  const clearError = useCallback(() => {
     setError(null)
-  }
+  }, [])
 
   // ============================================================================
   // SIGN UP
   // ============================================================================
 
-  const signUp = async (email: string, password: string, fullName: string) => {
+  const signUp = useCallback(async (email: string, password: string, fullName: string) => {
     if (!isSupabaseConfigured) {
-      if (allowDemo) {
-        setDemoSession()
-        return
-      }
       throw new Error('Authentication is not configured. Please contact support.')
     }
 
     try {
       setError(null)
-      
+
       const { data, error: signUpError } = await supabase.auth.signUp({
         email,
         password,
@@ -248,25 +203,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setError(message)
       throw new Error(message)
     }
-  }
+  }, [router])
 
   // ============================================================================
   // SIGN IN
   // ============================================================================
 
-  const signIn = async (email: string, password: string) => {
+  const signIn = useCallback(async (email: string, password: string) => {
     if (!isSupabaseConfigured) {
-      if (allowDemo) {
-        setDemoSession()
-        router.push('/dashboard')
-        return
-      }
       throw new Error('Authentication is not configured. Please contact support.')
     }
 
     try {
       setError(null)
-      
+
       const { data, error: signInError } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -279,6 +229,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (data.user) {
         setUser(data.user)
         await loadProfile(data.user.id, data.user.email || '')
+
+        // PR 62 — MFA gate. When the user has a verified TOTP factor
+        // their fresh session is AAL1 but the account requires AAL2.
+        // Redirect to the challenge page; only on success does it land
+        // in /dashboard. We only block when the level actually steps up.
+        try {
+          const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel()
+          if (aal && aal.currentLevel === 'aal1' && aal.nextLevel === 'aal2') {
+            router.push('/login/mfa')
+            return
+          }
+        } catch {
+          // MFA API absent / project not configured — fall through to dashboard.
+        }
+
         router.push('/dashboard')
       }
     } catch (err: any) {
@@ -286,25 +251,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setError(message)
       throw new Error(message)
     }
-  }
+  }, [router])
 
   // ============================================================================
   // SIGN IN WITH GOOGLE
   // ============================================================================
 
-  const signInWithGoogle = async () => {
+  const signInWithGoogle = useCallback(async () => {
     if (!isSupabaseConfigured) {
-      if (allowDemo) {
-        setDemoSession()
-        router.push('/dashboard')
-        return
-      }
       throw new Error('Authentication is not configured. Please contact support.')
     }
 
     try {
       setError(null)
-      
+
       const { error: oauthError } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
@@ -320,20 +280,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setError(message)
       throw new Error(message)
     }
-  }
+  }, [])
 
   // ============================================================================
   // SIGN OUT
   // ============================================================================
 
-  const signOut = async () => {
+  const signOut = useCallback(async () => {
     try {
       setError(null)
       
       if (isSupabaseConfigured) {
         const { error: signOutError } = await supabase.auth.signOut()
         if (signOutError) {
-          console.error('Sign out error:', signOutError)
+          logger.error('Sign out error:', signOutError)
         }
       }
 
@@ -341,19 +301,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setProfile(null)
       router.push('/')
     } catch (err: any) {
-      console.error('Sign out error:', err)
+      logger.error('Sign out error:', err)
       // Force clear state even on error
       setUser(null)
       setProfile(null)
       router.push('/')
     }
-  }
+  }, [router])
 
   // ============================================================================
-  // CONTEXT VALUE
+  // CONTEXT VALUE (memoized to prevent cascade re-renders)
   // ============================================================================
 
-  const value: AuthContextType = {
+  const value = useMemo<AuthContextType>(() => ({
     user,
     profile,
     loading,
@@ -364,7 +324,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     signOut,
     refreshProfile,
     clearError,
-  }
+  }), [user, profile, loading, error, signUp, signIn, signInWithGoogle, signOut, refreshProfile, clearError])
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

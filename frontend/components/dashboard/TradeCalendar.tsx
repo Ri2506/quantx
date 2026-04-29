@@ -1,5 +1,5 @@
 // ============================================================================
-// SWINGAI - TRADE CALENDAR COMPONENT
+// QUANT X - TRADE CALENDAR COMPONENT
 // GitHub-style calendar heatmap of trading days
 // ============================================================================
 
@@ -25,15 +25,15 @@ export default function TradeCalendar({ data }: TradeCalendarProps) {
 
   // Get color intensity based on P&L
   const getColor = (pnl: number) => {
-    if (pnl === 0) return 'bg-gray-800'
-    if (pnl >= 5000) return 'bg-success'
-    if (pnl >= 2000) return 'bg-success/70'
-    if (pnl >= 500) return 'bg-success/50'
-    if (pnl > 0) return 'bg-success/30'
-    if (pnl >= -500) return 'bg-danger/30'
-    if (pnl >= -2000) return 'bg-danger/50'
-    if (pnl >= -5000) return 'bg-danger/70'
-    return 'bg-danger'
+    if (pnl === 0) return 'bg-white/[0.06]'
+    if (pnl >= 5000) return 'bg-up'
+    if (pnl >= 2000) return 'bg-up/70'
+    if (pnl >= 500) return 'bg-up/50'
+    if (pnl > 0) return 'bg-up/30'
+    if (pnl >= -500) return 'bg-down/30'
+    if (pnl >= -2000) return 'bg-down/50'
+    if (pnl >= -5000) return 'bg-down/70'
+    return 'bg-down'
   }
 
   // Generate last 12 weeks of calendar
@@ -82,7 +82,7 @@ export default function TradeCalendar({ data }: TradeCalendarProps) {
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-background-surface/50 backdrop-blur-xl rounded-2xl border border-gray-800 p-6"
+      className="bg-background-surface rounded-2xl border border-d-border p-6"
     >
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
@@ -91,22 +91,22 @@ export default function TradeCalendar({ data }: TradeCalendarProps) {
             <Calendar className="w-5 h-5 text-primary" />
           </div>
           <div>
-            <h3 className="text-lg font-bold text-text-primary">Trade Calendar</h3>
-            <p className="text-sm text-text-secondary">Last 12 weeks activity</p>
+            <h3 className="text-lg font-bold text-white">Trade Calendar</h3>
+            <p className="text-sm text-white/60">Last 12 weeks activity</p>
           </div>
         </div>
 
         {/* Legend */}
         <div className="flex items-center gap-2 text-xs">
-          <span className="text-text-muted">Less</span>
+          <span className="text-d-text-muted">Less</span>
           <div className="flex gap-1">
-            <div className="w-3 h-3 rounded-sm bg-gray-800" />
-            <div className="w-3 h-3 rounded-sm bg-success/30" />
-            <div className="w-3 h-3 rounded-sm bg-success/50" />
-            <div className="w-3 h-3 rounded-sm bg-success/70" />
-            <div className="w-3 h-3 rounded-sm bg-success" />
+            <div className="w-3 h-3 rounded-sm bg-white/[0.06]" />
+            <div className="w-3 h-3 rounded-sm bg-up/30" />
+            <div className="w-3 h-3 rounded-sm bg-up/50" />
+            <div className="w-3 h-3 rounded-sm bg-up/70" />
+            <div className="w-3 h-3 rounded-sm bg-up" />
           </div>
-          <span className="text-text-muted">More</span>
+          <span className="text-d-text-muted">More</span>
         </div>
       </div>
 
@@ -117,7 +117,7 @@ export default function TradeCalendar({ data }: TradeCalendarProps) {
           {weeks.map((week, weekIndex) => {
             const monthLabel = getMonthLabel(weekIndex)
             return (
-              <div key={weekIndex} className="flex-1 text-xs text-text-muted">
+              <div key={weekIndex} className="flex-1 text-xs text-d-text-muted">
                 {monthLabel && <span>{monthLabel}</span>}
               </div>
             )
@@ -130,7 +130,7 @@ export default function TradeCalendar({ data }: TradeCalendarProps) {
             {weekdays.map((day, i) => (
               <div
                 key={day}
-                className="h-3 flex items-center text-[10px] text-text-muted"
+                className="h-3 flex items-center text-[10px] text-d-text-muted"
               >
                 {i % 2 === 1 && day}
               </div>
@@ -169,13 +169,13 @@ export default function TradeCalendar({ data }: TradeCalendarProps) {
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="fixed z-50 p-3 bg-background-elevated border border-gray-700 rounded-xl shadow-2xl pointer-events-none"
+            className="fixed z-50 p-3 bg-background-elevated border border-d-border rounded-xl shadow-2xl pointer-events-none"
             style={{
               left: hoveredPosition.x,
               top: hoveredPosition.y - 80,
             }}
           >
-            <p className="text-xs text-text-primary font-bold mb-1">
+            <p className="text-xs text-white font-bold mb-1">
               {new Date(hoveredDay.date).toLocaleDateString('en-IN', {
                 weekday: 'short',
                 month: 'short',
@@ -184,14 +184,14 @@ export default function TradeCalendar({ data }: TradeCalendarProps) {
               })}
             </p>
             <div className="flex items-center justify-between gap-4 text-xs">
-              <span className="text-text-secondary">Trades:</span>
-              <span className="text-text-primary font-bold">{hoveredDay.trades}</span>
+              <span className="text-white/60">Trades:</span>
+              <span className="text-white font-bold">{hoveredDay.trades}</span>
             </div>
             <div className="flex items-center justify-between gap-4 text-xs">
-              <span className="text-text-secondary">P&L:</span>
+              <span className="text-white/60">P&L:</span>
               <span
                 className={`font-bold font-mono ${
-                  hoveredDay.pnl >= 0 ? 'text-success' : 'text-danger'
+                  hoveredDay.pnl >= 0 ? 'text-up' : 'text-down'
                 }`}
               >
                 {hoveredDay.pnl >= 0 ? '+' : ''}₹{hoveredDay.pnl.toLocaleString('en-IN')}
@@ -202,28 +202,28 @@ export default function TradeCalendar({ data }: TradeCalendarProps) {
       </div>
 
       {/* Summary Stats */}
-      <div className="grid grid-cols-4 gap-4 mt-6 pt-6 border-t border-gray-800">
+      <div className="grid grid-cols-4 gap-4 mt-6 pt-6 border-t border-d-border">
         <div>
-          <p className="text-text-secondary text-xs mb-1">Trading Days</p>
-          <p className="text-lg font-bold text-text-primary">
+          <p className="text-white/60 text-xs mb-1">Trading Days</p>
+          <p className="text-lg font-bold text-white">
             {data.filter((d) => d.trades > 0).length}
           </p>
         </div>
         <div>
-          <p className="text-text-secondary text-xs mb-1">Total Trades</p>
-          <p className="text-lg font-bold text-text-primary">
+          <p className="text-white/60 text-xs mb-1">Total Trades</p>
+          <p className="text-lg font-bold text-white">
             {data.reduce((sum, d) => sum + d.trades, 0)}
           </p>
         </div>
         <div>
-          <p className="text-text-secondary text-xs mb-1">Profitable Days</p>
-          <p className="text-lg font-bold text-success">
+          <p className="text-white/60 text-xs mb-1">Profitable Days</p>
+          <p className="text-lg font-bold text-up">
             {data.filter((d) => d.pnl > 0).length}
           </p>
         </div>
         <div>
-          <p className="text-text-secondary text-xs mb-1">Best Day</p>
-          <p className="text-lg font-bold text-success font-mono">
+          <p className="text-white/60 text-xs mb-1">Best Day</p>
+          <p className="text-lg font-bold text-up font-mono">
             +₹{Math.max(...data.map((d) => d.pnl), 0).toLocaleString('en-IN')}
           </p>
         </div>

@@ -1,5 +1,5 @@
 -- ============================================================================
--- SWINGAI - PRODUCTION DATABASE MIGRATIONS
+-- QUANT X - PRODUCTION DATABASE MIGRATIONS
 -- ============================================================================
 -- Run this SQL in Supabase SQL Editor to set up production-ready:
 -- 1. Row Level Security (RLS) policies

@@ -1,5 +1,5 @@
 // ============================================================================
-// SWINGAI - DASHBOARD COMPONENTS INDEX
+// QUANT X - DASHBOARD COMPONENTS INDEX
 // Export all dashboard components
 // ============================================================================
 
@@ -18,3 +18,5 @@ export { default as QuickTrade } from './QuickTrade'
 export { default as WatchlistTable } from './WatchlistTable'
 export { default as ScannerCard } from './ScannerCard'
 export { default as PriceAlert } from './PriceAlert'
+export { RegimeBanner } from './RegimeBanner'
+export { AIPerformanceWidget } from './AIPerformanceWidget'

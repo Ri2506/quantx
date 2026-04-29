@@ -1,5 +1,5 @@
 """
-SwingAI Strategies Module
+Quant X Strategies Module
 ==========================
 6 rule-based swing trading strategies, each standalone.
 
@@ -13,6 +13,10 @@ Categories:
 """
 
 from .base import BaseStrategy, TradeSignal, ExitSignal, Position, Direction
+from .options_base import (
+    BaseOptionsStrategy, OptionsChainSnapshot, OptionsTradeSignal,
+    FOLeg, OptionSnapshot,
+)
 
 __all__ = [
     'BaseStrategy',
@@ -20,4 +24,9 @@ __all__ = [
     'ExitSignal',
     'Position',
     'Direction',
+    'BaseOptionsStrategy',
+    'OptionsChainSnapshot',
+    'OptionsTradeSignal',
+    'FOLeg',
+    'OptionSnapshot',
 ]

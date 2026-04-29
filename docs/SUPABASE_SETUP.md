@@ -1,4 +1,4 @@
-# Supabase Setup Guide (SwingAI)
+# Supabase Setup Guide (Quant X)
 
 This is the complete Supabase checklist from a clean start to a running system.
 

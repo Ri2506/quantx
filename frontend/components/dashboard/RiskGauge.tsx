@@ -1,5 +1,5 @@
 // ============================================================================
-// SWINGAI - RISK GAUGE COMPONENT
+// QUANT X - RISK GAUGE COMPONENT
 // Circular gauge showing portfolio risk utilization
 // ============================================================================
 
@@ -74,7 +74,7 @@ export default function RiskGauge({
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-background-surface/50 backdrop-blur-xl rounded-2xl border border-gray-800 p-6"
+      className="bg-background-surface rounded-2xl border border-d-border p-6"
     >
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
@@ -83,27 +83,27 @@ export default function RiskGauge({
             <Shield className="w-5 h-5 text-warning" />
           </div>
           <div>
-            <h3 className="text-lg font-bold text-text-primary">Risk Utilization</h3>
-            <p className="text-sm text-text-secondary">Capital at risk</p>
+            <h3 className="text-lg font-bold text-white">Risk Utilization</h3>
+            <p className="text-sm text-white/60">Capital at risk</p>
           </div>
         </div>
 
         {/* Info */}
         <button className="p-2 rounded-lg hover:bg-background-elevated transition-colors">
-          <Info className="w-4 h-4 text-text-muted" />
+          <Info className="w-4 h-4 text-d-text-muted" />
         </button>
       </div>
 
       {/* Period Selector */}
-      <div className="flex items-center gap-2 mb-8 bg-background-elevated rounded-xl p-1 border border-gray-800">
+      <div className="flex items-center gap-2 mb-8 bg-background-elevated rounded-xl p-1 border border-d-border">
         {Object.entries(periods).map(([key, period]) => (
           <button
             key={key}
             onClick={() => setSelectedPeriod(key as Period)}
             className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
               selectedPeriod === key
-                ? 'bg-gradient-primary text-white shadow-glow-sm'
-                : 'text-text-secondary hover:text-text-primary'
+                ? 'bg-gradient-primary text-white'
+                : 'text-white/60 hover:text-white'
             }`}
           >
             {period.label}
@@ -150,13 +150,13 @@ export default function RiskGauge({
               className="text-center"
             >
               <div className={`text-4xl font-bold font-mono ${
-                percentage >= 80 ? 'text-danger' :
+                percentage >= 80 ? 'text-down' :
                 percentage >= 60 ? 'text-warning' :
-                'text-success'
+                'text-up'
               }`}>
                 {percentage.toFixed(0)}%
               </div>
-              <div className="text-xs text-text-muted mt-1">Used</div>
+              <div className="text-xs text-d-text-muted mt-1">Used</div>
             </motion.div>
           </div>
         </div>
@@ -166,10 +166,10 @@ export default function RiskGauge({
           <motion.div
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
-            className="flex items-center gap-2 mt-4 px-4 py-2 bg-danger/10 border border-danger/20 rounded-lg"
+            className="flex items-center gap-2 mt-4 px-4 py-2 bg-down/10 border border-down/20 rounded-lg"
           >
-            <AlertTriangle className="w-4 h-4 text-danger" />
-            <span className="text-sm text-danger font-medium">
+            <AlertTriangle className="w-4 h-4 text-down" />
+            <span className="text-sm text-down font-medium">
               High risk utilization!
             </span>
           </motion.div>
@@ -177,44 +177,44 @@ export default function RiskGauge({
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 gap-4 pt-4 border-t border-gray-800">
+      <div className="grid grid-cols-2 gap-4 pt-4 border-t border-d-border">
         <div>
-          <p className="text-text-secondary text-xs mb-1">Current Risk</p>
-          <p className="text-lg font-bold text-text-primary font-mono">
+          <p className="text-white/60 text-xs mb-1">Current Risk</p>
+          <p className="text-lg font-bold text-white font-mono">
             ₹{current.current.toLocaleString('en-IN')}
           </p>
         </div>
         <div>
-          <p className="text-text-secondary text-xs mb-1">Max Allowed</p>
-          <p className="text-lg font-bold text-text-primary font-mono">
+          <p className="text-white/60 text-xs mb-1">Max Allowed</p>
+          <p className="text-lg font-bold text-white font-mono">
             ₹{current.max.toLocaleString('en-IN')}
           </p>
         </div>
         <div>
-          <p className="text-text-secondary text-xs mb-1">Available</p>
-          <p className="text-lg font-bold text-success font-mono">
+          <p className="text-white/60 text-xs mb-1">Available</p>
+          <p className="text-lg font-bold text-up font-mono">
             ₹{(current.max - current.current).toLocaleString('en-IN')}
           </p>
         </div>
         <div>
-          <p className="text-text-secondary text-xs mb-1">Status</p>
+          <p className="text-white/60 text-xs mb-1">Status</p>
           <div className="flex items-center gap-2">
             <div
               className={`w-2 h-2 rounded-full ${
                 percentage >= 80
-                  ? 'bg-danger'
+                  ? 'bg-down'
                   : percentage >= 60
                   ? 'bg-warning'
-                  : 'bg-success'
+                  : 'bg-up'
               } animate-pulse`}
             />
             <p
               className={`text-sm font-bold ${
                 percentage >= 80
-                  ? 'text-danger'
+                  ? 'text-down'
                   : percentage >= 60
                   ? 'text-warning'
-                  : 'text-success'
+                  : 'text-up'
               }`}
             >
               {percentage >= 80 ? 'Critical' : percentage >= 60 ? 'Warning' : 'Safe'}
@@ -224,19 +224,19 @@ export default function RiskGauge({
       </div>
 
       {/* Risk Zones Legend */}
-      <div className="mt-6 pt-4 border-t border-gray-800 space-y-2">
-        <p className="text-xs text-text-muted font-medium mb-2">Risk Zones:</p>
+      <div className="mt-6 pt-4 border-t border-d-border space-y-2">
+        <p className="text-xs text-d-text-muted font-medium mb-2">Risk Zones:</p>
         <div className="flex items-center gap-2">
-          <div className="w-16 h-2 rounded bg-success" />
-          <span className="text-xs text-text-secondary">0-60% (Safe)</span>
+          <div className="w-16 h-2 rounded bg-up" />
+          <span className="text-xs text-white/60">0-60% (Safe)</span>
         </div>
         <div className="flex items-center gap-2">
           <div className="w-16 h-2 rounded bg-warning" />
-          <span className="text-xs text-text-secondary">60-80% (Caution)</span>
+          <span className="text-xs text-white/60">60-80% (Caution)</span>
         </div>
         <div className="flex items-center gap-2">
-          <div className="w-16 h-2 rounded bg-danger" />
-          <span className="text-xs text-text-secondary">80-100% (Critical)</span>
+          <div className="w-16 h-2 rounded bg-down" />
+          <span className="text-xs text-white/60">80-100% (Critical)</span>
         </div>
       </div>
     </motion.div>

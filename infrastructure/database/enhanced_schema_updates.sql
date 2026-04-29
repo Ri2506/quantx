@@ -1,5 +1,5 @@
 -- ============================================================================
--- SWINGAI - ENHANCED AI CORE SCHEMA UPDATES
+-- QUANT X - ENHANCED AI CORE SCHEMA UPDATES
 -- ============================================================================
 -- Adds new fields for:
 -- - Hierarchical Ensemble (5 models + adaptive weighting)

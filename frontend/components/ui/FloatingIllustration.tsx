@@ -16,7 +16,7 @@ export default function FloatingIllustration({
       <svg
         viewBox="0 0 500 400"
         fill="none"
-        className={cn('animate-float', className)}
+        className={cn(className)}
         xmlns="http://www.w3.org/2000/svg"
       >
         {/* Candlesticks */}
@@ -79,7 +79,7 @@ export default function FloatingIllustration({
       <svg
         viewBox="0 0 500 400"
         fill="none"
-        className={cn('animate-float', className)}
+        className={cn(className)}
         xmlns="http://www.w3.org/2000/svg"
       >
         {/* Area chart */}
@@ -120,7 +120,7 @@ export default function FloatingIllustration({
       <svg
         viewBox="0 0 500 400"
         fill="none"
-        className={cn('animate-float', className)}
+        className={cn(className)}
         xmlns="http://www.w3.org/2000/svg"
       >
         {/* Data flow visualization */}
@@ -171,7 +171,7 @@ export default function FloatingIllustration({
     <svg
       viewBox="0 0 500 400"
       fill="none"
-      className={cn('animate-float', className)}
+      className={cn(className)}
       xmlns="http://www.w3.org/2000/svg"
     >
       {/* Network nodes */}

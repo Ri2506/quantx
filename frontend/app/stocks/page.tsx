@@ -1,437 +1,597 @@
 'use client'
 
-import React, { useState, useMemo } from 'react'
+/**
+ * /stocks — AI-first stock discovery surface (PR 58 rewrite).
+ *
+ * This page is a browsing surface, not an AI output. Every AI engine
+ * (SwingLens, AlphaRank, HorizonCast, ToneScan, RegimeIQ, PatternScope…)
+ * lives on the per-stock dossier at /stock/[symbol]. Here we:
+ *
+ *   * Show the current market regime (RegimeIQ) at the top so the user
+ *     reads the table with the right mental frame.
+ *   * List every popular NSE symbol with real market data — price,
+ *     change %, sector, 52-week anchors.
+ *   * Tag stocks with an "Active signal" chip when today's signal set
+ *     includes them (real data — surfaces our output, doesn't fabricate).
+ *   * Link each row to the full /stock/[symbol] dossier.
+ *
+ * What we deliberately don't do:
+ *   * No synthetic "AI score" badges (the prior page hashed the symbol
+ *     name into a 60-94 number and labelled it AI — misleading, retired
+ *     under the no-fallbacks rule).
+ *   * No fake sparklines. Charts live on the dossier where we have real
+ *     OHLCV data.
+ *   * No inline model outputs. Dossier is the destination.
+ */
+
+import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
-import { motion } from 'framer-motion'
 import {
-  ArrowUp,
-  ArrowDown,
-  TrendingUp,
-  Search,
-  ChevronLeft,
+  ArrowDownRight,
+  ArrowUpRight,
   ChevronRight,
-  ArrowUpDown,
+  Search,
+  SlidersHorizontal,
   Sparkles,
-  BarChart3,
 } from 'lucide-react'
-import Card3D from '@/components/ui/Card3D'
-import ScrollReveal from '@/components/ui/ScrollReveal'
 
-// Sample NSE/BSE stock data
-const featuredStocks = [
-  { symbol: 'RELIANCE', name: 'Reliance Industries', price: 2847.50, change: 2.3, volume: '4.2M', logo: '🏢' },
-  { symbol: 'TCS', name: 'Tata Consultancy Services', price: 3678.90, change: 1.8, volume: '2.1M', logo: '💻' },
-  { symbol: 'HDFCBANK', name: 'HDFC Bank', price: 1678.45, change: -0.5, volume: '5.8M', logo: '🏦' },
-  { symbol: 'INFY', name: 'Infosys', price: 1523.45, change: 3.1, volume: '3.4M', logo: '🔷' },
-  { symbol: 'ICICIBANK', name: 'ICICI Bank', price: 1089.75, change: 1.2, volume: '6.2M', logo: '🏦' },
-  { symbol: 'HINDUNILVR', name: 'Hindustan Unilever', price: 2456.80, change: -1.1, volume: '1.8M', logo: '🧴' },
+import { api } from '@/lib/api'
+import AppLayout from '@/components/shared/AppLayout'
+import ModelBadge from '@/components/ModelBadge'
+import ErrorBoundary from '@/components/ErrorBoundary'
+import IndexTickerStrip from '@/components/dashboard/IndexTickerStrip'
+
+// ----------------------------------------------------------------- types
+
+interface StockRow {
+  symbol: string
+  name: string
+  price: number
+  change: number
+  changePercent: number
+  volume: number
+  high52w: number | null
+  low52w: number | null
+  sector: string | null
+}
+
+type RegimeCode = 'bull' | 'sideways' | 'bear'
+
+interface CurrentRegime {
+  regime: RegimeCode
+  prob_bull: number
+  prob_sideways: number
+  prob_bear: number
+  vix: number | null
+}
+
+type SortKey = 'changePercent' | 'volume' | 'price' | 'symbol'
+type SortDir = 'desc' | 'asc'
+
+const SECTORS = ['All', 'IT', 'Banking', 'Pharma', 'Auto', 'FMCG', 'Metal', 'Energy'] as const
+
+const SORT_OPTIONS: { label: string; key: SortKey; dir: SortDir }[] = [
+  { label: 'Change %',   key: 'changePercent', dir: 'desc' },
+  { label: 'Volume',     key: 'volume',        dir: 'desc' },
+  { label: 'Price',      key: 'price',         dir: 'desc' },
+  { label: 'Alphabetical', key: 'symbol',      dir: 'asc' },
 ]
 
-const trendingStocks = [
-  { symbol: 'ADANIENT', name: 'Adani Enterprises', price: 2387.20, change: 5.4, volume: '8.2M', aiScore: 87 },
-  { symbol: 'BAJFINANCE', name: 'Bajaj Finance', price: 6789.30, change: 3.8, volume: '1.9M', aiScore: 82 },
-  { symbol: 'AXISBANK', name: 'Axis Bank', price: 1123.45, change: -2.1, volume: '4.5M', aiScore: 75 },
-  { symbol: 'MARUTI', name: 'Maruti Suzuki', price: 12456.80, change: 4.2, volume: '0.8M', aiScore: 91 },
-  { symbol: 'LT', name: 'Larsen & Toubro', price: 3567.90, change: 2.7, volume: '2.3M', aiScore: 84 },
-  { symbol: 'WIPRO', name: 'Wipro', price: 456.70, change: -1.3, volume: '7.1M', aiScore: 78 },
+// Symbol → sector map. The backend doesn't yet return sector on the
+// live-prices endpoint; we fold it in client-side so at least the
+// popular universe lights up.
+const SECTOR_MAP: Record<string, string> = {
+  TCS: 'IT', INFY: 'IT', WIPRO: 'IT', HCLTECH: 'IT', TECHM: 'IT', LTIM: 'IT', LTTS: 'IT',
+  COFORGE: 'IT', MPHASIS: 'IT', PERSISTENT: 'IT',
+  HDFCBANK: 'Banking', ICICIBANK: 'Banking', SBIN: 'Banking', KOTAKBANK: 'Banking',
+  AXISBANK: 'Banking', INDUSINDBK: 'Banking', PNB: 'Banking', BANKBARODA: 'Banking',
+  AUBANK: 'Banking', BANDHANBNK: 'Banking', IDFCFIRSTB: 'Banking',
+  SUNPHARMA: 'Pharma', DRREDDY: 'Pharma', CIPLA: 'Pharma', DIVISLAB: 'Pharma',
+  LUPIN: 'Pharma', AUROPHARMA: 'Pharma', BIOCON: 'Pharma',
+  MARUTI: 'Auto', TATAMOTORS: 'Auto', 'BAJAJ-AUTO': 'Auto', EICHERMOT: 'Auto',
+  HEROMOTOCO: 'Auto', 'M&M': 'Auto', MOTHERSON: 'Auto',
+  HINDUNILVR: 'FMCG', ITC: 'FMCG', NESTLEIND: 'FMCG', BRITANNIA: 'FMCG',
+  DABUR: 'FMCG', MARICO: 'FMCG', GODREJCP: 'FMCG', TATACONSUM: 'FMCG',
+  TATASTEEL: 'Metal', JSWSTEEL: 'Metal', HINDALCO: 'Metal', VEDL: 'Metal', SAIL: 'Metal',
+  RELIANCE: 'Energy', ONGC: 'Energy', BPCL: 'Energy', GAIL: 'Energy', NTPC: 'Energy',
+  POWERGRID: 'Energy', COALINDIA: 'Energy', ADANIENT: 'Energy', TATAPOWER: 'Energy',
+}
+
+const POPULAR = [
+  'RELIANCE','TCS','HDFCBANK','INFY','ICICIBANK','HINDUNILVR','BHARTIARTL','ITC','SBIN',
+  'KOTAKBANK','LT','AXISBANK','BAJFINANCE','MARUTI','TITAN','SUNPHARMA','WIPRO','HCLTECH',
+  'ADANIENT','TATAMOTORS','NTPC','POWERGRID','COALINDIA','ONGC','ULTRACEMCO','TATASTEEL',
+  'TECHM','NESTLEIND','DRREDDY','CIPLA','BAJAJFINSV','EICHERMOT','HEROMOTOCO','DIVISLAB',
+  'GRASIM','APOLLOHOSP','BRITANNIA','INDUSINDBK','TATACONSUM','BPCL','JSWSTEEL','M&M',
+  'ASIANPAINT','HDFCLIFE','HINDALCO','SBILIFE','BAJAJ-AUTO','VEDL','DLF',
 ]
 
-const allStocks = [
-  { symbol: 'RELIANCE', name: 'Reliance Industries Ltd', price: 2847.50, change: 65.30, changePercent: 2.35, volume: '4.2M', high52w: 2968.50, low52w: 2223.30, aiScore: 88 },
-  { symbol: 'TCS', name: 'Tata Consultancy Services Ltd', price: 3678.90, change: 65.20, changePercent: 1.80, volume: '2.1M', high52w: 4078.90, low52w: 3101.05, aiScore: 85 },
-  { symbol: 'HDFCBANK', name: 'HDFC Bank Ltd', price: 1678.45, change: -8.40, changePercent: -0.50, volume: '5.8M', high52w: 1794.50, low52w: 1363.55, aiScore: 82 },
-  { symbol: 'INFY', name: 'Infosys Ltd', price: 1523.45, change: 45.90, changePercent: 3.11, volume: '3.4M', high52w: 1694.90, low52w: 1195.05, aiScore: 86 },
-  { symbol: 'ICICIBANK', name: 'ICICI Bank Ltd', price: 1089.75, change: 12.90, changePercent: 1.20, volume: '6.2M', high52w: 1257.80, low52w: 892.50, aiScore: 84 },
-  { symbol: 'HINDUNILVR', name: 'Hindustan Unilever Ltd', price: 2456.80, change: -27.40, changePercent: -1.10, volume: '1.8M', high52w: 2855.05, low52w: 2172.00, aiScore: 79 },
-  { symbol: 'BHARTIARTL', name: 'Bharti Airtel Ltd', price: 1547.30, change: 38.70, changePercent: 2.57, volume: '3.9M', high52w: 1702.90, low52w: 897.75, aiScore: 87 },
-  { symbol: 'SBIN', name: 'State Bank of India', price: 789.65, change: -5.35, changePercent: -0.67, volume: '12.4M', high52w: 912.40, low52w: 543.20, aiScore: 81 },
-  { symbol: 'BAJFINANCE', name: 'Bajaj Finance Ltd', price: 6789.30, change: 248.50, changePercent: 3.80, volume: '1.9M', high52w: 7830.80, low52w: 5698.45, aiScore: 82 },
-  { symbol: 'ADANIENT', name: 'Adani Enterprises Ltd', price: 2387.20, change: 122.40, changePercent: 5.40, volume: '8.2M', high52w: 3743.90, low52w: 1954.65, aiScore: 87 },
-  { symbol: 'KOTAKBANK', name: 'Kotak Mahindra Bank Ltd', price: 1834.55, change: -12.25, changePercent: -0.66, volume: '2.7M', high52w: 2065.10, low52w: 1543.85, aiScore: 83 },
-  { symbol: 'LT', name: 'Larsen & Toubro Ltd', price: 3567.90, change: 93.80, changePercent: 2.70, volume: '2.3M', high52w: 3919.90, low52w: 2816.50, aiScore: 84 },
-  { symbol: 'AXISBANK', name: 'Axis Bank Ltd', price: 1123.45, change: -24.15, changePercent: -2.10, volume: '4.5M', high52w: 1339.65, low52w: 901.15, aiScore: 75 },
-  { symbol: 'ITC', name: 'ITC Ltd', price: 456.70, change: 8.90, changePercent: 1.99, volume: '9.8M', high52w: 512.50, low52w: 385.25, aiScore: 80 },
-  { symbol: 'MARUTI', name: 'Maruti Suzuki India Ltd', price: 12456.80, change: 502.30, changePercent: 4.20, volume: '0.8M', high52w: 13680.00, low52w: 9737.65, aiScore: 91 },
-]
+const PAGE_SIZE = 20
+
+// ----------------------------------------------------------------- page
 
 export default function StocksPage() {
-  const [searchQuery, setSearchQuery] = useState('')
-  const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' }>({
-    key: 'symbol',
-    direction: 'asc',
-  })
-  const [currentPage, setCurrentPage] = useState(1)
-  const itemsPerPage = 10
+  const [rows, setRows] = useState<StockRow[]>([])
+  const [regime, setRegime] = useState<CurrentRegime | null>(null)
+  const [signalSymbols, setSignalSymbols] = useState<Set<string>>(new Set())
+  const [loading, setLoading] = useState(true)
 
-  // Filter stocks based on search
-  const filteredStocks = useMemo(() => {
-    return allStocks.filter(
-      (stock) =>
-        stock.symbol.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        stock.name.toLowerCase().includes(searchQuery.toLowerCase())
-    )
-  }, [searchQuery])
+  const [search, setSearch] = useState('')
+  const [sector, setSector] = useState<string>('All')
+  const [sortOpt, setSortOpt] = useState(SORT_OPTIONS[0])
+  const [page, setPage] = useState(1)
 
-  // Sort stocks
-  const sortedStocks = useMemo(() => {
-    const sorted = [...filteredStocks]
-    sorted.sort((a, b) => {
-      const aValue = a[sortConfig.key as keyof typeof a]
-      const bValue = b[sortConfig.key as keyof typeof b]
-      
-      if (typeof aValue === 'number' && typeof bValue === 'number') {
-        return sortConfig.direction === 'asc' ? aValue - bValue : bValue - aValue
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      setLoading(true)
+
+      const [pricesRes, regimeRes, signalsRes] = await Promise.all([
+        fetchLivePrices(),
+        api.publicTrust.regimeHistory(1).catch(() => null),
+        api.signals.getToday().catch(() => null),
+      ])
+
+      if (cancelled) return
+
+      setRows(pricesRes)
+
+      if (regimeRes?.current) {
+        setRegime({
+          regime: regimeRes.current.regime,
+          prob_bull: regimeRes.current.prob_bull,
+          prob_sideways: regimeRes.current.prob_sideways,
+          prob_bear: regimeRes.current.prob_bear,
+          vix: regimeRes.current.vix,
+        })
       }
-      
-      return sortConfig.direction === 'asc'
-        ? String(aValue).localeCompare(String(bValue))
-        : String(bValue).localeCompare(String(aValue))
+
+      const sigSymbols = new Set<string>()
+      const sigList = (signalsRes as any)?.signals || []
+      for (const s of sigList) {
+        if (s?.symbol) sigSymbols.add(String(s.symbol).replace('.NS', '').toUpperCase())
+      }
+      setSignalSymbols(sigSymbols)
+
+      setLoading(false)
+    })()
+    return () => { cancelled = true }
+  }, [])
+
+  // ── Derived: gainers / losers strip
+  const [topGainers, topLosers] = useMemo(() => {
+    if (!rows.length) return [[], []]
+    const sorted = [...rows].sort((a, b) => b.changePercent - a.changePercent)
+    return [sorted.slice(0, 5), sorted.slice(-5).reverse()]
+  }, [rows])
+
+  // ── Derived: filtered + sorted
+  const visible = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    const filtered = rows.filter((r) => {
+      const matchesSearch = !q
+        || r.symbol.toLowerCase().includes(q)
+        || r.name.toLowerCase().includes(q)
+      const matchesSector = sector === 'All' || r.sector === sector
+      return matchesSearch && matchesSector
+    })
+    const sorted = [...filtered].sort((a, b) => {
+      const k = sortOpt.key
+      const av: any = (a as any)[k]
+      const bv: any = (b as any)[k]
+      if (typeof av === 'string') {
+        return sortOpt.dir === 'asc' ? av.localeCompare(bv) : bv.localeCompare(av)
+      }
+      return sortOpt.dir === 'asc' ? (av || 0) - (bv || 0) : (bv || 0) - (av || 0)
     })
     return sorted
-  }, [filteredStocks, sortConfig])
+  }, [rows, search, sector, sortOpt])
 
-  // Paginate stocks
-  const paginatedStocks = useMemo(() => {
-    const startIndex = (currentPage - 1) * itemsPerPage
-    return sortedStocks.slice(startIndex, startIndex + itemsPerPage)
-  }, [sortedStocks, currentPage])
+  const totalPages = Math.max(1, Math.ceil(visible.length / PAGE_SIZE))
+  const pageClamped = Math.min(page, totalPages)
+  const pageRows = visible.slice((pageClamped - 1) * PAGE_SIZE, pageClamped * PAGE_SIZE)
 
-  const totalPages = Math.ceil(sortedStocks.length / itemsPerPage)
+  return (
+    <AppLayout>
+      <div className="max-w-6xl mx-auto px-4 md:px-6 py-6 space-y-5">
+        {/* Header */}
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h1 className="text-[24px] font-semibold">Stocks</h1>
+            <p className="text-[12px] text-d-text-muted mt-1">
+              Browse the NSE universe. Tap any stock for the full AI dossier — engine
+              outputs, technicals, chart.
+            </p>
+          </div>
+          <Link
+            href="/signals"
+            className="inline-flex items-center gap-1.5 text-[12px] text-primary hover:underline"
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            See today's signals
+          </Link>
+        </div>
 
-  const handleSort = (key: string) => {
-    setSortConfig((prev) => ({
-      key,
-      direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc',
-    }))
+        {/* PR 66 — live index ticker strip */}
+        <ErrorBoundary label="Indices">
+          <IndexTickerStrip />
+        </ErrorBoundary>
+
+        {/* RegimeIQ banner */}
+        <ErrorBoundary label="Regime">
+          <RegimeBanner regime={regime} loading={loading} />
+        </ErrorBoundary>
+
+        {/* Gainers / losers strip */}
+        <ErrorBoundary label="Movers">
+          <div className="grid md:grid-cols-2 gap-4">
+            <MoversCard title="Top gainers" items={topGainers} loading={loading} accent="#05B878" />
+            <MoversCard title="Top losers" items={topLosers} loading={loading} accent="#FF5947" />
+          </div>
+        </ErrorBoundary>
+
+        {/* Filter bar */}
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="relative flex-1 min-w-[200px] max-w-[360px]">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-d-text-muted" />
+            <input
+              type="search"
+              value={search}
+              onChange={(e) => { setSearch(e.target.value); setPage(1) }}
+              placeholder="Search symbol or company"
+              className="w-full pl-9 pr-3 py-2 rounded-md bg-[#111520] border border-d-border text-[12px] placeholder:text-d-text-muted focus:outline-none focus:border-primary/60"
+            />
+          </div>
+
+          <SortMenu value={sortOpt} onChange={(v) => { setSortOpt(v); setPage(1) }} />
+
+          <div className="flex flex-wrap gap-1.5">
+            {SECTORS.map((s) => (
+              <button
+                key={s}
+                onClick={() => { setSector(s); setPage(1) }}
+                className={`px-3 py-1.5 rounded-md border text-[11px] font-medium transition-colors ${
+                  sector === s
+                    ? 'border-primary/60 bg-primary/10 text-primary'
+                    : 'border-d-border text-d-text-muted hover:text-white hover:border-d-border-hover'
+                }`}
+              >
+                {s}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* List */}
+        <ErrorBoundary label="Stock list">
+          <StockList
+            rows={pageRows}
+            signalSymbols={signalSymbols}
+            loading={loading}
+          />
+        </ErrorBoundary>
+
+        {/* Pagination */}
+        {totalPages > 1 && (
+          <Pagination
+            page={pageClamped}
+            totalPages={totalPages}
+            onChange={setPage}
+            total={visible.length}
+          />
+        )}
+      </div>
+    </AppLayout>
+  )
+}
+
+// --------------------------------------------------------- subcomponents
+
+function RegimeBanner({ regime, loading }: { regime: CurrentRegime | null; loading: boolean }) {
+  if (loading && !regime) {
+    return <div className="h-[64px] rounded-lg border border-d-border bg-[#111520] animate-pulse" />
+  }
+  if (!regime) return null
+
+  const tone =
+    regime.regime === 'bull' ? { fg: '#05B878', label: 'Bull', copy: 'Sizing up allowed. Momentum strategies favored.' } :
+    regime.regime === 'bear' ? { fg: '#FF5947', label: 'Bear', copy: 'Halve position size. Cash + defensives preferred.' } :
+                                { fg: '#FEB113', label: 'Sideways', copy: 'Mean-reversion works, breakouts don\'t. Tighten SLs.' }
+
+  const probs = [
+    { label: 'Bull',     pct: regime.prob_bull,     color: '#05B878' },
+    { label: 'Sideways', pct: regime.prob_sideways, color: '#FEB113' },
+    { label: 'Bear',     pct: regime.prob_bear,     color: '#FF5947' },
+  ]
+
+  return (
+    <div
+      className="rounded-lg border px-4 py-3"
+      style={{ background: `${tone.fg}0D`, borderColor: `${tone.fg}33` }}
+    >
+      <div className="flex items-start justify-between gap-4 flex-wrap">
+        <div className="flex items-center gap-3">
+          <ModelBadge modelKey="regime_detector" size="xs" variant="soft" />
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-[11px] text-d-text-muted uppercase tracking-wider">Market regime</span>
+              <span className="font-semibold text-[13px]" style={{ color: tone.fg }}>{tone.label}</span>
+              {regime.vix != null && (
+                <span className="text-[11px] text-d-text-muted">
+                  · VIX <span className="numeric text-white">{regime.vix.toFixed(2)}</span>
+                </span>
+              )}
+            </div>
+            <p className="text-[11px] text-d-text-muted mt-0.5">{tone.copy}</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3 text-[11px] text-d-text-muted">
+          {probs.map((p) => (
+            <div key={p.label} className="flex items-center gap-1.5">
+              <span className="inline-block w-1.5 h-1.5 rounded-full" style={{ background: p.color }} />
+              {p.label} <span className="numeric text-white">{(p.pct * 100).toFixed(0)}%</span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function MoversCard({
+  title, items, loading, accent,
+}: {
+  title: string
+  items: StockRow[]
+  loading: boolean
+  accent: string
+}) {
+  return (
+    <div className="rounded-lg border border-d-border bg-[#111520]">
+      <div className="px-4 py-2.5 border-b border-d-border">
+        <p className="text-[10px] uppercase tracking-wider text-d-text-muted">{title}</p>
+      </div>
+      <div>
+        {loading && !items.length ? (
+          Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="px-4 py-2.5 border-b border-d-border last:border-0 animate-pulse">
+              <div className="h-3 w-24 bg-white/5 rounded" />
+            </div>
+          ))
+        ) : items.length ? (
+          items.map((r) => (
+            <Link
+              key={r.symbol}
+              href={`/stock/${r.symbol.replace('.NS', '')}`}
+              className="flex items-center justify-between px-4 py-2.5 border-b border-d-border last:border-0 hover:bg-white/[0.02] transition-colors"
+            >
+              <div className="min-w-0">
+                <div className="text-[12px] font-medium text-white truncate">{r.symbol.replace('.NS', '')}</div>
+                <div className="text-[10px] text-d-text-muted truncate">{r.name || '—'}</div>
+              </div>
+              <div className="text-right ml-3 shrink-0">
+                <div className="text-[12px] numeric text-white">₹{r.price.toFixed(2)}</div>
+                <div className="text-[11px] numeric font-medium" style={{ color: accent }}>
+                  {r.changePercent >= 0 ? '+' : ''}{r.changePercent.toFixed(2)}%
+                </div>
+              </div>
+            </Link>
+          ))
+        ) : (
+          <div className="px-4 py-6 text-center text-[11px] text-d-text-muted">No data</div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function SortMenu({
+  value, onChange,
+}: {
+  value: typeof SORT_OPTIONS[number]
+  onChange: (v: typeof SORT_OPTIONS[number]) => void
+}) {
+  const [open, setOpen] = useState(false)
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        onBlur={() => window.setTimeout(() => setOpen(false), 150)}
+        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md border border-d-border text-[11px] text-d-text-muted hover:text-white hover:border-d-border-hover"
+      >
+        <SlidersHorizontal className="w-3 h-3" />
+        Sort: <span className="text-white">{value.label}</span>
+      </button>
+      {open && (
+        <div className="absolute top-full mt-1 right-0 z-10 min-w-[160px] rounded-md border border-d-border bg-[#111520] shadow-lg py-1">
+          {SORT_OPTIONS.map((opt) => (
+            <button
+              key={opt.key}
+              onMouseDown={(e) => { e.preventDefault(); onChange(opt); setOpen(false) }}
+              className={`w-full text-left px-3 py-1.5 text-[11px] transition-colors ${
+                opt.key === value.key && opt.dir === value.dir
+                  ? 'bg-primary/10 text-primary'
+                  : 'text-d-text-secondary hover:bg-white/[0.03] hover:text-white'
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function StockList({
+  rows, signalSymbols, loading,
+}: {
+  rows: StockRow[]
+  signalSymbols: Set<string>
+  loading: boolean
+}) {
+  if (loading && !rows.length) {
+    return (
+      <div className="rounded-lg border border-d-border bg-[#111520] overflow-hidden">
+        {Array.from({ length: 8 }).map((_, i) => (
+          <div key={i} className="flex items-center gap-4 px-4 py-3 border-b border-d-border last:border-0 animate-pulse">
+            <div className="h-4 w-20 bg-white/5 rounded" />
+            <div className="h-3 w-40 bg-white/5 rounded flex-1" />
+            <div className="h-4 w-16 bg-white/5 rounded" />
+            <div className="h-4 w-14 bg-white/5 rounded" />
+          </div>
+        ))}
+      </div>
+    )
+  }
+  if (!rows.length) {
+    return (
+      <div className="rounded-lg border border-d-border bg-[#111520] p-10 text-center text-[12px] text-d-text-muted">
+        No stocks matching this filter.
+      </div>
+    )
   }
 
   return (
-    <div className="min-h-screen bg-background-primary pb-20 pt-24">
-      {/* Hero Section */}
-      <ScrollReveal>
-      <section className="border-b border-border/60 bg-gradient-to-br from-background-surface to-background-primary px-6 py-12">
-        <div className="container mx-auto">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mb-6 inline-flex items-center gap-2 rounded-full border border-accent/40 bg-accent/10 px-4 py-2 backdrop-blur-xl"
-          >
-            <BarChart3 className="h-4 w-4 text-accent" />
-            <span className="text-xs font-semibold uppercase tracking-wider text-accent">
-              NSE/BSE Market Intelligence
-            </span>
-          </motion.div>
-
-          <motion.h1
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="mb-4 text-5xl font-bold text-text-primary"
-          >
-            All Indian Stocks
-          </motion.h1>
-
-          <motion.p
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="max-w-3xl text-lg text-text-secondary"
-          >
-            Complete list of NSE and BSE stocks with real-time prices, AI-powered insights, and institutional-grade
-            analysis. Discover high-conviction trading opportunities powered by advanced machine learning algorithms.
-          </motion.p>
-        </div>
-      </section>
-      </ScrollReveal>
-
-      {/* Featured Stocks */}
-      <section className="border-b border-border/60 px-6 py-12">
-        <div className="container mx-auto">
-          <h2 className="mb-8 text-2xl font-bold text-text-primary">
-            <span className="gradient-text-professional">Largest Indian Stocks</span>
-          </h2>
-
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {featuredStocks.map((stock, index) => (
-              <motion.div
-                key={stock.symbol}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.1 }}
-                whileHover={{ y: -4 }}
-                className="group cursor-pointer overflow-hidden rounded-xl border border-border/60 bg-gradient-to-br from-background-surface/80 to-background-elevated/60 p-6 backdrop-blur-xl transition-all hover:border-accent/40 hover:shadow-[0_10px_40px_-10px_rgba(var(--accent),0.3)]"
-              >
-                <div className="mb-4 flex items-start justify-between">
-                  <div>
-                    <div className="mb-1 flex items-center gap-2">
-                      <span className="text-3xl">{stock.logo}</span>
-                      <div>
-                        <div className="text-sm font-semibold text-text-secondary">{stock.symbol}</div>
-                        <div className="text-xs text-text-muted">{stock.name}</div>
-                      </div>
-                    </div>
-                  </div>
-                  <div
-                    className={`flex items-center gap-1 rounded-full px-2 py-1 text-xs font-semibold ${
-                      stock.change >= 0 ? 'bg-success/15 text-success' : 'bg-danger/15 text-danger'
-                    }`}
-                  >
-                    {stock.change >= 0 ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
-                    {Math.abs(stock.change).toFixed(2)}%
-                  </div>
-                </div>
-
-                <div className="mb-2 text-3xl font-bold text-text-primary">₹{stock.price.toFixed(2)}</div>
-                <div className="text-xs text-text-secondary">Volume: {stock.volume}</div>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Trending Stocks */}
-      <section className="border-b border-border/60 px-6 py-12">
-        <div className="container mx-auto">
-          <div className="mb-8 flex items-center justify-between">
-            <h2 className="text-2xl font-bold text-text-primary">
-              <span className="gradient-text-accent">Trending Stocks</span>
-            </h2>
-            <div className="flex items-center gap-2 text-sm text-text-secondary">
-              <TrendingUp className="h-4 w-4 text-accent" />
-              <span>Most watched by traders</span>
-            </div>
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {trendingStocks.map((stock, index) => (
-              <motion.div
-                key={stock.symbol}
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                transition={{ delay: index * 0.1 }}
-                whileHover={{ scale: 1.02 }}
-                className="group cursor-pointer overflow-hidden rounded-xl border border-border/60 bg-gradient-to-br from-background-surface/80 to-background-elevated/60 p-5 backdrop-blur-xl transition-all hover:border-primary/40 hover:shadow-[0_10px_40px_-10px_rgba(var(--primary),0.3)]"
-              >
-                <div className="mb-3 flex items-center justify-between">
-                  <div>
-                    <div className="font-bold text-text-primary">{stock.symbol}</div>
-                    <div className="text-xs text-text-secondary">{stock.name}</div>
-                  </div>
-                  <div className="flex items-center gap-1 rounded-full bg-accent/15 px-2 py-1">
-                    <Sparkles className="h-3 w-3 text-accent" />
-                    <span className="text-xs font-semibold text-accent">AI {stock.aiScore}</span>
-                  </div>
-                </div>
-
-                <div className="mb-2 text-2xl font-bold text-text-primary">₹{stock.price.toFixed(2)}</div>
-
-                <div className="flex items-center justify-between text-sm">
-                  <div
-                    className={`flex items-center gap-1 font-semibold ${
-                      stock.change >= 0 ? 'text-success' : 'text-danger'
-                    }`}
-                  >
-                    {stock.change >= 0 ? <ArrowUp className="h-3 w-3" /> : <ArrowDown className="h-3 w-3" />}
-                    {Math.abs(stock.change).toFixed(2)}%
-                  </div>
-                  <div className="text-text-secondary">Vol: {stock.volume}</div>
-                </div>
-              </motion.div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* All Stocks Table */}
-      <section className="px-6 py-12">
-        <div className="container mx-auto">
-          <div className="mb-8 flex items-center justify-between">
-            <h2 className="text-2xl font-bold text-text-primary">
-              <span className="gradient-text-professional-blue">All NSE/BSE Stocks</span>
-            </h2>
-            <div className="text-sm text-text-secondary">{allStocks.length} stocks listed</div>
-          </div>
-
-          {/* Search Bar */}
-          <ScrollReveal delay={0.05}>
-          <div className="mb-6">
-            <div className="relative">
-              <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-text-secondary" />
-              <input
-                type="text"
-                placeholder="Search by symbol or company name..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full rounded-xl border border-border/60 bg-background-surface/60 py-3 pl-12 pr-4 text-text-primary placeholder-text-secondary backdrop-blur-xl transition focus:border-accent/60 focus:outline-none"
-              />
-            </div>
-          </div>
-          </ScrollReveal>
-
-          {/* Table */}
-          <ScrollReveal delay={0.1}>
-          <Card3D maxTilt={2}>
-          <div className="overflow-hidden rounded-xl border border-border/60 bg-background-surface/80 backdrop-blur-xl">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="border-b border-border/60 bg-background-elevated/50">
-                  <tr>
-                    <th
-                      onClick={() => handleSort('symbol')}
-                      className="cursor-pointer px-6 py-4 text-left text-sm font-semibold text-text-primary transition hover:text-accent"
-                    >
-                      <div className="flex items-center gap-2">
-                        Company <ArrowUpDown className="h-4 w-4" />
-                      </div>
-                    </th>
-                    <th
-                      onClick={() => handleSort('price')}
-                      className="cursor-pointer px-6 py-4 text-right text-sm font-semibold text-text-primary transition hover:text-accent"
-                    >
-                      <div className="flex items-center justify-end gap-2">
-                        Price <ArrowUpDown className="h-4 w-4" />
-                      </div>
-                    </th>
-                    <th
-                      onClick={() => handleSort('change')}
-                      className="cursor-pointer px-6 py-4 text-right text-sm font-semibold text-text-primary transition hover:text-accent"
-                    >
-                      <div className="flex items-center justify-end gap-2">
-                        Change <ArrowUpDown className="h-4 w-4" />
-                      </div>
-                    </th>
-                    <th
-                      onClick={() => handleSort('changePercent')}
-                      className="cursor-pointer px-6 py-4 text-right text-sm font-semibold text-text-primary transition hover:text-accent"
-                    >
-                      <div className="flex items-center justify-end gap-2">
-                        Change % <ArrowUpDown className="h-4 w-4" />
-                      </div>
-                    </th>
-                    <th
-                      onClick={() => handleSort('volume')}
-                      className="cursor-pointer px-6 py-4 text-right text-sm font-semibold text-text-primary transition hover:text-accent"
-                    >
-                      <div className="flex items-center justify-end gap-2">
-                        Volume <ArrowUpDown className="h-4 w-4" />
-                      </div>
-                    </th>
-                    <th className="px-6 py-4 text-right text-sm font-semibold text-text-primary">52-Week Range</th>
-                    <th
-                      onClick={() => handleSort('aiScore')}
-                      className="cursor-pointer px-6 py-4 text-center text-sm font-semibold text-text-primary transition hover:text-accent"
-                    >
-                      <div className="flex items-center justify-center gap-2">
-                        AI Score <ArrowUpDown className="h-4 w-4" />
-                      </div>
-                    </th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border/40">
-                  {paginatedStocks.map((stock) => (
-                    <motion.tr
-                      key={stock.symbol}
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      className="cursor-pointer transition-colors hover:bg-background-elevated/50"
-                    >
-                      <td className="px-6 py-4">
-                        <div>
-                          <div className="font-semibold text-text-primary">{stock.symbol}</div>
-                          <div className="text-xs text-text-secondary">{stock.name}</div>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-right font-semibold text-text-primary">
-                        ₹{stock.price.toFixed(2)}
-                      </td>
-                      <td
-                        className={`px-6 py-4 text-right font-medium ${
-                          stock.change >= 0 ? 'text-success' : 'text-danger'
-                        }`}
-                      >
-                        {stock.change >= 0 ? '+' : ''}
-                        {stock.change.toFixed(2)}
-                      </td>
-                      <td className="px-6 py-4 text-right">
-                        <div
-                          className={`inline-flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold ${
-                            stock.changePercent >= 0 ? 'bg-success/15 text-success' : 'bg-danger/15 text-danger'
-                          }`}
-                        >
-                          {stock.changePercent >= 0 ? (
-                            <ArrowUp className="h-3 w-3" />
-                          ) : (
-                            <ArrowDown className="h-3 w-3" />
-                          )}
-                          {Math.abs(stock.changePercent).toFixed(2)}%
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-right text-sm text-text-secondary">{stock.volume}</td>
-                      <td className="px-6 py-4 text-right text-xs text-text-secondary">
-                        <div>H: ₹{stock.high52w.toFixed(2)}</div>
-                        <div>L: ₹{stock.low52w.toFixed(2)}</div>
-                      </td>
-                      <td className="px-6 py-4 text-center">
-                        <div className="inline-flex items-center gap-1 rounded-full bg-accent/15 px-3 py-1">
-                          <Sparkles className="h-3 w-3 text-accent" />
-                          <span className="text-sm font-semibold text-accent">{stock.aiScore}</span>
-                        </div>
-                      </td>
-                    </motion.tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Pagination */}
-            <div className="flex items-center justify-between border-t border-border/60 px-6 py-4">
-              <div className="text-sm text-text-secondary">
-                Showing {(currentPage - 1) * itemsPerPage + 1} to{' '}
-                {Math.min(currentPage * itemsPerPage, sortedStocks.length)} of {sortedStocks.length} stocks
-              </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
-                  disabled={currentPage === 1}
-                  className="flex h-9 w-9 items-center justify-center rounded-lg border border-border/60 bg-background-surface/60 text-text-secondary transition hover:border-accent/60 hover:text-accent disabled:opacity-50 disabled:hover:border-border/60 disabled:hover:text-text-secondary"
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </button>
-
-                <div className="flex items-center gap-1">
-                  {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                    const pageNum = i + 1
-                    return (
-                      <button
-                        key={pageNum}
-                        onClick={() => setCurrentPage(pageNum)}
-                        className={`flex h-9 w-9 items-center justify-center rounded-lg text-sm font-medium transition ${
-                          currentPage === pageNum
-                            ? 'bg-accent text-accent-foreground'
-                            : 'text-text-secondary hover:text-accent'
-                        }`}
-                      >
-                        {pageNum}
-                      </button>
-                    )
-                  })}
-                </div>
-
-                <button
-                  onClick={() => setCurrentPage((prev) => Math.min(totalPages, prev + 1))}
-                  disabled={currentPage === totalPages}
-                  className="flex h-9 w-9 items-center justify-center rounded-lg border border-border/60 bg-background-surface/60 text-text-secondary transition hover:border-accent/60 hover:text-accent disabled:opacity-50 disabled:hover:border-border/60 disabled:hover:text-text-secondary"
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </button>
-              </div>
-            </div>
-          </div>
-          </Card3D>
-          </ScrollReveal>
-        </div>
-      </section>
+    <div className="rounded-lg border border-d-border bg-[#111520] overflow-hidden">
+      <div className="hidden md:grid grid-cols-[1fr_100px_100px_100px_120px_32px] items-center gap-4 px-4 py-2.5 border-b border-d-border text-[10px] text-d-text-muted uppercase tracking-wider">
+        <div>Symbol</div>
+        <div className="text-right">Price</div>
+        <div className="text-right">Change</div>
+        <div className="text-right hidden lg:block">Volume</div>
+        <div className="text-right">AI</div>
+        <div />
+      </div>
+      {rows.map((r) => (
+        <StockRowLink
+          key={r.symbol}
+          row={r}
+          hasSignal={signalSymbols.has(r.symbol.replace('.NS', '').toUpperCase())}
+        />
+      ))}
     </div>
   )
+}
+
+function StockRowLink({ row, hasSignal }: { row: StockRow; hasSignal: boolean }) {
+  const clean = row.symbol.replace('.NS', '')
+  const up = row.changePercent >= 0
+  return (
+    <Link
+      href={`/stock/${clean}`}
+      className="grid grid-cols-[1fr_auto] md:grid-cols-[1fr_100px_100px_120px_32px] lg:grid-cols-[1fr_100px_100px_100px_120px_32px] items-center gap-4 px-4 py-3 border-b border-d-border last:border-0 hover:bg-white/[0.02] transition-colors"
+    >
+      {/* Symbol + name + sector */}
+      <div className="min-w-0">
+        <div className="flex items-center gap-2">
+          <span className="text-[13px] font-medium text-white">{clean}</span>
+          {row.sector && (
+            <span className="text-[9px] text-d-text-muted uppercase tracking-wider bg-white/[0.03] px-1.5 py-0.5 rounded">
+              {row.sector}
+            </span>
+          )}
+        </div>
+        <div className="text-[11px] text-d-text-muted truncate mt-0.5">{row.name || '—'}</div>
+      </div>
+
+      {/* Price */}
+      <div className="text-right numeric text-[13px] text-white hidden md:block">
+        ₹{row.price.toFixed(2)}
+      </div>
+
+      {/* Change */}
+      <div
+        className="text-right numeric text-[12px] font-medium flex items-center justify-end gap-0.5"
+        style={{ color: up ? '#05B878' : '#FF5947' }}
+      >
+        {up ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
+        {up ? '+' : ''}{row.changePercent.toFixed(2)}%
+      </div>
+
+      {/* Volume (hidden on tablet, visible lg+) */}
+      <div className="text-right numeric text-[11px] text-d-text-muted hidden lg:block">
+        {formatVolume(row.volume)}
+      </div>
+
+      {/* Signal chip */}
+      <div className="hidden md:flex justify-end">
+        {hasSignal ? (
+          <ModelBadge modelKey="swing_forecast" size="xs" variant="soft" />
+        ) : (
+          <span className="text-[10px] text-d-text-muted">—</span>
+        )}
+      </div>
+
+      {/* Chevron */}
+      <ChevronRight className="w-3.5 h-3.5 text-d-text-muted shrink-0" />
+    </Link>
+  )
+}
+
+function Pagination({
+  page, totalPages, onChange, total,
+}: {
+  page: number; totalPages: number; onChange: (p: number) => void; total: number
+}) {
+  return (
+    <div className="flex items-center justify-between">
+      <p className="text-[11px] text-d-text-muted">
+        Page <span className="text-white numeric">{page}</span> of{' '}
+        <span className="numeric">{totalPages}</span> · {total} stocks
+      </p>
+      <div className="flex items-center gap-1.5">
+        <button
+          onClick={() => onChange(Math.max(1, page - 1))}
+          disabled={page === 1}
+          className="px-3 py-1.5 rounded-md border border-d-border text-[11px] text-d-text-muted hover:text-white hover:border-d-border-hover disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          Previous
+        </button>
+        <button
+          onClick={() => onChange(Math.min(totalPages, page + 1))}
+          disabled={page === totalPages}
+          className="px-3 py-1.5 rounded-md border border-d-border text-[11px] text-d-text-muted hover:text-white hover:border-d-border-hover disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          Next
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// --------------------------------------------------------------- helpers
+
+async function fetchLivePrices(): Promise<StockRow[]> {
+  try {
+    const API_BASE = process.env.NEXT_PUBLIC_API_URL || ''
+    const res = await fetch(
+      `${API_BASE}/api/screener/prices/live?symbols=${POPULAR.join(',')}`
+    )
+    const json = await res.json()
+    if (!json?.success || !Array.isArray(json.prices)) return []
+    return json.prices.map((p: any): StockRow => {
+      const clean = String(p.symbol || '').replace('.NS', '').toUpperCase()
+      return {
+        symbol: p.symbol || clean,
+        name: p.name || p.company || clean,
+        price: Number(p.price || p.last_price || 0),
+        change: Number(p.change || 0),
+        changePercent: Number(p.change_percent || 0),
+        volume: Number(p.volume || 0),
+        high52w: p.high_52w != null ? Number(p.high_52w) : null,
+        low52w: p.low_52w != null ? Number(p.low_52w) : null,
+        sector: p.sector || SECTOR_MAP[clean] || null,
+      }
+    })
+  } catch {
+    return []
+  }
+}
+
+function formatVolume(v: number): string {
+  if (!v || !isFinite(v)) return '—'
+  if (v >= 1e7) return `${(v / 1e7).toFixed(1)}Cr`
+  if (v >= 1e5) return `${(v / 1e5).toFixed(1)}L`
+  if (v >= 1e3) return `${(v / 1e3).toFixed(1)}K`
+  return String(v)
 }

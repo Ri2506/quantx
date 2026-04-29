@@ -46,7 +46,7 @@ export function BentoCard({
         ease: [0.16, 1, 0.3, 1],
       }}
       className={cn(
-        'glass-card-neu rounded-2xl p-6 transition-all duration-300',
+        'glass-card p-6 transition-all duration-300',
         'hover:shadow-glass-lg hover:border-white/[0.08]',
         span === 2 && 'bento-span-2',
         tall && 'bento-tall',

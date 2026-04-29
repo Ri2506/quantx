@@ -1,5 +1,5 @@
 """
-SwingAI Algorithm Verification Visualizer — v2 (Institutional-Grade)
+Quant X Algorithm Verification Visualizer — v2 (Institutional-Grade)
 ====================================================================
 Generates dedicated charts to visually verify EACH algorithm component:
 
@@ -1511,7 +1511,7 @@ def visualize_stock(
 def main():
     import argparse
 
-    parser = argparse.ArgumentParser(description="SwingAI Algorithm Verification Charts")
+    parser = argparse.ArgumentParser(description="Quant X Algorithm Verification Charts")
     parser.add_argument("--stock", type=str, nargs='+', default=None,
                         help="Stock symbol(s) e.g. RELIANCE HDFCBANK")
     parser.add_argument("--stocks", type=int, default=None,
@@ -1536,7 +1536,7 @@ def main():
     pattern_only = not args.full  # Default: pattern-only; --full overrides
 
     print(f"\n{'='*70}")
-    print(f"SWINGAI PATTERN DETECTION (v3 Anchor-Pair + Respect Validation)")
+    print(f"QUANT X PATTERN DETECTION (v3 Anchor-Pair + Respect Validation)")
     print(f"{'='*70}")
     if pattern_only:
         print(f"Mode: PATTERN-ONLY (clean charts)")

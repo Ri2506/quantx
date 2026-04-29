@@ -1,5 +1,5 @@
 // ============================================================================
-// SWINGAI - EQUITY CURVE COMPONENT
+// QUANT X - EQUITY CURVE COMPONENT
 // Line chart with drawdown overlay
 // ============================================================================
 
@@ -38,18 +38,18 @@ export default function EquityCurve({ data }: EquityCurveProps) {
       const drawdown = payload[1].value
 
       return (
-        <div className="bg-background-elevated/95 backdrop-blur-sm border border-gray-800 rounded-xl p-3 shadow-xl">
-          <p className="text-text-secondary text-xs mb-2">{payload[0].payload.date}</p>
+        <div className="bg-background-elevated border border-d-border rounded-xl p-3 shadow-xl">
+          <p className="text-white/60 text-xs mb-2">{payload[0].payload.date}</p>
           <div className="space-y-1">
             <div className="flex items-center justify-between gap-4">
-              <span className="text-xs text-text-muted">Equity:</span>
-              <span className="text-sm font-bold text-success font-mono">
+              <span className="text-xs text-d-text-muted">Equity:</span>
+              <span className="text-sm font-bold text-up font-mono">
                 ₹{equity.toLocaleString('en-IN')}
               </span>
             </div>
             <div className="flex items-center justify-between gap-4">
-              <span className="text-xs text-text-muted">Drawdown:</span>
-              <span className="text-sm font-bold text-danger font-mono">
+              <span className="text-xs text-d-text-muted">Drawdown:</span>
+              <span className="text-sm font-bold text-down font-mono">
                 {drawdown.toFixed(2)}%
               </span>
             </div>
@@ -64,26 +64,26 @@ export default function EquityCurve({ data }: EquityCurveProps) {
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-background-surface/50 backdrop-blur-xl rounded-2xl border border-gray-800 p-6"
+      className="bg-background-surface rounded-2xl border border-d-border p-6"
     >
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-3">
-          <div className="p-2 rounded-lg bg-success/10 border border-success/20">
-            <TrendingUp className="w-5 h-5 text-success" />
+          <div className="p-2 rounded-lg bg-up/10 border border-up/20">
+            <TrendingUp className="w-5 h-5 text-up" />
           </div>
           <div>
-            <h3 className="text-lg font-bold text-text-primary">Equity Curve</h3>
-            <p className="text-sm text-text-secondary">Portfolio value over time</p>
+            <h3 className="text-lg font-bold text-white">Equity Curve</h3>
+            <p className="text-sm text-white/60">Portfolio value over time</p>
           </div>
         </div>
 
         {/* Max Drawdown Badge */}
-        <div className="flex items-center gap-2 px-4 py-2 bg-danger/10 border border-danger/20 rounded-xl">
-          <AlertTriangle className="w-4 h-4 text-danger" />
+        <div className="flex items-center gap-2 px-4 py-2 bg-down/10 border border-down/20 rounded-xl">
+          <AlertTriangle className="w-4 h-4 text-down" />
           <div>
-            <p className="text-xs text-text-muted">Max Drawdown</p>
-            <p className="text-sm font-bold text-danger font-mono">
+            <p className="text-xs text-d-text-muted">Max Drawdown</p>
+            <p className="text-sm font-bold text-down font-mono">
               {maxDrawdown.toFixed(2)}%
             </p>
           </div>
@@ -143,7 +143,7 @@ export default function EquityCurve({ data }: EquityCurveProps) {
               wrapperStyle={{ paddingTop: '20px' }}
               iconType="line"
               formatter={(value) => (
-                <span className="text-sm text-text-secondary">{value}</span>
+                <span className="text-sm text-white/60">{value}</span>
               )}
             />
 
@@ -175,22 +175,22 @@ export default function EquityCurve({ data }: EquityCurveProps) {
       </div>
 
       {/* Stats Grid */}
-      <div className="grid grid-cols-4 gap-4 mt-6 pt-6 border-t border-gray-800">
+      <div className="grid grid-cols-4 gap-4 mt-6 pt-6 border-t border-d-border">
         <div>
-          <p className="text-text-secondary text-xs mb-1">Starting Capital</p>
-          <p className="text-lg font-bold text-text-primary font-mono">
+          <p className="text-white/60 text-xs mb-1">Starting Capital</p>
+          <p className="text-lg font-bold text-white font-mono">
             ₹{data[0]?.equity.toLocaleString('en-IN') || 0}
           </p>
         </div>
         <div>
-          <p className="text-text-secondary text-xs mb-1">Current Equity</p>
-          <p className="text-lg font-bold text-success font-mono">
+          <p className="text-white/60 text-xs mb-1">Current Equity</p>
+          <p className="text-lg font-bold text-up font-mono">
             ₹{data[data.length - 1]?.equity.toLocaleString('en-IN') || 0}
           </p>
         </div>
         <div>
-          <p className="text-text-secondary text-xs mb-1">Total Gain</p>
-          <p className="text-lg font-bold text-success font-mono">
+          <p className="text-white/60 text-xs mb-1">Total Gain</p>
+          <p className="text-lg font-bold text-up font-mono">
             +₹
             {(
               (data[data.length - 1]?.equity || 0) - (data[0]?.equity || 0)
@@ -198,8 +198,8 @@ export default function EquityCurve({ data }: EquityCurveProps) {
           </p>
         </div>
         <div>
-          <p className="text-text-secondary text-xs mb-1">ROI</p>
-          <p className="text-lg font-bold text-success font-mono">
+          <p className="text-white/60 text-xs mb-1">ROI</p>
+          <p className="text-lg font-bold text-up font-mono">
             +
             {(
               ((data[data.length - 1]?.equity - data[0]?.equity) /

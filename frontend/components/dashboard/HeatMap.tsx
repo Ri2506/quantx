@@ -1,5 +1,5 @@
 // ============================================================================
-// SWINGAI - HEATMAP COMPONENT
+// QUANT X - HEATMAP COMPONENT
 // Sector performance visualization
 // ============================================================================
 
@@ -100,21 +100,21 @@ export default function HeatMap({ data = defaultData }: HeatMapProps) {
 
   // Get color based on performance
   const getColor = (change: number) => {
-    if (change >= 2) return 'bg-success text-white'
-    if (change >= 1) return 'bg-success/70 text-white'
-    if (change >= 0.5) return 'bg-success/50 text-white'
-    if (change > 0) return 'bg-success/30 text-success'
-    if (change > -0.5) return 'bg-danger/30 text-danger'
-    if (change > -1) return 'bg-danger/50 text-white'
-    if (change > -2) return 'bg-danger/70 text-white'
-    return 'bg-danger text-white'
+    if (change >= 2) return 'bg-up text-white'
+    if (change >= 1) return 'bg-up/70 text-white'
+    if (change >= 0.5) return 'bg-up/50 text-white'
+    if (change > 0) return 'bg-up/30 text-up'
+    if (change > -0.5) return 'bg-down/30 text-down'
+    if (change > -1) return 'bg-down/50 text-white'
+    if (change > -2) return 'bg-down/70 text-white'
+    return 'bg-down text-white'
   }
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-background-surface/50 backdrop-blur-xl rounded-2xl border border-gray-800 p-6"
+      className="bg-background-surface rounded-2xl border border-d-border p-6"
     >
       {/* Header */}
       <div className="flex items-center justify-between mb-6">
@@ -123,20 +123,20 @@ export default function HeatMap({ data = defaultData }: HeatMapProps) {
             <BarChart3 className="w-5 h-5 text-primary" />
           </div>
           <div>
-            <h3 className="text-lg font-bold text-text-primary">Sector Performance</h3>
-            <p className="text-sm text-text-secondary">Today's sectoral heatmap</p>
+            <h3 className="text-lg font-bold text-white">Sector Performance</h3>
+            <p className="text-sm text-white/60">Today's sectoral heatmap</p>
           </div>
         </div>
 
         {/* Legend */}
         <div className="flex items-center gap-4 text-xs">
           <div className="flex items-center gap-2">
-            <div className="w-4 h-4 rounded bg-success" />
-            <span className="text-text-muted">Gainers</span>
+            <div className="w-4 h-4 rounded bg-up" />
+            <span className="text-d-text-muted">Gainers</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-4 h-4 rounded bg-danger" />
-            <span className="text-text-muted">Losers</span>
+            <div className="w-4 h-4 rounded bg-down" />
+            <span className="text-d-text-muted">Losers</span>
           </div>
         </div>
       </div>
@@ -156,7 +156,7 @@ export default function HeatMap({ data = defaultData }: HeatMapProps) {
               className={`relative p-4 rounded-xl ${getColor(
                 sector.change
               )} cursor-pointer transition-all ${
-                isHovered ? 'ring-2 ring-primary shadow-glow-md' : ''
+                isHovered ? 'ring-2 ring-primary' : ''
               }`}
             >
               {/* Sector Name */}
@@ -180,16 +180,16 @@ export default function HeatMap({ data = defaultData }: HeatMapProps) {
                 <motion.div
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="absolute top-full left-0 mt-2 w-64 p-3 bg-background-elevated border border-gray-700 rounded-xl shadow-2xl z-20"
+                  className="absolute top-full left-0 mt-2 w-64 p-3 bg-background-elevated border border-d-border rounded-xl shadow-2xl z-20"
                 >
                   {sector.topGainers.length > 0 && (
                     <div className="mb-2">
-                      <p className="text-xs text-success font-bold mb-1">
+                      <p className="text-xs text-up font-bold mb-1">
                         Top Gainers
                       </p>
                       <ul className="space-y-1">
                         {sector.topGainers.map((stock, i) => (
-                          <li key={i} className="text-xs text-text-secondary">
+                          <li key={i} className="text-xs text-white/60">
                             {stock}
                           </li>
                         ))}
@@ -198,12 +198,12 @@ export default function HeatMap({ data = defaultData }: HeatMapProps) {
                   )}
                   {sector.topLosers.length > 0 && (
                     <div>
-                      <p className="text-xs text-danger font-bold mb-1">
+                      <p className="text-xs text-down font-bold mb-1">
                         Top Losers
                       </p>
                       <ul className="space-y-1">
                         {sector.topLosers.map((stock, i) => (
-                          <li key={i} className="text-xs text-text-secondary">
+                          <li key={i} className="text-xs text-white/60">
                             {stock}
                           </li>
                         ))}
@@ -218,10 +218,10 @@ export default function HeatMap({ data = defaultData }: HeatMapProps) {
       </div>
 
       {/* Summary Stats */}
-      <div className="grid grid-cols-3 gap-4 pt-4 border-t border-gray-800">
+      <div className="grid grid-cols-3 gap-4 pt-4 border-t border-d-border">
         <div>
-          <p className="text-text-secondary text-xs mb-1">Top Sector</p>
-          <p className="text-sm font-bold text-success">
+          <p className="text-white/60 text-xs mb-1">Top Sector</p>
+          <p className="text-sm font-bold text-up">
             {data.reduce((max, sector) =>
               sector.change > max.change ? sector : max
             ).name}{' '}
@@ -233,8 +233,8 @@ export default function HeatMap({ data = defaultData }: HeatMapProps) {
           </p>
         </div>
         <div>
-          <p className="text-text-secondary text-xs mb-1">Worst Sector</p>
-          <p className="text-sm font-bold text-danger">
+          <p className="text-white/60 text-xs mb-1">Worst Sector</p>
+          <p className="text-sm font-bold text-down">
             {data.reduce((min, sector) =>
               sector.change < min.change ? sector : min
             ).name}{' '}
@@ -245,12 +245,12 @@ export default function HeatMap({ data = defaultData }: HeatMapProps) {
           </p>
         </div>
         <div>
-          <p className="text-text-secondary text-xs mb-1">Avg Change</p>
+          <p className="text-white/60 text-xs mb-1">Avg Change</p>
           <p
             className={`text-sm font-bold ${
               data.reduce((sum, s) => sum + s.change, 0) / data.length >= 0
-                ? 'text-success'
-                : 'text-danger'
+                ? 'text-up'
+                : 'text-down'
             }`}
           >
             {(data.reduce((sum, s) => sum + s.change, 0) / data.length).toFixed(2)}%

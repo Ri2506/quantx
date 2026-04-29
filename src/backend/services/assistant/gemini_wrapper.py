@@ -113,6 +113,7 @@ class GeminiWrapper:
         topic: str,
         market_context: Dict[str, Any],
         news_context: List[Dict[str, Any]],
+        page_context: Optional[Dict[str, str]] = None,
     ) -> str:
         if not self.enabled:
             return (
@@ -120,9 +121,21 @@ class GeminiWrapper:
                 "Please set GEMINI_API_KEY and retry."
             )
 
+        # PR 86 — page_context (already clamped upstream) lets short
+        # questions resolve the right symbol. "How does the regime look?"
+        # on /stock/RELIANCE → answer about RELIANCE; on /dashboard → answer
+        # about NIFTY. Empty dict means no hint, which is the old behaviour.
+        page_hint = ""
+        if page_context:
+            page_hint = (
+                f"User page context JSON: {json.dumps(page_context, ensure_ascii=True)}\n"
+                "When the user uses pronouns ('this stock', 'it') without a symbol, "
+                "interpret them against the page context.\n"
+            )
+
         prompt = (
             "System policy:\n"
-            "1) You are SwingAI Finance Intelligence.\n"
+            "1) You are Quant X Finance Intelligence.\n"
             "2) Reply in English only.\n"
             "3) Answer only finance/markets/trading/news/portfolio topics.\n"
             "4) Educational-only: do not provide personalized buy/sell execution instructions.\n"
@@ -131,6 +144,7 @@ class GeminiWrapper:
             f"Detected topic: {topic}\n"
             f"Market context JSON: {json.dumps(market_context, ensure_ascii=True)}\n"
             f"News context JSON: {json.dumps(news_context, ensure_ascii=True)}\n"
+            f"{page_hint}"
             f"Conversation history JSON: {json.dumps(history[-12:], ensure_ascii=True)}\n"
             f"User message: {message}\n\n"
             "Return only the assistant response text."

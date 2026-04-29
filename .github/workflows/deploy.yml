@@ -1,9 +1,9 @@
 # ============================================================================
-# SWINGAI CI/CD PIPELINE
+# QUANT X CI/CD PIPELINE
 # Automated testing, linting, and deployment
 # ============================================================================
 
-name: SwingAI CI/CD
+name: Quant X CI/CD
 
 on:
   push:
@@ -41,19 +41,17 @@ jobs:
       - name: Run linting
         run: |
           pip install flake8 black isort
-          black --check src/backend/ || true
-          isort --check-only src/backend/ || true
-          flake8 src/backend/ --max-line-length=120 --ignore=E501,W503 || true
+          flake8 src/backend/ --max-line-length=120 --ignore=E501,W503
 
       - name: Run type checking
         run: |
           pip install mypy
-          mypy src/backend/ --ignore-missing-imports || true
+          mypy src/backend/ --ignore-missing-imports
 
       - name: Run tests
         run: |
           pip install pytest pytest-asyncio pytest-cov
-          pytest tests/ -v --cov=src/backend --cov-report=xml || true
+          pytest tests/ -v --cov=src/backend --cov-report=xml
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
@@ -85,15 +83,15 @@ jobs:
         run: npm ci
 
       - name: Run linting
-        run: npm run lint || true
+        run: npm run lint
 
       - name: Type check
-        run: npx tsc --noEmit || true
+        run: npx tsc --noEmit
 
       - name: Build
         run: npm run build
         env:
-          NEXT_PUBLIC_API_URL: https://api.swingai.app
+          NEXT_PUBLIC_API_URL: https://api.quantx.app
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
 
@@ -105,6 +103,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [backend-test]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment: production
 
     steps:
       - name: Checkout code
@@ -114,7 +113,7 @@ jobs:
         run: npm install -g @railway/cli
 
       - name: Deploy to Railway
-        run: railway up --service swingai-backend
+        run: railway up --service quantx-backend
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
 
@@ -126,6 +125,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [frontend-test]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment: production
 
     steps:
       - name: Checkout code

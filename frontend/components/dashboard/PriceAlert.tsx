@@ -1,5 +1,5 @@
 // ============================================================================
-// SWINGAI - PRICE ALERT COMPONENT
+// QUANT X - PRICE ALERT COMPONENT
 // Mini chart with draggable alert line
 // ============================================================================
 
@@ -46,7 +46,7 @@ export default function PriceAlert({
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-background-surface/50 backdrop-blur-xl rounded-xl border border-gray-800 p-4"
+      className="bg-background-surface rounded-xl border border-d-border p-4"
     >
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
@@ -55,15 +55,15 @@ export default function PriceAlert({
             <Bell className="w-4 h-4 text-warning" />
           </div>
           <div>
-            <h3 className="text-sm font-bold text-text-primary">{symbol}</h3>
-            <p className="text-xs text-text-muted">Price Alerts</p>
+            <h3 className="text-sm font-bold text-white">{symbol}</h3>
+            <p className="text-xs text-d-text-muted">Price Alerts</p>
           </div>
         </div>
 
         {/* Current Price */}
         <div className="text-right">
-          <p className="text-xs text-text-muted">LTP</p>
-          <p className="text-lg font-bold text-text-primary font-mono">
+          <p className="text-xs text-d-text-muted">LTP</p>
+          <p className="text-lg font-bold text-white font-mono">
             ₹{currentPrice.toFixed(2)}
           </p>
         </div>
@@ -118,16 +118,16 @@ export default function PriceAlert({
         {/* Alert Type Indicators */}
         <div className="absolute top-2 left-2 flex flex-col gap-1">
           <div className="flex items-center gap-1 text-xs">
-            <div className="w-2 h-2 rounded-full bg-success" />
-            <span className="text-text-muted">Current</span>
+            <div className="w-2 h-2 rounded-full bg-up" />
+            <span className="text-d-text-muted">Current</span>
           </div>
           <div className="flex items-center gap-1 text-xs">
             <div className="w-2 h-2 rounded-full bg-warning" />
-            <span className="text-text-muted">Above Alert</span>
+            <span className="text-d-text-muted">Above Alert</span>
           </div>
           <div className="flex items-center gap-1 text-xs">
-            <div className="w-2 h-2 rounded-full bg-danger" />
-            <span className="text-text-muted">Below Alert</span>
+            <div className="w-2 h-2 rounded-full bg-down" />
+            <span className="text-d-text-muted">Below Alert</span>
           </div>
         </div>
       </div>
@@ -135,23 +135,23 @@ export default function PriceAlert({
       {/* Existing Alerts List */}
       {existingAlerts.length > 0 && (
         <div className="mb-4">
-          <p className="text-xs text-text-muted mb-2">Active Alerts:</p>
+          <p className="text-xs text-d-text-muted mb-2">Active Alerts:</p>
           <div className="space-y-2">
             {existingAlerts.map((alert, i) => (
               <div
                 key={i}
-                className="flex items-center justify-between px-3 py-2 bg-background-elevated rounded-lg border border-gray-800"
+                className="flex items-center justify-between px-3 py-2 bg-background-elevated rounded-lg border border-d-border"
               >
                 <div className="flex items-center gap-2">
                   {alert.type === 'above' ? (
                     <TrendingUp className="w-4 h-4 text-warning" />
                   ) : (
-                    <TrendingDown className="w-4 h-4 text-danger" />
+                    <TrendingDown className="w-4 h-4 text-down" />
                   )}
-                  <span className="text-sm text-text-secondary">
+                  <span className="text-sm text-white/60">
                     {alert.type === 'above' ? 'Above' : 'Below'}
                   </span>
-                  <span className="text-sm font-bold text-text-primary font-mono">
+                  <span className="text-sm font-bold text-white font-mono">
                     ₹{alert.price.toFixed(2)}
                   </span>
                 </div>
@@ -162,7 +162,7 @@ export default function PriceAlert({
                     onClick={() => onDeleteAlert(alert.price)}
                     className="p-1 rounded hover:bg-background-surface transition-colors"
                   >
-                    <X className="w-3 h-3 text-danger" />
+                    <X className="w-3 h-3 text-down" />
                   </motion.button>
                 )}
               </div>
@@ -176,7 +176,7 @@ export default function PriceAlert({
         <motion.div
           initial={{ opacity: 0, height: 0 }}
           animate={{ opacity: 1, height: 'auto' }}
-          className="space-y-3 p-3 bg-background-elevated rounded-lg border border-gray-800"
+          className="space-y-3 p-3 bg-background-elevated rounded-lg border border-d-border"
         >
           {/* Alert Type */}
           <div className="grid grid-cols-2 gap-2">
@@ -185,7 +185,7 @@ export default function PriceAlert({
               className={`p-2 rounded-lg border font-medium text-sm transition-all ${
                 alertType === 'above'
                   ? 'bg-warning/20 border-warning text-warning'
-                  : 'bg-background-surface border-gray-800 text-text-secondary'
+                  : 'bg-background-surface border-d-border text-white/60'
               }`}
             >
               <TrendingUp className="w-4 h-4 mx-auto mb-1" />
@@ -195,8 +195,8 @@ export default function PriceAlert({
               onClick={() => setAlertType('below')}
               className={`p-2 rounded-lg border font-medium text-sm transition-all ${
                 alertType === 'below'
-                  ? 'bg-danger/20 border-danger text-danger'
-                  : 'bg-background-surface border-gray-800 text-text-secondary'
+                  ? 'bg-down/20 border-down text-down'
+                  : 'bg-background-surface border-d-border text-white/60'
               }`}
             >
               <TrendingDown className="w-4 h-4 mx-auto mb-1" />
@@ -206,13 +206,13 @@ export default function PriceAlert({
 
           {/* Alert Price */}
           <div>
-            <label className="block text-xs text-text-muted mb-1">Alert Price</label>
+            <label className="block text-xs text-d-text-muted mb-1">Alert Price</label>
             <input
               type="number"
               step="0.05"
               value={alertPrice}
               onChange={(e) => setAlertPrice(parseFloat(e.target.value))}
-              className="w-full px-3 py-2 bg-background-surface border border-gray-800 rounded-lg text-text-primary font-mono focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+              className="w-full px-3 py-2 bg-background-surface border border-d-border rounded-lg text-white font-mono focus:outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
             />
           </div>
 
@@ -227,7 +227,7 @@ export default function PriceAlert({
               onChange={(e) => setAlertPrice(parseFloat(e.target.value))}
               className="w-full"
             />
-            <div className="flex justify-between text-xs text-text-muted mt-1">
+            <div className="flex justify-between text-xs text-d-text-muted mt-1">
               <span>₹{minPrice.toFixed(2)}</span>
               <span>₹{maxPrice.toFixed(2)}</span>
             </div>
@@ -237,7 +237,7 @@ export default function PriceAlert({
           <div className="flex gap-2">
             <button
               onClick={() => setShowForm(false)}
-              className="flex-1 px-3 py-2 bg-background-surface border border-gray-800 rounded-lg text-sm text-text-secondary hover:text-text-primary transition-colors"
+              className="flex-1 px-3 py-2 bg-background-surface border border-d-border rounded-lg text-sm text-white/60 hover:text-white transition-colors"
             >
               Cancel
             </button>
@@ -257,7 +257,7 @@ export default function PriceAlert({
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
           onClick={() => setShowForm(true)}
-          className="w-full px-4 py-2 bg-background-elevated border border-gray-800 rounded-lg text-sm font-medium text-text-secondary hover:text-text-primary hover:border-gray-700 transition-all flex items-center justify-center gap-2"
+          className="w-full px-4 py-2 bg-background-elevated border border-d-border rounded-lg text-sm font-medium text-white/60 hover:text-white hover:border-white/20 transition-all flex items-center justify-center gap-2"
         >
           <Bell className="w-4 h-4" />
           Create New Alert
@@ -265,7 +265,7 @@ export default function PriceAlert({
       )}
 
       {/* Help Text */}
-      <p className="text-xs text-text-muted text-center mt-3">
+      <p className="text-xs text-d-text-muted text-center mt-3">
         Get notified via email or push when price crosses your alert
       </p>
     </motion.div>

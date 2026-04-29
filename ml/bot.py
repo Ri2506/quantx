@@ -1,5 +1,5 @@
 """
-SwingAI Main Bot
+Quant X Main Bot
 =================
 Orchestrates the complete trading workflow:
 
@@ -21,8 +21,11 @@ Orchestrates the complete trading workflow:
         └─ Check: Max hold days exceeded? → EXIT at close
 """
 
+import json
 import logging
-from typing import List, Dict, Optional
+import os
+from datetime import date
+from typing import List, Dict, Optional, Set
 from dataclasses import dataclass, field
 
 import pandas as pd
@@ -34,6 +37,21 @@ from .features.indicators import compute_all_indicators
 from .strategies.base import TradeSignal, Direction
 
 logger = logging.getLogger(__name__)
+
+
+def _load_nse_holidays(path: str = "data/nse_holidays_2026.json") -> Set[date]:
+    """Load NSE holiday dates from a JSON file.
+
+    Returns an empty set if the file is missing or malformed so the bot
+    still starts (weekends are always skipped regardless).
+    """
+    try:
+        with open(path, "r") as f:
+            data = json.load(f)
+        return {date.fromisoformat(d) for d in data.get("holidays", [])}
+    except (FileNotFoundError, json.JSONDecodeError, ValueError) as e:
+        logger.warning(f"Could not load NSE holidays from {path}: {e}")
+        return set()
 
 
 @dataclass
@@ -87,7 +105,11 @@ class SwingBot:
             max_open_positions=self.config.max_positions,
         )
         self.risk_manager = RiskManager(risk_config)
-        self.position_manager = PositionManager(max_positions=self.config.max_positions)
+        self._nse_holidays = _load_nse_holidays()
+        self.position_manager = PositionManager(
+            max_positions=self.config.max_positions,
+            nse_holidays=self._nse_holidays,
+        )
         self.strategies = get_all_strategies()
         self._strategies_map = {s.name: s for s in self.strategies}
 

@@ -1,12 +1,14 @@
 // ============================================================================
-// SWINGAI - MARKET TICKER COMPONENT
-// Scrolling marquee with Nifty, BankNifty, VIX
+// QUANT X - MARKET TICKER COMPONENT
+// Scrolling marquee with live market indices
 // ============================================================================
 
 'use client'
 
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { TrendingUp, TrendingDown, Activity } from 'lucide-react'
+import { TrendingUp, TrendingDown, Activity, Loader2 } from 'lucide-react'
+import { api } from '@/lib/api'
 
 interface MarketData {
   symbol: string
@@ -19,28 +21,85 @@ interface MarketTickerProps {
   data?: MarketData[]
 }
 
-const defaultData: MarketData[] = [
-  { symbol: 'NIFTY 50', price: 21453.75, change: 145.30, changePercent: 0.68 },
-  { symbol: 'BANK NIFTY', price: 45678.90, change: -234.50, changePercent: -0.51 },
-  { symbol: 'NIFTY IT', price: 32456.20, change: 89.45, changePercent: 0.28 },
-  { symbol: 'INDIA VIX', price: 13.45, change: -0.75, changePercent: -5.28 },
-  { symbol: 'NIFTY MIDCAP', price: 43210.55, change: 321.40, changePercent: 0.75 },
-  { symbol: 'SENSEX', price: 70987.65, change: 456.80, changePercent: 0.65 },
-]
+const INDEX_SYMBOLS = ['NIFTY 50', 'BANK NIFTY', 'NIFTY IT', 'INDIA VIX', 'NIFTY MIDCAP', 'SENSEX']
 
-export default function MarketTicker({ data = defaultData }: MarketTickerProps) {
+export default function MarketTicker({ data: externalData }: MarketTickerProps) {
+  const [liveData, setLiveData] = useState<MarketData[]>([])
+  const [loading, setLoading] = useState(!externalData)
+
+  useEffect(() => {
+    if (externalData) return
+
+    let mounted = true
+
+    const fetchIndices = async () => {
+      try {
+        const res = await api.market.getIndices()
+        if (!mounted) return
+
+        // Normalize response to MarketData[]
+        const indices: MarketData[] = []
+        if (Array.isArray(res?.indices || res)) {
+          const arr = res?.indices || res
+          for (const item of arr as any[]) {
+            indices.push({
+              symbol: item.symbol || item.name || '',
+              price: item.price || item.last || item.close || 0,
+              change: item.change ?? 0,
+              changePercent: item.changePercent ?? item.change_percent ?? item.pchange ?? 0,
+            })
+          }
+        }
+
+        if (indices.length > 0) {
+          setLiveData(indices)
+        }
+      } catch (err) {
+        console.error('MarketTicker: failed to fetch indices', err)
+      } finally {
+        if (mounted) setLoading(false)
+      }
+    }
+
+    fetchIndices()
+    const interval = setInterval(fetchIndices, 30_000)
+
+    return () => {
+      mounted = false
+      clearInterval(interval)
+    }
+  }, [externalData])
+
+  const data = externalData || liveData
+
+  if (loading) {
+    return (
+      <div className="bg-background-surface rounded-2xl border border-d-border overflow-hidden">
+        <div className="flex items-center gap-2 px-6 py-3 border-b border-d-border">
+          <Activity className="w-5 h-5 text-primary" />
+          <span className="text-sm font-bold text-white">Market Overview</span>
+        </div>
+        <div className="flex items-center justify-center py-6">
+          <Loader2 className="w-5 h-5 text-d-text-muted animate-spin" />
+        </div>
+      </div>
+    )
+  }
+
+  if (data.length === 0) return null
+
   // Duplicate data for seamless loop
   const tickerData = [...data, ...data, ...data]
 
   return (
-    <div className="bg-background-surface/50 backdrop-blur-xl rounded-2xl border border-gray-800 overflow-hidden">
+    <div className="bg-background-surface rounded-2xl border border-d-border overflow-hidden">
       {/* Header */}
-      <div className="flex items-center gap-2 px-6 py-3 border-b border-gray-800">
+      <div className="flex items-center gap-2 px-6 py-3 border-b border-d-border">
         <Activity className="w-5 h-5 text-primary" />
-        <span className="text-sm font-bold text-text-primary">Market Overview</span>
+        <span className="text-sm font-bold text-white">Market Overview</span>
         <div className="ml-auto flex items-center gap-2">
-          <div className="w-2 h-2 rounded-full bg-success animate-pulse" />
-          <span className="text-xs text-text-muted">Live</span>
+          <div className="w-2 h-2 rounded-full bg-up animate-pulse" />
+          <span className="text-xs text-d-text-muted">Live</span>
         </div>
       </div>
 
@@ -54,7 +113,7 @@ export default function MarketTicker({ data = defaultData }: MarketTickerProps) 
         <motion.div
           className="flex gap-8"
           animate={{
-            x: [0, -1800], // Adjust based on content width
+            x: [0, -1800],
           }}
           transition={{
             x: {
@@ -72,29 +131,29 @@ export default function MarketTicker({ data = defaultData }: MarketTickerProps) 
               <motion.div
                 key={`${item.symbol}-${index}`}
                 whileHover={{ scale: 1.05 }}
-                className="flex items-center gap-4 px-4 py-2 bg-background-elevated rounded-lg border border-gray-800 whitespace-nowrap cursor-pointer hover:border-gray-700 transition-all"
+                className="flex items-center gap-4 px-4 py-2 bg-background-elevated rounded-lg border border-d-border whitespace-nowrap cursor-pointer hover:border-white/20 transition-all"
               >
                 {/* Symbol */}
                 <div className="flex items-center gap-2">
                   <div
                     className={`p-1.5 rounded ${
-                      isPositive ? 'bg-success/20' : 'bg-danger/20'
+                      isPositive ? 'bg-up/20' : 'bg-down/20'
                     }`}
                   >
                     {isPositive ? (
-                      <TrendingUp className="w-4 h-4 text-success" />
+                      <TrendingUp className="w-4 h-4 text-up" />
                     ) : (
-                      <TrendingDown className="w-4 h-4 text-danger" />
+                      <TrendingDown className="w-4 h-4 text-down" />
                     )}
                   </div>
-                  <span className="text-sm font-bold text-text-primary">
+                  <span className="text-sm font-bold text-white">
                     {item.symbol}
                   </span>
                 </div>
 
                 {/* Price */}
                 <div className="flex items-center gap-3">
-                  <span className="text-sm font-mono text-text-primary">
+                  <span className="text-sm font-mono text-white">
                     {item.price.toLocaleString('en-IN', {
                       minimumFractionDigits: 2,
                       maximumFractionDigits: 2,
@@ -105,8 +164,8 @@ export default function MarketTicker({ data = defaultData }: MarketTickerProps) 
                   <div
                     className={`flex items-center gap-1 px-2 py-0.5 rounded text-xs font-bold ${
                       isPositive
-                        ? 'bg-success/20 text-success'
-                        : 'bg-danger/20 text-danger'
+                        ? 'bg-up/20 text-up'
+                        : 'bg-down/20 text-down'
                     }`}
                   >
                     <span>

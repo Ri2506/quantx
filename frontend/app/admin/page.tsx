@@ -1,12 +1,11 @@
 // ============================================================================
-// SWINGAI - ADMIN DASHBOARD (2026 Enhanced)
-// Glass-neu cards, neon accents, animated indicators
+// QUANT X - ADMIN DASHBOARD (Intellectia.ai Design System)
+// Clean cards, semantic colors, no animations
 // ============================================================================
 
 'use client'
 
 import { useEffect, useState } from 'react'
-import { motion } from 'framer-motion'
 import {
   Users,
   CreditCard,
@@ -23,9 +22,7 @@ import {
   RefreshCw,
 } from 'lucide-react'
 import { SystemHealth, PaymentStats, SignalStats } from '@/types/admin'
-import Card3D from '@/components/ui/Card3D'
-import ScrollReveal from '@/components/ui/ScrollReveal'
-import StatusDot from '@/components/ui/StatusDot'
+import { api, handleApiError } from '@/lib/api'
 
 // Stat Card Component
 function StatCard({
@@ -35,7 +32,6 @@ function StatCard({
   icon: Icon,
   color = 'blue',
   trend,
-  delay = 0,
 }: {
   title: string
   value: string | number
@@ -43,67 +39,64 @@ function StatCard({
   icon: any
   color?: 'blue' | 'green' | 'red' | 'orange' | 'purple'
   trend?: { value: number; positive: boolean }
-  delay?: number
 }) {
   const colors = {
-    blue: 'from-neon-cyan/20 to-neon-cyan/5 text-neon-cyan',
-    green: 'from-neon-green/20 to-neon-green/5 text-neon-green',
-    red: 'from-danger/20 to-danger/5 text-danger',
-    orange: 'from-neon-gold/20 to-neon-gold/5 text-neon-gold',
-    purple: 'from-neon-purple/20 to-neon-purple/5 text-neon-purple',
+    blue: 'from-primary/20 to-primary/5 text-primary',
+    green: 'from-up/20 to-up/5 text-up',
+    red: 'from-down/20 to-down/5 text-down',
+    orange: 'from-warning/20 to-warning/5 text-warning',
+    purple: 'from-purple-500/20 to-purple-500/5 text-purple-500',
   }
 
   const iconBg = {
-    blue: 'bg-neon-cyan/10 border-neon-cyan/20',
-    green: 'bg-neon-green/10 border-neon-green/20',
-    red: 'bg-danger/10 border-danger/20',
-    orange: 'bg-neon-gold/10 border-neon-gold/20',
-    purple: 'bg-neon-purple/10 border-neon-purple/20',
+    blue: 'bg-primary/10 border-primary/20',
+    green: 'bg-up/10 border-up/20',
+    red: 'bg-down/10 border-down/20',
+    orange: 'bg-warning/10 border-warning/20',
+    purple: 'bg-purple-500/10 border-purple-500/20',
   }
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ delay }}
-    >
-      <Card3D>
-        <div className="glass-card-neu rounded-2xl border border-white/[0.04] p-6">
-          <div className="flex items-start justify-between">
-            <div>
-              <p className="text-sm text-text-secondary mb-1">{title}</p>
-              <p className="text-2xl font-bold text-text-primary">{value}</p>
-              {subtitle && <p className="text-xs text-text-secondary mt-1">{subtitle}</p>}
-              {trend && (
-                <p
-                  className={`text-xs mt-2 ${trend.positive ? 'text-neon-green' : 'text-danger'}`}
-                >
-                  {trend.positive ? '+' : ''}{trend.value}% from last period
-                </p>
-              )}
-            </div>
-            <div
-              className={`p-3 rounded-xl border ${iconBg[color]}`}
-            >
-              <Icon className={`w-6 h-6 ${colors[color].split(' ').pop()}`} />
-            </div>
+    <div>
+      <div className="glass-card hover:border-primary transition-colors p-6">
+        <div className="flex items-start justify-between">
+          <div>
+            <p className="text-sm text-d-text-muted mb-1">{title}</p>
+            <p className="text-2xl font-bold text-white">{value}</p>
+            {subtitle && <p className="text-xs text-d-text-muted mt-1">{subtitle}</p>}
+            {trend && (
+              <p
+                className={`text-xs mt-2 ${trend.positive ? 'text-up' : 'text-down'}`}
+              >
+                {trend.positive ? '+' : ''}{trend.value}% from last period
+              </p>
+            )}
+          </div>
+          <div
+            className={`p-3 rounded-xl border ${iconBg[color]}`}
+          >
+            <Icon className={`w-6 h-6 ${colors[color].split(' ').pop()}`} />
           </div>
         </div>
-      </Card3D>
-    </motion.div>
+      </div>
+    </div>
   )
 }
 
 // Status Badge Component
 function StatusBadge({ status }: { status: string }) {
   const statusConfig: Record<string, { color: string; icon: any }> = {
-    healthy: { color: 'text-neon-green bg-neon-green/10 border border-neon-green/20', icon: CheckCircle },
-    connected: { color: 'text-neon-green bg-neon-green/10 border border-neon-green/20', icon: CheckCircle },
-    running: { color: 'text-neon-green bg-neon-green/10 border border-neon-green/20', icon: Activity },
-    degraded: { color: 'text-neon-gold bg-neon-gold/10 border border-neon-gold/20', icon: AlertCircle },
-    error: { color: 'text-danger bg-danger/10 border border-danger/20', icon: AlertCircle },
-    disabled: { color: 'text-text-secondary bg-white/[0.04] border border-white/[0.04]', icon: Clock },
-    stopped: { color: 'text-danger bg-danger/10 border border-danger/20', icon: AlertCircle },
+    healthy: { color: 'text-up bg-up/10 border border-up/20', icon: CheckCircle },
+    connected: { color: 'text-up bg-up/10 border border-up/20', icon: CheckCircle },
+    running: { color: 'text-up bg-up/10 border border-up/20', icon: Activity },
+    // PR 104 — "slow" is a new mid-state from the latency probe (DB up
+    // but RTT >500ms or Redis >200ms). Color-coded amber to read at a
+    // glance as "still working but degraded".
+    slow: { color: 'text-warning bg-warning/10 border border-warning/20', icon: Clock },
+    degraded: { color: 'text-warning bg-warning/10 border border-warning/20', icon: AlertCircle },
+    error: { color: 'text-down bg-down/10 border border-down/20', icon: AlertCircle },
+    disabled: { color: 'text-d-text-muted bg-white/[0.04] border border-white/[0.04]', icon: Clock },
+    stopped: { color: 'text-down bg-down/10 border border-down/20', icon: AlertCircle },
   }
 
   const config = statusConfig[status] || statusConfig.error
@@ -135,89 +128,32 @@ export default function AdminDashboard() {
       setLoading(true)
       setError(null)
 
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || ''
-
-      const [healthRes, paymentRes, signalRes] = await Promise.all([
-        fetch(`${apiUrl}/api/admin/system/health`, {
-          headers: { Authorization: `Bearer ${getToken()}` },
-        }).catch(() => null),
-        fetch(`${apiUrl}/api/admin/payments/stats?days=30`, {
-          headers: { Authorization: `Bearer ${getToken()}` },
-        }).catch(() => null),
-        fetch(`${apiUrl}/api/admin/signals/stats?days=30`, {
-          headers: { Authorization: `Bearer ${getToken()}` },
-        }).catch(() => null),
+      const [healthData, paymentData, signalData] = await Promise.all([
+        api.admin.getSystemHealth().catch(() => null),
+        api.admin.getPaymentStats(30).catch(() => null),
+        api.admin.getSignalStats(30).catch(() => null),
       ])
 
-      if (healthRes?.ok) {
-        setHealth(await healthRes.json())
+      if (healthData) {
+        setHealth(healthData as SystemHealth)
       } else {
-        setHealth(getMockHealth())
+        setError('Failed to fetch system health')
       }
 
-      if (paymentRes?.ok) {
-        setPaymentStats(await paymentRes.json())
-      } else {
-        setPaymentStats(getMockPaymentStats())
+      if (paymentData) {
+        setPaymentStats(paymentData as PaymentStats)
       }
 
-      if (signalRes?.ok) {
-        setSignalStats(await signalRes.json())
-      } else {
-        setSignalStats(getMockSignalStats())
+      if (signalData) {
+        setSignalStats(signalData as SignalStats)
       }
     } catch (err) {
       console.error('Failed to fetch dashboard data:', err)
-      setHealth(getMockHealth())
-      setPaymentStats(getMockPaymentStats())
-      setSignalStats(getMockSignalStats())
+      setError('Failed to connect to backend')
     } finally {
       setLoading(false)
     }
   }
-
-  const getToken = () => {
-    if (typeof window === 'undefined') return ''
-    const session = localStorage.getItem('sb-access-token')
-    return session || ''
-  }
-
-  // Mock data for development
-  const getMockHealth = (): SystemHealth => ({
-    status: 'healthy',
-    timestamp: new Date().toISOString(),
-    database: 'connected',
-    redis: 'disabled',
-    scheduler_status: 'running',
-    last_signal_run: new Date(Date.now() - 3600000).toISOString(),
-    active_websocket_connections: 127,
-    metrics: {
-      total_users: 5234,
-      active_subscribers: 1847,
-      today_signals: 12,
-      today_trades: 89,
-      active_positions: 234,
-    },
-  })
-
-  const getMockPaymentStats = (): PaymentStats => ({
-    period_days: 30,
-    total_revenue: 487500,
-    completed_payments: 325,
-    failed_payments: 18,
-    refunds_count: 7,
-    refunds_amount: 13500,
-    net_revenue: 474000,
-  })
-
-  const getMockSignalStats = (): SignalStats => ({
-    period_days: 30,
-    total_signals: 342,
-    target_hit: 198,
-    sl_hit: 122,
-    accuracy: 61.88,
-    avg_per_day: 11.4,
-  })
 
   if (loading) {
     return (
@@ -230,88 +166,118 @@ export default function AdminDashboard() {
   return (
     <div className="space-y-8">
       {/* Header */}
-      <ScrollReveal>
+      <div>
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold text-text-primary">Admin Dashboard</h1>
-            <p className="text-text-secondary mt-1 flex items-center gap-2">
+            <h1 className="text-3xl font-bold text-white">Admin Dashboard</h1>
+            <p className="text-d-text-muted mt-1 flex items-center gap-2">
               System overview and key metrics
-              <StatusDot status="live" label="Live" />
+              <span className="inline-flex items-center gap-1.5 text-up text-xs font-medium">
+                <span className="w-1.5 h-1.5 rounded-full bg-up animate-pulse" />
+                Live
+              </span>
             </p>
           </div>
           <button
             onClick={fetchDashboardData}
-            className="btn-beam flex items-center gap-2 px-4 py-2 rounded-xl bg-neon-gold/10 border border-neon-gold/20 text-neon-gold text-sm font-medium transition-all hover:bg-neon-gold/20"
+            className="flex items-center gap-2 px-4 py-2 rounded-xl bg-warning/10 border border-warning/20 text-warning text-sm font-medium transition-all hover:bg-warning/20"
           >
             <RefreshCw className="w-4 h-4" />
             Refresh
           </button>
         </div>
-      </ScrollReveal>
+      </div>
 
       {error && (
-        <div className="bg-danger/10 border border-danger/20 rounded-xl p-4 flex items-center gap-3">
-          <AlertCircle className="w-5 h-5 text-danger" />
-          <p className="text-danger">{error}</p>
+        <div className="bg-down/10 border border-down/20 rounded-xl p-4 flex items-center gap-3">
+          <AlertCircle className="w-5 h-5 text-down" />
+          <p className="text-down">{error}</p>
         </div>
       )}
 
       {/* System Status */}
-      <ScrollReveal delay={0.05}>
-        <Card3D maxTilt={3}>
-          <div className="glass-card-neu rounded-2xl border border-white/[0.04] p-6">
-            <h2 className="text-lg font-semibold text-text-primary mb-4">System Status</h2>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-neon-cyan/10 border border-neon-cyan/20">
-                  <Database className="w-5 h-5 text-neon-cyan" />
-                </div>
-                <div>
-                  <p className="text-sm text-text-secondary">Database</p>
-                  <StatusBadge status={health?.database || 'error'} />
-                </div>
+      <div>
+        <div className="glass-card hover:border-primary transition-colors p-6">
+          <h2 className="text-lg font-semibold text-white mb-4">System Status</h2>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-primary/10 border border-primary/20">
+                <Database className="w-5 h-5 text-primary" />
               </div>
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-neon-purple/10 border border-neon-purple/20">
-                  <Server className="w-5 h-5 text-neon-purple" />
-                </div>
-                <div>
-                  <p className="text-sm text-text-secondary">Redis</p>
-                  <StatusBadge status={health?.redis || 'disabled'} />
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-neon-gold/10 border border-neon-gold/20">
-                  <Clock className="w-5 h-5 text-neon-gold" />
-                </div>
-                <div>
-                  <p className="text-sm text-text-secondary">Scheduler</p>
-                  <StatusBadge status={health?.scheduler_status || 'stopped'} />
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="p-2 rounded-lg bg-neon-green/10 border border-neon-green/20">
-                  <Wifi className="w-5 h-5 text-neon-green" />
-                </div>
-                <div>
-                  <p className="text-sm text-text-secondary">WebSocket</p>
-                  <p className="text-text-primary font-medium">
-                    {health?.active_websocket_connections || 0} connected
+              <div>
+                <p className="text-sm text-d-text-muted">Database</p>
+                <StatusBadge status={health?.database || 'error'} />
+                {/* PR 104 — round-trip latency. Color-coded so a DB
+                    that's "connected" but slow stands out without
+                    requiring the operator to read the badge. */}
+                {health?.db_latency_ms != null && (
+                  <p
+                    className="text-[10px] font-mono num-display mt-0.5"
+                    style={{
+                      color:
+                        health.db_latency_ms > 500 ? '#FF5947'
+                        : health.db_latency_ms > 200 ? '#FEB113'
+                        : '#71717a',
+                    }}
+                  >
+                    {health.db_latency_ms}ms
                   </p>
-                </div>
+                )}
               </div>
             </div>
-            {health?.last_signal_run && (
-              <p className="text-xs text-text-secondary mt-4">
-                Last signal run: {new Date(health.last_signal_run).toLocaleString()}
-              </p>
-            )}
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-purple-500/10 border border-purple-500/20">
+                <Server className="w-5 h-5 text-purple-500" />
+              </div>
+              <div>
+                <p className="text-sm text-d-text-muted">Redis</p>
+                <StatusBadge status={health?.redis || 'disabled'} />
+                {health?.redis_latency_ms != null && (
+                  <p
+                    className="text-[10px] font-mono num-display mt-0.5"
+                    style={{
+                      color:
+                        health.redis_latency_ms > 200 ? '#FF5947'
+                        : health.redis_latency_ms > 50 ? '#FEB113'
+                        : '#71717a',
+                    }}
+                  >
+                    {health.redis_latency_ms}ms
+                  </p>
+                )}
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-warning/10 border border-warning/20">
+                <Clock className="w-5 h-5 text-warning" />
+              </div>
+              <div>
+                <p className="text-sm text-d-text-muted">Scheduler</p>
+                <StatusBadge status={health?.scheduler_status || 'stopped'} />
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="p-2 rounded-lg bg-up/10 border border-up/20">
+                <Wifi className="w-5 h-5 text-up" />
+              </div>
+              <div>
+                <p className="text-sm text-d-text-muted">WebSocket</p>
+                <p className="text-white font-medium">
+                  {health?.active_websocket_connections || 0} connected
+                </p>
+              </div>
+            </div>
           </div>
-        </Card3D>
-      </ScrollReveal>
+          {health?.last_signal_run && (
+            <p className="text-xs text-d-text-muted mt-4">
+              Last signal run: {new Date(health.last_signal_run).toLocaleString()}
+            </p>
+          )}
+        </div>
+      </div>
 
       {/* Key Metrics */}
-      <ScrollReveal delay={0.1}>
+      <div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard
             title="Total Users"
@@ -319,7 +285,6 @@ export default function AdminDashboard() {
             subtitle="All registered users"
             icon={Users}
             color="blue"
-            delay={0.1}
           />
           <StatCard
             title="Active Subscribers"
@@ -327,7 +292,6 @@ export default function AdminDashboard() {
             subtitle="Paid subscriptions"
             icon={CreditCard}
             color="green"
-            delay={0.15}
           />
           <StatCard
             title="Today's Signals"
@@ -335,7 +299,6 @@ export default function AdminDashboard() {
             subtitle="Generated today"
             icon={Target}
             color="purple"
-            delay={0.2}
           />
           <StatCard
             title="Active Positions"
@@ -343,138 +306,131 @@ export default function AdminDashboard() {
             subtitle="Open trades"
             icon={Activity}
             color="orange"
-            delay={0.25}
           />
         </div>
-      </ScrollReveal>
+      </div>
 
       {/* Revenue & Signals */}
-      <ScrollReveal delay={0.15}>
+      <div>
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Revenue Card */}
-          <Card3D maxTilt={3}>
-            <div className="glass-card-neu rounded-2xl border border-white/[0.04] p-6">
-              <h2 className="text-lg font-semibold text-text-primary mb-4 flex items-center gap-2">
-                <DollarSign className="w-5 h-5 text-neon-green" />
-                Revenue (30 days)
-              </h2>
-              <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <span className="text-text-secondary">Total Revenue</span>
-                  <span className="text-2xl font-bold text-neon-green">
-                    ₹{paymentStats?.total_revenue.toLocaleString() || 0}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-text-secondary">Completed Payments</span>
-                  <span className="text-text-primary font-medium">
-                    {paymentStats?.completed_payments || 0}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-text-secondary">Failed Payments</span>
-                  <span className="text-danger font-medium">
-                    {paymentStats?.failed_payments || 0}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-text-secondary">Refunds</span>
-                  <span className="text-neon-gold font-medium">
-                    {paymentStats?.refunds_count || 0} (₹{paymentStats?.refunds_amount.toLocaleString() || 0})
-                  </span>
-                </div>
-                <div className="border-t border-white/[0.06] pt-4 flex justify-between items-center">
-                  <span className="text-text-secondary">Net Revenue</span>
-                  <span className="text-xl font-bold text-text-primary">
-                    ₹{paymentStats?.net_revenue.toLocaleString() || 0}
-                  </span>
-                </div>
+          <div className="glass-card hover:border-primary transition-colors p-6">
+            <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+              <DollarSign className="w-5 h-5 text-up" />
+              Revenue (30 days)
+            </h2>
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <span className="text-d-text-muted">Total Revenue</span>
+                <span className="text-2xl font-bold font-mono num-display text-up">
+                  {'\u20B9'}{paymentStats?.total_revenue.toLocaleString() || 0}
+                </span>
               </div>
-            </div>
-          </Card3D>
-
-          {/* Signal Performance Card */}
-          <Card3D maxTilt={3}>
-            <div className="glass-card-neu rounded-2xl border border-white/[0.04] p-6">
-              <h2 className="text-lg font-semibold text-text-primary mb-4 flex items-center gap-2">
-                <Target className="w-5 h-5 text-neon-purple" />
-                Signal Performance (30 days)
-              </h2>
-              <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <span className="text-text-secondary">Total Signals</span>
-                  <span className="text-text-primary font-medium">
-                    {signalStats?.total_signals || 0}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-text-secondary">Target Hit</span>
-                  <span className="text-neon-green font-medium">
-                    {signalStats?.target_hit || 0}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-text-secondary">Stop Loss Hit</span>
-                  <span className="text-danger font-medium">
-                    {signalStats?.sl_hit || 0}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-text-secondary">Avg Signals/Day</span>
-                  <span className="text-text-primary font-medium">
-                    {signalStats?.avg_per_day.toFixed(1) || 0}
-                  </span>
-                </div>
-                <div className="border-t border-white/[0.06] pt-4 flex justify-between items-center">
-                  <span className="text-text-secondary">Accuracy</span>
-                  <span
-                    className={`text-xl font-bold ${
-                      (signalStats?.accuracy || 0) >= 55 ? 'text-neon-green' : 'text-neon-gold'
-                    }`}
-                  >
-                    {signalStats?.accuracy.toFixed(1) || 0}%
-                  </span>
-                </div>
+              <div className="flex justify-between items-center">
+                <span className="text-d-text-muted">Completed Payments</span>
+                <span className="text-white font-medium">
+                  {paymentStats?.completed_payments || 0}
+                </span>
               </div>
-            </div>
-          </Card3D>
-        </div>
-      </ScrollReveal>
-
-      {/* Quick Actions */}
-      <ScrollReveal delay={0.2}>
-        <Card3D maxTilt={2}>
-          <div className="glass-card-neu rounded-2xl border border-white/[0.04] p-6">
-            <h2 className="text-lg font-semibold text-text-primary mb-4">Quick Actions</h2>
-            <div className="flex flex-wrap gap-3">
-              <a
-                href="/admin/users"
-                className="btn-beam px-4 py-2 bg-neon-cyan/10 hover:bg-neon-cyan/20 border border-neon-cyan/20 rounded-lg text-neon-cyan text-sm font-medium transition-all hover:shadow-glow-sm"
-              >
-                View All Users
-              </a>
-              <a
-                href="/admin/payments"
-                className="btn-beam px-4 py-2 bg-neon-green/10 hover:bg-neon-green/20 border border-neon-green/20 rounded-lg text-neon-green text-sm font-medium transition-all hover:shadow-glow-sm"
-              >
-                Payment History
-              </a>
-              <a
-                href="/admin/signals"
-                className="btn-beam px-4 py-2 bg-neon-purple/10 hover:bg-neon-purple/20 border border-neon-purple/20 rounded-lg text-neon-purple text-sm font-medium transition-all hover:shadow-glow-sm"
-              >
-                Signal Analytics
-              </a>
-              <a
-                href="/admin/system"
-                className="btn-beam px-4 py-2 bg-neon-gold/10 hover:bg-neon-gold/20 border border-neon-gold/20 rounded-lg text-neon-gold text-sm font-medium transition-all hover:shadow-glow-sm"
-              >
-                System Health
-              </a>
+              <div className="flex justify-between items-center">
+                <span className="text-d-text-muted">Failed Payments</span>
+                <span className="text-down font-medium">
+                  {paymentStats?.failed_payments || 0}
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-d-text-muted">Refunds</span>
+                <span className="text-warning font-medium">
+                  {paymentStats?.refunds_count || 0} ({'\u20B9'}{paymentStats?.refunds_amount.toLocaleString() || 0})
+                </span>
+              </div>
+              <div className="border-t border-d-border pt-4 flex justify-between items-center">
+                <span className="text-d-text-muted">Net Revenue</span>
+                <span className="text-xl font-bold font-mono num-display text-white">
+                  {'\u20B9'}{paymentStats?.net_revenue.toLocaleString() || 0}
+                </span>
+              </div>
             </div>
           </div>
-        </Card3D>
-      </ScrollReveal>
+
+          {/* Signal Performance Card */}
+          <div className="glass-card hover:border-primary transition-colors p-6">
+            <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+              <Target className="w-5 h-5 text-purple-500" />
+              Signal Performance (30 days)
+            </h2>
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <span className="text-d-text-muted">Total Signals</span>
+                <span className="text-white font-medium">
+                  {signalStats?.total_signals || 0}
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-d-text-muted">Target Hit</span>
+                <span className="text-up font-medium">
+                  {signalStats?.target_hit || 0}
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-d-text-muted">Stop Loss Hit</span>
+                <span className="text-down font-medium">
+                  {signalStats?.sl_hit || 0}
+                </span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-d-text-muted">Avg Signals/Day</span>
+                <span className="text-white font-medium">
+                  {signalStats?.avg_per_day.toFixed(1) || 0}
+                </span>
+              </div>
+              <div className="border-t border-d-border pt-4 flex justify-between items-center">
+                <span className="text-d-text-muted">Accuracy</span>
+                <span
+                  className={`text-xl font-bold ${
+                    (signalStats?.accuracy || 0) >= 55 ? 'text-up' : 'text-warning'
+                  }`}
+                >
+                  <span className="font-mono num-display">{signalStats?.accuracy.toFixed(1) || 0}%</span>
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Quick Actions */}
+      <div>
+        <div className="glass-card hover:border-primary transition-colors p-6">
+          <h2 className="text-lg font-semibold text-white mb-4">Quick Actions</h2>
+          <div className="flex flex-wrap gap-3">
+            <a
+              href="/admin/users"
+              className="px-4 py-2 bg-primary/10 hover:bg-primary/20 border border-primary/20 rounded-lg text-primary text-sm font-medium transition-all"
+            >
+              View All Users
+            </a>
+            <a
+              href="/admin/payments"
+              className="px-4 py-2 bg-up/10 hover:bg-up/20 border border-up/20 rounded-lg text-up text-sm font-medium transition-all"
+            >
+              Payment History
+            </a>
+            <a
+              href="/admin/signals"
+              className="px-4 py-2 bg-purple-500/10 hover:bg-purple-500/20 border border-purple-500/20 rounded-lg text-purple-500 text-sm font-medium transition-all"
+            >
+              Signal Analytics
+            </a>
+            <a
+              href="/admin/system"
+              className="px-4 py-2 bg-warning/10 hover:bg-warning/20 border border-warning/20 rounded-lg text-warning text-sm font-medium transition-all"
+            >
+              System Health
+            </a>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
