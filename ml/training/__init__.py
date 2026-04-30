@@ -18,11 +18,13 @@ The runner additionally calls ``evaluate`` and ``register`` per trainer.
 """
 
 from .base import Trainer, TrainerError, TrainResult
+from .cpcv import CPCVConfig, combinatorial_purged_split, extract_backtest_paths, n_paths
 from .discovery import discover_trainers
 from .optuna_search import OptunaConfig, SearchSpace, run_optuna_search
 from .wfcv import WFCVConfig, aggregate_fold_metrics, walk_forward_split
 
 __all__ = [
+    "CPCVConfig",
     "OptunaConfig",
     "SearchSpace",
     "Trainer",
@@ -30,7 +32,10 @@ __all__ = [
     "TrainResult",
     "WFCVConfig",
     "aggregate_fold_metrics",
+    "combinatorial_purged_split",
     "discover_trainers",
+    "extract_backtest_paths",
+    "n_paths",
     "run_optuna_search",
     "walk_forward_split",
 ]
