@@ -19,14 +19,18 @@ The runner additionally calls ``evaluate`` and ``register`` per trainer.
 
 from .base import Trainer, TrainerError, TrainResult
 from .discovery import discover_trainers
+from .optuna_search import OptunaConfig, SearchSpace, run_optuna_search
 from .wfcv import WFCVConfig, aggregate_fold_metrics, walk_forward_split
 
 __all__ = [
+    "OptunaConfig",
+    "SearchSpace",
     "Trainer",
     "TrainerError",
     "TrainResult",
     "WFCVConfig",
     "aggregate_fold_metrics",
     "discover_trainers",
+    "run_optuna_search",
     "walk_forward_split",
 ]

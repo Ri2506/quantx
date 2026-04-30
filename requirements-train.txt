@@ -42,3 +42,10 @@ jugaad-data>=0.30               # historical bhavcopy fallback
 
 # ── F4 RL training extras (gymnasium + SB3 already in requirements.txt) ────
 # (no extras here — SB3 is sufficient for PPO+DDPG+A2C on Mlp policies)
+
+# ── Hyperparameter optimization (PR 165) ──────────────────────────────────
+# Bayesian search wrapper used by trainer base class. TPE sampler +
+# MedianPruner. Optional — trainers degrade gracefully when missing
+# (single-trial at default params).
+optuna>=3.6.0
+optuna-integration>=3.6.0
