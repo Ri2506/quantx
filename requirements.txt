@@ -100,12 +100,13 @@ hmmlearn>=0.3.0
 catboost>=1.2.2
 xgboost>=2.0.0                     # F9 EarningsScout surprise classifier (PR 51)
 torch>=2.1.2
-# pytorch-forecasting >=1.4 transitively requires `lightning>=2.0` which has
-# no Python 3.10 wheels on PyPI. Pin to <1.4 which uses the legacy
-# `pytorch-lightning` package (still has 3.10 wheels). Once pod images
-# move to Python 3.11+, this can be unpinned.
-pytorch-forecasting>=1.0.0,<1.4
-pytorch-lightning>=2.0.0,<2.5.0
+# pytorch-forecasting + lightning have no Python 3.10 wheels on PyPI's
+# resolver right now. Only used by the vix_tft trainer (GPU-only, not
+# in tonight's CPU-runnable set). Install on demand when training vix_tft:
+#   pip install pytorch-forecasting pytorch-lightning
+# Re-enable here once we're on a Python 3.11+ pod image.
+# pytorch-forecasting>=1.0.0
+# pytorch-lightning>=2.0.0
 transformers>=4.36.2
 google-genai>=1.57.0
 
