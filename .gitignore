@@ -89,7 +89,8 @@ ml/models/*.safetensors
 *.csv
 *.parquet
 *.feather
-data/
+/data/
+!ml/data/
 
 # Notebooks checkpoints
 .ipynb_checkpoints/
