@@ -1,5 +1,5 @@
 """
-PR 145 — Earnings surprise XGBoost trainer (F9 EarningsScout).
+PR 145 / PR 172 — Earnings surprise XGBoost trainer (F9 EarningsScout).
 
 Wraps ``src.backend.ai.earnings.training.trainer.train_and_save`` so the
 existing earnings-surprise XGBoost classifier (beat / miss / inline)
@@ -7,8 +7,12 @@ gets registered into ``model_versions`` via the unified runner. The
 heavy data-prep + fit logic lives in the original module — this
 trainer is a thin adapter.
 
-Per the unified-training-plan memory directive, this PR adds the
-trainer module — actual training executes in Phase H.
+PR 172 — earnings_xgb is a *classifier*, not a directional trader.
+The financial promote gate (Sharpe / drawdown / profit factor) doesn't
+apply: the model emits P(beat) and downstream EarningsScout strategy
+logic decides whether to recommend a pre-earnings position. Surface
+``roc_auc`` as the primary metric and skip the financial gate via
+``skip_promote_gate=True``.
 """
 
 from __future__ import annotations
@@ -26,6 +30,11 @@ class EarningsXGBTrainer(Trainer):
     name = "earnings_xgb"
     requires_gpu = False  # XGBoost on tabular features fits in seconds-minutes
     depends_on: list[str] = []
+    # PR 172 — binary classifier feeds strategy logic; opt out of the
+    # Sharpe-based gate. The runner records the `roc_auc` metric in
+    # `model_versions.metrics` so we can manually verify quality before
+    # flipping is_prod=TRUE for downstream consumers.
+    skip_promote_gate: bool = True
 
     def train(self, out_dir: Path) -> TrainResult:
         try:
@@ -58,6 +67,16 @@ class EarningsXGBTrainer(Trainer):
 
         metrics: Dict[str, Any] = dict(getattr(result, "metrics", {}) or {})
         metrics.setdefault("n_samples", int(len(X)))
+        # Surface label distribution so the runner report shows class
+        # balance — earnings beat/miss is usually ~55/45 but small
+        # datasets can skew badly.
+        try:
+            import numpy as np  # noqa: PLC0415
+            arr = np.asarray(list(y), dtype=int)
+            metrics["label_pos_rate"] = round(float(arr.mean()), 4) if arr.size else 0.0
+        except Exception:
+            pass
+
         return TrainResult(
             artifacts=artifacts,
             metrics=metrics,
@@ -66,10 +85,16 @@ class EarningsXGBTrainer(Trainer):
 
     def evaluate(self, result: TrainResult) -> Dict[str, Any]:
         m = dict(result.metrics)
-        # The legacy trainer reports `roc_auc` as the primary signal.
+        # PR 172 — primary metric is ROC AUC for the binary beat/miss
+        # classifier. PR AUC is also recorded as a secondary signal
+        # because earnings classes can be imbalanced in narrow universes
+        # (only large caps with consistent surprise patterns).
         if "roc_auc" in m:
             m["primary_metric"] = "roc_auc"
             m["primary_value"] = m.get("roc_auc")
+        elif "pr_auc" in m:
+            m["primary_metric"] = "pr_auc"
+            m["primary_value"] = m.get("pr_auc")
         elif "accuracy" in m:
             m["primary_metric"] = "accuracy"
             m["primary_value"] = m.get("accuracy")
