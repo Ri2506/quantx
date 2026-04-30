@@ -100,9 +100,12 @@ hmmlearn>=0.3.0
 catboost>=1.2.2
 xgboost>=2.0.0                     # F9 EarningsScout surprise classifier (PR 51)
 torch>=2.1.2
-# lightning brought in transitively by pytorch-forecasting — don't pin here
-# (Python 3.10 vs 3.11 wheel availability varies; let pytorch-forecasting pick)
-pytorch-forecasting>=1.4.0
+# pytorch-forecasting >=1.4 transitively requires `lightning>=2.0` which has
+# no Python 3.10 wheels on PyPI. Pin to <1.4 which uses the legacy
+# `pytorch-lightning` package (still has 3.10 wheels). Once pod images
+# move to Python 3.11+, this can be unpinned.
+pytorch-forecasting>=1.0.0,<1.4
+pytorch-lightning>=2.0.0,<2.5.0
 transformers>=4.36.2
 google-genai>=1.57.0
 
