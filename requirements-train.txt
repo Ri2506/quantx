@@ -24,8 +24,11 @@ chronos-forecasting>=1.4.0
 hmmlearn>=0.3.0
 
 # ── F2 Swing TFT + F6 VolCast TFT ──────────────────────────────────────────
-pytorch-forecasting>=1.4.0
-lightning>=2.1.3
+# pytorch-forecasting + lightning have no Python 3.10 wheels on PyPI.
+# Only used by vix_tft trainer (GPU-only). When ready to train vix_tft
+# on a Python 3.11+ pod, uncomment and reinstall:
+# pytorch-forecasting>=1.4.0
+# lightning>=2.1.3
 
 # ── Tabular ML stack ───────────────────────────────────────────────────────
 lightgbm>=4.1.0
