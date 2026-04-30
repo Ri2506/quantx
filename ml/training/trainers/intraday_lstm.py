@@ -24,6 +24,7 @@ from pathlib import Path
 from typing import Any, Dict, Tuple
 
 import numpy as np
+import pandas as pd
 
 from ..base import Trainer, TrainerError, TrainResult
 
@@ -109,13 +110,22 @@ def _download_5min(symbols, days: int = 55):
     return df
 
 
-def _features_for(df) -> np.ndarray:
-    """Return (N, INPUT_FEATURES) feature array for one symbol's 5-min frame."""
+def _features_for(df) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Return (z-scored features, raw close, raw ATR) for one symbol's 5-min frame.
+
+    PR 170 — also returns raw close + ATR series so triple-barrier
+    labeling has the price-space info it needs (z-scored features
+    can't be used for ATR-relative barrier checks).
+    """
     df = df.dropna(subset=["Open", "High", "Low", "Close", "Volume"]).copy()
-    if len(df) < WINDOW + 6:
-        return np.empty((0, INPUT_FEATURES), dtype=np.float32)
+    if len(df) < WINDOW + 14:
+        empty = np.empty((0, INPUT_FEATURES), dtype=np.float32)
+        return empty, np.empty(0, dtype=np.float32), np.empty(0, dtype=np.float32)
 
     close = df["Close"].astype(float)
+    high = df["High"].astype(float)
+    low = df["Low"].astype(float)
+
     delta = close.diff()
     gain = delta.clip(lower=0).rolling(14).mean()
     loss = (-delta.clip(upper=0)).rolling(14).mean().replace(0, np.nan)
@@ -126,6 +136,14 @@ def _features_for(df) -> np.ndarray:
     vwap = vwap.fillna(method="ffill").fillna(close)
 
     obv = (np.sign(close.diff().fillna(0)) * df["Volume"]).cumsum()
+
+    # ATR(14) on raw price space — needed for triple-barrier
+    tr = pd.concat([
+        (high - low),
+        (high - close.shift(1)).abs(),
+        (low - close.shift(1)).abs(),
+    ], axis=1).max(axis=1)
+    atr = tr.rolling(14).mean().fillna(method="bfill").fillna(0)
 
     feat = np.stack([
         df["Open"].values,
@@ -139,31 +157,68 @@ def _features_for(df) -> np.ndarray:
     ], axis=1).astype(np.float32)
     mean = feat.mean(axis=0, keepdims=True)
     std = feat.std(axis=0, keepdims=True) + 1e-6
-    return (feat - mean) / std
+    z = (feat - mean) / std
+    return z, close.values.astype(np.float32), atr.values.astype(np.float32)
 
 
-def _windowed_dataset(features: np.ndarray, atr_thresh_bars: int = 6) -> Tuple[np.ndarray, np.ndarray]:
-    """Build (X, y) where y in {0,1,2} based on 30-min forward return."""
-    if len(features) < WINDOW + atr_thresh_bars + 1:
-        return np.empty((0, WINDOW, INPUT_FEATURES), dtype=np.float32), np.empty(0, dtype=np.int64)
+def _windowed_dataset(
+    features: np.ndarray,
+    raw_close: np.ndarray,
+    atr: np.ndarray,
+) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """Build (X, y, fwd_returns) using triple-barrier labels.
 
-    closes = features[:, 3]
-    rolling_std = np.std(closes[: WINDOW + atr_thresh_bars])
-    threshold = max(0.4 * rolling_std, 0.001)
+    PR 170 — replaces the naive sigma-threshold forward-return label
+    with López de Prado's triple-barrier (PR 163). For 5-min bars on
+    NSE intraday:
+      - profit target: +1 ATR (tighter than swing's 2x — intraday has
+        less time to develop)
+      - stop loss: -0.5 ATR (1:0.5 R:R reflecting intraday's quick exits)
+      - vertical barrier: 12 bars = 60 minutes max holding
 
-    xs, ys = [], []
-    for i in range(WINDOW, len(features) - atr_thresh_bars):
+    Returns:
+        X        — (n_samples, WINDOW, INPUT_FEATURES) input tensor
+        y        — int64 array {0=bear, 1=neutral, 2=bull} for cross-
+                   entropy compatibility (mapped from -1/0/+1)
+        fwd_ret  — float32 forward 12-bar return (for backtest_eval)
+    """
+    from ml.labeling import TripleBarrierConfig, triple_barrier_labels
+
+    cfg = TripleBarrierConfig(
+        profit_target_atr=1.0,
+        stop_loss_atr=0.5,
+        vertical_barrier_days=12,   # 12 x 5-min = 60-min cap
+        min_atr_pct=0.001,
+    )
+
+    if len(features) < WINDOW + cfg.vertical_barrier_days + 1:
+        return (
+            np.empty((0, WINDOW, INPUT_FEATURES), dtype=np.float32),
+            np.empty(0, dtype=np.int64),
+            np.empty(0, dtype=np.float32),
+        )
+
+    labels_signed = triple_barrier_labels(raw_close, atr, cfg)
+
+    xs, ys, fwds = [], [], []
+    for i in range(WINDOW, len(features) - cfg.vertical_barrier_days):
         window = features[i - WINDOW: i]
-        forward = closes[i + atr_thresh_bars] - closes[i]
-        if forward > threshold:
-            label = 2  # bull
-        elif forward < -threshold:
-            label = 0  # bear
+        # Map -1/0/+1 -> 0/1/2 for cross-entropy
+        y_signed = int(labels_signed[i])
+        y_class = y_signed + 1
+        # Forward 12-bar return (price-space) for backtest eval
+        if i + cfg.vertical_barrier_days < len(raw_close):
+            fwd = float(raw_close[i + cfg.vertical_barrier_days] / raw_close[i] - 1.0)
         else:
-            label = 1  # neutral
+            fwd = 0.0
         xs.append(window)
-        ys.append(label)
-    return np.asarray(xs, dtype=np.float32), np.asarray(ys, dtype=np.int64)
+        ys.append(y_class)
+        fwds.append(fwd)
+    return (
+        np.asarray(xs, dtype=np.float32),
+        np.asarray(ys, dtype=np.int64),
+        np.asarray(fwds, dtype=np.float32),
+    )
 
 
 def _set_inference_mode(model) -> None:
@@ -199,30 +254,33 @@ class IntradayLSTMTrainer(Trainer):
             raise TrainerError(f"missing PyTorch piece: {exc}")
 
         df = _download_5min(INTRADAY_UNIVERSE, days=55)
-        all_X, all_y = [], []
+        all_X, all_y, all_fwd = [], [], []
         for sym in INTRADAY_UNIVERSE:
             ticker = f"{sym}.NS"
             try:
                 sym_df = df[ticker]
             except (KeyError, AttributeError):
                 continue
-            feats = _features_for(sym_df)
+            feats, raw_close, atr = _features_for(sym_df)
             if feats.size == 0:
                 continue
-            X, y = _windowed_dataset(feats)
+            X, y, fwd = _windowed_dataset(feats, raw_close, atr)
             if X.size == 0:
                 continue
             all_X.append(X)
             all_y.append(y)
+            all_fwd.append(fwd)
 
         if not all_X:
             raise TrainerError("no usable 5-min training data")
 
         X = np.concatenate(all_X, axis=0)
         y = np.concatenate(all_y, axis=0)
+        fwd_returns = np.concatenate(all_fwd, axis=0)
         cut = int(len(X) * 0.8)
         X_tr, y_tr = X[:cut], y[:cut]
         X_te, y_te = X[cut:], y[cut:]
+        fwd_te = fwd_returns[cut:]
 
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         use_amp = device.type == "cuda"
@@ -307,7 +365,20 @@ class IntradayLSTMTrainer(Trainer):
         _set_inference_mode(model)
         with torch.no_grad():
             te_logits = model(torch.from_numpy(X_te).to(device))
-            oos_acc = float((te_logits.argmax(1).cpu().numpy() == y_te).mean())
+            te_class = te_logits.argmax(1).cpu().numpy()
+            oos_acc = float((te_class == y_te).mean())
+
+        # PR 170 — backtest-driven eval: convert {0,1,2} predictions
+        # back to signed direction (-1/0/+1) and compute Sharpe / dd /
+        # PF / win-rate via ml.eval.compute_backtest_metrics. This
+        # feeds the promote gate.
+        from ml.eval import BacktestEvalConfig, compute_backtest_metrics
+        signed_preds = te_class.astype(np.int64) - 1   # 0/1/2 -> -1/0/+1
+        bt = compute_backtest_metrics(
+            predictions=signed_preds.astype(float),
+            forward_returns=fwd_te,
+            cfg=BacktestEvalConfig(direction_neutral=True, cost_bps=13.0),
+        )
 
         # ONNX export — fp32 for production inference (onnxruntime CPU
         # doesn't always speed up with bf16, and float32 is universally
@@ -338,13 +409,26 @@ class IntradayLSTMTrainer(Trainer):
                 "grad_clip": GRAD_CLIP_MAX_NORM,
                 "lr_max": LR * LR_MAX_FACTOR,
                 "lr_warmup_pct": LR_PCT_WARMUP,
+                # PR 170 backtest-eval metrics — promote gate reads these
+                "sharpe": bt["sharpe"],
+                "max_drawdown_pct": bt["max_drawdown_pct"],
+                "calmar": bt["calmar"],
+                "profit_factor": bt["profit_factor"],
+                "win_rate": bt["win_rate"],
+                "n_trades": bt["n_trades"],
+                "total_return_pct": bt["total_return_pct"],
+                "labeling": "triple_barrier(TP=1xATR, SL=0.5xATR, vbd=12 bars)",
             },
             notes=f"Bi-LSTM {NUM_LAYERS}x{HIDDEN}, {len(INTRADAY_UNIVERSE)} symbols, "
-                  f"55d x 5-min bars, ONNX opset 17, AMP={use_amp}, OneCycleLR",
+                  f"55d x 5-min bars, ONNX opset 17, AMP={use_amp}, OneCycleLR, "
+                  f"triple-barrier labels",
         )
 
     def evaluate(self, result: TrainResult) -> Dict[str, Any]:
         m = dict(result.metrics)
-        m["primary_metric"] = "oos_accuracy"
-        m["primary_value"] = result.metrics.get("oos_accuracy")
+        # PR 170 — primary_metric is now Sharpe (financial). Promote
+        # gate (PR 167) reads this. Falls back to oos_accuracy in
+        # legacy reads.
+        m["primary_metric"] = "sharpe"
+        m["primary_value"] = result.metrics.get("sharpe", result.metrics.get("oos_accuracy", 0.0))
         return m
