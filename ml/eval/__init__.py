@@ -20,10 +20,20 @@ from .backtest_eval import (
     metrics_from_returns,
     promote_gate_passes,
 )
+from .overfitting import (
+    deflated_sharpe_ratio,
+    dsr_pbo_from_fold_returns,
+    expected_max_sharpe,
+    probability_of_backtest_overfitting,
+)
 
 __all__ = [
     "BacktestEvalConfig",
     "compute_backtest_metrics",
     "metrics_from_returns",
     "promote_gate_passes",
+    "deflated_sharpe_ratio",
+    "dsr_pbo_from_fold_returns",
+    "expected_max_sharpe",
+    "probability_of_backtest_overfitting",
 ]

@@ -271,6 +271,14 @@ DEFAULT_PROMOTE_THRESHOLDS = {
     "min_profit_factor": 1.5,
     "min_n_trades": 30,                 # avoid lucky-streak promotes
     "min_excess_return_pct": 0.05,      # beat Nifty by >= 5 percent over test window
+    # PR 174 — overfitting defenses (Bailey/LdP). DSR is the probability
+    # the realized Sharpe is statistically distinguishable from the best
+    # of N random Sharpes; PBO is the prob the in-sample-best ranks
+    # below median OOS. Trainers populate these only when they expose
+    # n_trials and a per-fold return matrix; absent values pass through
+    # so backwards-compatible. Set None to disable.
+    "min_deflated_sharpe": 0.95,
+    "max_pbo": 0.5,
 }
 
 
@@ -318,6 +326,25 @@ def promote_gate_passes(
         reasons.append(
             f"Excess vs Nifty {excess*100:.2f} percent < min {th['min_excess_return_pct']*100:.0f} percent",
         )
+
+    # PR 174 — overfitting checks. Only enforced when the trainer
+    # supplies the metric (n_trials > 1 makes DSR meaningful; PBO needs
+    # the variant matrix from CPCV in PR 175). Missing keys pass through.
+    if th.get("min_deflated_sharpe") is not None and "deflated_sharpe" in metrics:
+        dsr = float(metrics["deflated_sharpe"])
+        if dsr < th["min_deflated_sharpe"]:
+            reasons.append(
+                f"Deflated Sharpe {dsr:.3f} < min {th['min_deflated_sharpe']:.2f} "
+                f"(curve-fit risk — p={1-dsr:.3f})",
+            )
+
+    if th.get("max_pbo") is not None and "probability_backtest_overfitting" in metrics:
+        pbo = float(metrics["probability_backtest_overfitting"])
+        if pbo > th["max_pbo"]:
+            reasons.append(
+                f"PBO {pbo:.3f} > max {th['max_pbo']:.2f} "
+                f"(in-sample-best underperforms OOS too often)",
+            )
 
     return len(reasons) == 0, reasons
 
