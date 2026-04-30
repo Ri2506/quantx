@@ -74,53 +74,104 @@ class RegimeHMMTrainer(Trainer):
     skip_promote_gate: bool = True
 
     def train(self, out_dir: Path) -> TrainResult:
+        """Walk-forward 5-fold + final fit on all data.
+
+        PR 168 — instead of a single 252-day holdout, we now run 5
+        rolling WFCV folds to prove the HMM holds across regime epochs
+        (2008-09 GFC, 2013 taper tantrum, 2020 COVID, 2022 sideways,
+        2024 bull). Per-fold OOS log-likelihood is aggregated; the
+        final shipped artifact is fit on ALL data so production
+        inference uses the best fit available, not a 5th-fold subset.
+        """
         from ml.regime_detector import MarketRegimeDetector  # noqa: PLC0415
+        from ml.training.wfcv import (  # noqa: PLC0415
+            WFCVConfig,
+            aggregate_fold_metrics,
+            walk_forward_split,
+        )
 
         df = _build_features()
         if len(df) < 500:
             raise TrainerError(f"insufficient HMM training data: {len(df)} rows")
 
-        # Hold out the most recent 252 trading days for OOS eval.
-        train_df = df.iloc[:-252].copy()
-        eval_df = df.iloc[-252:].copy()
+        # 5-fold rolling WFCV. With ~3700 days of data, fold sizes are:
+        # 3-year train (756 days) + 5-day embargo + 1-year test (252).
+        # Rolling (not expanding) so each fold tests on a distinct
+        # period — answers "does the HMM hold across regimes?".
+        cfg = WFCVConfig(
+            strategy="rolling",
+            n_folds=5,
+            test_size=252,           # 1 trading year per fold
+            train_size=252 * 3,      # 3 trading years
+            embargo=5,
+        )
 
-        det = MarketRegimeDetector()
-        det.train(train_df, n_components=3, n_iter=200)
+        fold_metrics: list[dict] = []
+        for fold_idx, (train_idx, test_idx) in enumerate(walk_forward_split(df, cfg)):
+            train_df = df.iloc[train_idx]
+            test_df = df.iloc[test_idx]
+            try:
+                det = MarketRegimeDetector()
+                det.train(train_df, n_components=3, n_iter=200)
+                test_X = det.scaler.transform(test_df.values)
+                fold_loglik = float(det.model.score(test_X))
+                fold_loglik_per_obs = fold_loglik / max(1, len(test_df))
+                fold_metrics.append({
+                    "fold": fold_idx,
+                    "log_likelihood": fold_loglik,
+                    "log_likelihood_per_obs": fold_loglik_per_obs,
+                    "n_train": int(len(train_df)),
+                    "n_test": int(len(test_df)),
+                })
+                logger.info(
+                    "regime_hmm fold %d  loglik/obs=%.4f  train=%d-%d  test=%d-%d",
+                    fold_idx, fold_loglik_per_obs,
+                    train_df.index.min().year, train_df.index.max().year,
+                    test_df.index.min().year, test_df.index.max().year,
+                )
+            except Exception as exc:  # noqa: BLE001 — keep going across folds
+                logger.warning("regime_hmm fold %d failed: %s", fold_idx, exc)
 
-        # Reuse the detector's existing serialization path so consumers
-        # (MarketRegimeDetector.load) continue to work unchanged.
+        if not fold_metrics:
+            raise TrainerError("all regime_hmm WFCV folds failed")
+
+        # Final fit on ALL data — this is what ships to production.
+        det_final = MarketRegimeDetector()
+        det_final.train(df, n_components=3, n_iter=200)
         artifact = out_dir / "regime_hmm.pkl"
-        det.save(str(artifact))
+        det_final.save(str(artifact))
 
-        # In-sample summary: count per regime over the training window.
-        in_sample_states = det.model.predict(det.scaler.transform(train_df.values))
-        counts = {det.REGIMES[i]: int((in_sample_states == i).sum()) for i in det.REGIMES}
+        # In-sample regime counts on the full training set.
+        full_states = det_final.model.predict(det_final.scaler.transform(df.values))
+        counts = {det_final.REGIMES[i]: int((full_states == i).sum()) for i in det_final.REGIMES}
 
-        # OOS log-likelihood per observation — used by evaluate().
-        # Lower (more negative) per-obs log-likelihood = worse fit.
-        eval_X = det.scaler.transform(eval_df.values)
-        oos_score = float(det.model.score(eval_X))
-        oos_score_per_obs = oos_score / max(1, len(eval_df))
+        # Aggregate across folds for the metrics dict.
+        agg = aggregate_fold_metrics([
+            {"log_likelihood_per_obs": m["log_likelihood_per_obs"]} for m in fold_metrics
+        ])
 
         return TrainResult(
             artifacts=[artifact],
             metrics={
-                "n_train_obs": int(len(train_df)),
-                "n_eval_obs": int(len(eval_df)),
-                "regime_counts_in_sample": counts,
-                "oos_log_likelihood": oos_score,
-                "oos_log_likelihood_per_obs": oos_score_per_obs,
+                "n_total_obs": int(len(df)),
+                "n_folds_succeeded": int(len(fold_metrics)),
+                "regime_counts_full_sample": counts,
+                "log_likelihood_per_obs_per_fold": [
+                    round(m["log_likelihood_per_obs"], 6) for m in fold_metrics
+                ],
+                "log_likelihood_per_obs_mean": agg.get("log_likelihood_per_obs_mean"),
+                "log_likelihood_per_obs_std": agg.get("log_likelihood_per_obs_std"),
             },
-            notes=f"trained on {df.index.min().date()}→{train_df.index.max().date()}, "
-                  f"OOS {eval_df.index.min().date()}→{eval_df.index.max().date()}",
+            notes=f"WFCV 5-fold rolling on {df.index.min().date()}->{df.index.max().date()}, "
+                  f"final fit on all {len(df)} obs",
         )
 
     def evaluate(self, result: TrainResult) -> Dict[str, Any]:
-        # The interesting metric (oos_log_likelihood_per_obs) was already
-        # computed in train() against the held-out tail. Surface it as the
-        # promotion gate signal so the runner's --promote check has a
-        # named field to look at.
+        # PR 168 — primary metric is now the WFCV-aggregated mean
+        # log-likelihood per observation. The runner reads
+        # primary_value to decide promote (HMM opts out of the financial
+        # gate via skip_promote_gate=True so this is informational).
         m = dict(result.metrics)
-        m["primary_metric"] = "oos_log_likelihood_per_obs"
-        m["primary_value"] = result.metrics.get("oos_log_likelihood_per_obs")
+        m["primary_metric"] = "log_likelihood_per_obs_mean"
+        m["primary_value"] = result.metrics.get("log_likelihood_per_obs_mean")
         return m
