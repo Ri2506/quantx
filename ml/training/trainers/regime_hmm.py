@@ -67,6 +67,11 @@ class RegimeHMMTrainer(Trainer):
     name = "regime_hmm"
     requires_gpu = False  # tiny model; fits on CPU in seconds
     depends_on: list[str] = []
+    # PR 167 — HMM is a regime *detector*, not a directional trader.
+    # Its primary_metric is log-likelihood per observation, not Sharpe.
+    # Skip the financial promote gate so it can flip is_prod=TRUE on
+    # quality-of-fit alone.
+    skip_promote_gate: bool = True
 
     def train(self, out_dir: Path) -> TrainResult:
         from ml.regime_detector import MarketRegimeDetector  # noqa: PLC0415

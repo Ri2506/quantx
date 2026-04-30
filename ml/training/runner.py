@@ -188,6 +188,28 @@ def run(
             train_result: TrainResult = trainer.train(out_dir)
             eval_metrics = trainer.evaluate(train_result)
             duration = time.time() - t0
+
+            # PR 167 — promote gate: only allow is_prod=TRUE if metrics
+            # pass the financial-eval thresholds. Trainers can override
+            # via `promote_thresholds` class attr (e.g. AutoPilot's
+            # tighter drawdown ceiling). Trainers whose primary_metric
+            # isn't financial (regime_hmm log-likelihood, momentum
+            # zero-shot pointer registration) opt out by setting
+            # `skip_promote_gate=True`.
+            promote_for_this = bool(promote)
+            gate_reasons: List[str] = []
+            if promote_for_this and not getattr(trainer, "skip_promote_gate", False):
+                from ml.eval import promote_gate_passes  # noqa: PLC0415
+                merged = {**train_result.metrics, **eval_metrics}
+                trainer_thresholds = getattr(trainer, "promote_thresholds", None)
+                passed, gate_reasons = promote_gate_passes(merged, trainer_thresholds)
+                if not passed:
+                    promote_for_this = False
+                    logger.warning(
+                        "[%s] promote-gate blocked: %s",
+                        trainer.name, "; ".join(gate_reasons),
+                    )
+
             row: Dict[str, object] = {}
             if not dry_run:
                 row = trainer.register(
@@ -195,18 +217,24 @@ def run(
                     eval_metrics,
                     trained_by=trained_by,
                     git_sha=git_sha,
-                    promote=promote,
+                    promote=promote_for_this,
                 )
             reports.append(RunReport(
                 name=trainer.name, status="ok",
                 duration_sec=duration,
-                metrics={**train_result.metrics, **eval_metrics},
+                metrics={
+                    **train_result.metrics,
+                    **eval_metrics,
+                    "promote_gate_passed": len(gate_reasons) == 0,
+                    "promote_gate_reasons": gate_reasons,
+                },
                 version=int(row.get("version")) if row.get("version") is not None else None,
                 promoted=bool(row.get("is_prod")) if row else False,
             ))
             logger.info(
-                "[%s] OK in %.1fs (artifacts=%d, metrics=%s)",
-                trainer.name, duration, len(train_result.artifacts), eval_metrics,
+                "[%s] OK in %.1fs (artifacts=%d, metrics=%s, promoted=%s)",
+                trainer.name, duration, len(train_result.artifacts),
+                eval_metrics, promote_for_this,
             )
         except Exception as exc:  # noqa: BLE001 — keep going across trainers
             duration = time.time() - t0

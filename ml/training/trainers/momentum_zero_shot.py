@@ -111,6 +111,12 @@ class MomentumTimesFMTrainer(Trainer):
     name = "momentum_timesfm"
     requires_gpu = True   # 200M params; CPU works but slow for inference too
     depends_on: list[str] = []
+    # PR 167 — zero-shot foundation models don't backtest as directional
+    # signals on their own; consumers (PR 138 momentum email) ensemble
+    # the forecast with rule-based filters before generating trades.
+    # Skip the promote gate; rely on directional_accuracy from
+    # _calibration_metrics instead.
+    skip_promote_gate: bool = True
 
     HF_MODEL_ID = "google/timesfm-1.0-200m-pytorch"
 
@@ -174,6 +180,8 @@ class MomentumChronosTrainer(Trainer):
     name = "momentum_chronos"
     requires_gpu = False  # Bolt-Base is small enough for CPU calibration
     depends_on: list[str] = []
+    # PR 167 — same opt-out reasoning as TimesFM (zero-shot pointer).
+    skip_promote_gate: bool = True
 
     HF_MODEL_ID = "amazon/chronos-bolt-base"
 
