@@ -164,6 +164,69 @@ def triple_barrier_labels(
     return labels
 
 
+def triple_barrier_events(
+    close: np.ndarray | pd.Series | Iterable[float],
+    atr: np.ndarray | pd.Series | Iterable[float],
+    cfg: Optional[TripleBarrierConfig] = None,
+) -> tuple[np.ndarray, np.ndarray]:
+    """Triple-barrier labels + barrier-hit timestamps.
+
+    Returns:
+        labels:  int8 array shape (N,), values in {-1, 0, +1}.
+        t1:      int64 array shape (N,). t1[i] is the bar index at which
+                 observation i's barrier was first touched. For obs that
+                 never trigger (low-ATR skip, last vbd rows) t1[i] = i.
+                 For observations hitting the vertical barrier,
+                 t1[i] = i + vertical_barrier_days.
+
+    The (labels, t1) pair is what AFML Ch.4 sample-uniqueness needs:
+    two observations whose [i, t1[i]] intervals overlap share label
+    information and must be down-weighted.
+    """
+    cfg = cfg or TripleBarrierConfig()
+    if cfg.profit_target_atr <= 0 or cfg.stop_loss_atr <= 0:
+        raise ValueError("profit_target_atr and stop_loss_atr must be > 0")
+    if cfg.vertical_barrier_days < 1:
+        raise ValueError("vertical_barrier_days must be >= 1")
+
+    close_arr = np.asarray(list(close), dtype=float)
+    atr_arr = np.asarray(list(atr), dtype=float)
+    if close_arr.shape != atr_arr.shape:
+        raise ValueError(
+            f"close.shape {close_arr.shape} != atr.shape {atr_arr.shape}",
+        )
+
+    n = close_arr.size
+    labels = np.zeros(n, dtype=np.int8)
+    t1 = np.arange(n, dtype=np.int64)
+    vbd = int(cfg.vertical_barrier_days)
+
+    for i in range(n - vbd):
+        entry_price = close_arr[i]
+        entry_atr = atr_arr[i]
+        if entry_atr <= 0 or entry_price <= 0:
+            continue
+        if entry_atr / entry_price < cfg.min_atr_pct:
+            continue
+
+        upper = entry_price + cfg.profit_target_atr * entry_atr
+        lower = entry_price - cfg.stop_loss_atr * entry_atr
+
+        hit_at = i + vbd  # default: vertical barrier
+        for j in range(1, vbd + 1):
+            future_price = close_arr[i + j]
+            if future_price >= upper:
+                labels[i] = 1
+                hit_at = i + j
+                break
+            if future_price <= lower:
+                labels[i] = -1
+                hit_at = i + j
+                break
+        t1[i] = hit_at
+    return labels, t1
+
+
 def label_distribution(labels: np.ndarray) -> dict[str, float]:
     """Convenience: return fractional class distribution. Useful for
     logging in trainer.evaluate() to surface class imbalance."""
@@ -180,5 +243,6 @@ def label_distribution(labels: np.ndarray) -> dict[str, float]:
 __all__ = [
     "TripleBarrierConfig",
     "triple_barrier_labels",
+    "triple_barrier_events",
     "label_distribution",
 ]

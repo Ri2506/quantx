@@ -182,7 +182,11 @@ def _windowed_dataset(
                    entropy compatibility (mapped from -1/0/+1)
         fwd_ret  — float32 forward 12-bar return (for backtest_eval)
     """
-    from ml.labeling import TripleBarrierConfig, triple_barrier_labels
+    from ml.labeling import (  # noqa: PLC0415
+        TripleBarrierConfig,
+        sample_weights_from_t1,
+        triple_barrier_events,
+    )
 
     cfg = TripleBarrierConfig(
         profit_target_atr=1.0,
@@ -196,11 +200,16 @@ def _windowed_dataset(
             np.empty((0, WINDOW, INPUT_FEATURES), dtype=np.float32),
             np.empty(0, dtype=np.int64),
             np.empty(0, dtype=np.float32),
+            np.empty(0, dtype=np.float32),
         )
 
-    labels_signed = triple_barrier_labels(raw_close, atr, cfg)
+    # PR 176 — barrier-hit times feed AFML Ch.4 sample-weight uniqueness.
+    # Overlapping 12-bar windows share information; uniform-weighted
+    # cross-entropy double-counts that information.
+    labels_signed, t1 = triple_barrier_events(raw_close, atr, cfg)
+    obs_weights = sample_weights_from_t1(t1, n=len(raw_close))
 
-    xs, ys, fwds = [], [], []
+    xs, ys, fwds, ws = [], [], [], []
     for i in range(WINDOW, len(features) - cfg.vertical_barrier_days):
         window = features[i - WINDOW: i]
         # Map -1/0/+1 -> 0/1/2 for cross-entropy
@@ -214,10 +223,12 @@ def _windowed_dataset(
         xs.append(window)
         ys.append(y_class)
         fwds.append(fwd)
+        ws.append(float(obs_weights[i]))
     return (
         np.asarray(xs, dtype=np.float32),
         np.asarray(ys, dtype=np.int64),
         np.asarray(fwds, dtype=np.float32),
+        np.asarray(ws, dtype=np.float32),
     )
 
 
@@ -254,7 +265,7 @@ class IntradayLSTMTrainer(Trainer):
             raise TrainerError(f"missing PyTorch piece: {exc}")
 
         df = _download_5min(INTRADAY_UNIVERSE, days=55)
-        all_X, all_y, all_fwd = [], [], []
+        all_X, all_y, all_fwd, all_w = [], [], [], []
         for sym in INTRADAY_UNIVERSE:
             ticker = f"{sym}.NS"
             try:
@@ -264,12 +275,13 @@ class IntradayLSTMTrainer(Trainer):
             feats, raw_close, atr = _features_for(sym_df)
             if feats.size == 0:
                 continue
-            X, y, fwd = _windowed_dataset(feats, raw_close, atr)
+            X, y, fwd, w = _windowed_dataset(feats, raw_close, atr)
             if X.size == 0:
                 continue
             all_X.append(X)
             all_y.append(y)
             all_fwd.append(fwd)
+            all_w.append(w)
 
         if not all_X:
             raise TrainerError("no usable 5-min training data")
@@ -277,8 +289,9 @@ class IntradayLSTMTrainer(Trainer):
         X = np.concatenate(all_X, axis=0)
         y = np.concatenate(all_y, axis=0)
         fwd_returns = np.concatenate(all_fwd, axis=0)
+        sample_weight = np.concatenate(all_w, axis=0)
         cut = int(len(X) * 0.8)
-        X_tr, y_tr = X[:cut], y[:cut]
+        X_tr, y_tr, w_tr = X[:cut], y[:cut], sample_weight[:cut]
         X_te, y_te = X[cut:], y[cut:]
         fwd_te = fwd_returns[cut:]
 
@@ -286,10 +299,16 @@ class IntradayLSTMTrainer(Trainer):
         use_amp = device.type == "cuda"
         model = _BiLSTM.build().to(device)
         opt = optim.AdamW(model.parameters(), lr=LR, weight_decay=1e-4)
-        loss_fn = nn.CrossEntropyLoss()
+        # PR 176 — per-sample loss (no reduction) so AFML Ch.4 weights
+        # can be applied per observation in the inner loop.
+        loss_fn = nn.CrossEntropyLoss(reduction="none")
 
         train_loader = DataLoader(
-            TensorDataset(torch.from_numpy(X_tr), torch.from_numpy(y_tr)),
+            TensorDataset(
+                torch.from_numpy(X_tr),
+                torch.from_numpy(y_tr),
+                torch.from_numpy(w_tr),
+            ),
             batch_size=BATCH_SIZE, shuffle=True, drop_last=True,
         )
 
@@ -317,14 +336,17 @@ class IntradayLSTMTrainer(Trainer):
         for epoch in range(EPOCHS):
             model.train()
             tot, hit, cnt = 0.0, 0, 0
-            for xb, yb in train_loader:
+            for xb, yb, wb in train_loader:
                 xb = xb.to(device, non_blocking=True)
                 yb = yb.to(device, non_blocking=True)
+                wb = wb.to(device, non_blocking=True)
                 opt.zero_grad(set_to_none=True)
-                # Mixed-precision forward + backward (bf16 if available)
+                # Mixed-precision forward + backward (bf16 if available).
+                # Per-sample CE × AFML Ch.4 weight, mean-reduced manually.
                 with torch.cuda.amp.autocast(enabled=use_amp):
                     logits = model(xb)
-                    loss = loss_fn(logits, yb)
+                    per_sample_loss = loss_fn(logits, yb)
+                    loss = (per_sample_loss * wb).mean()
                 scaler.scale(loss).backward()
                 # Unscale before clipping so the clip applies to true gradients
                 scaler.unscale_(opt)

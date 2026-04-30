@@ -159,12 +159,16 @@ def _compute_features(df: pd.DataFrame) -> pd.DataFrame:
     return out
 
 
-def _build_dataset() -> Tuple[pd.DataFrame, np.ndarray, np.ndarray, np.ndarray, pd.Series]:
+def _build_dataset() -> Tuple[pd.DataFrame, np.ndarray, np.ndarray, np.ndarray, np.ndarray, pd.Series]:
     """Download + featurize + label the universe.
 
     Returns:
         features:   DataFrame of (n_rows, 15 features) ordered by date asc
         labels:     int8 array length n_rows from triple-barrier {-1,0,+1}
+        weights:    float array length n_rows — AFML Ch.4 sample-weight
+                    uniqueness, normalized to mean 1.0. Down-weights
+                    observations whose triple-barrier windows overlap
+                    heavily with neighbors.
         fwd_returns: float array length n_rows of FWD_RETURN_DAYS forward
                      returns aligned with labels
         symbols:    object array length n_rows naming the source symbol
@@ -177,7 +181,11 @@ def _build_dataset() -> Tuple[pd.DataFrame, np.ndarray, np.ndarray, np.ndarray, 
         raise TrainerError("yfinance required") from exc
 
     from ml.data import LiquidUniverseConfig, liquid_universe  # noqa: PLC0415
-    from ml.labeling import TripleBarrierConfig, triple_barrier_labels  # noqa: PLC0415
+    from ml.labeling import (  # noqa: PLC0415
+        TripleBarrierConfig,
+        sample_weights_from_t1,
+        triple_barrier_events,
+    )
 
     universe = liquid_universe(LiquidUniverseConfig(top_n=UNIVERSE_TOP_N))
     if not universe:
@@ -201,6 +209,7 @@ def _build_dataset() -> Tuple[pd.DataFrame, np.ndarray, np.ndarray, np.ndarray, 
 
     feats: List[pd.DataFrame] = []
     labs: List[np.ndarray] = []
+    weights: List[np.ndarray] = []
     fwds: List[np.ndarray] = []
     syms: List[np.ndarray] = []
     for sym in universe:
@@ -215,19 +224,25 @@ def _build_dataset() -> Tuple[pd.DataFrame, np.ndarray, np.ndarray, np.ndarray, 
             f = _compute_features(sym_df).dropna(subset=FEATURE_ORDER + ["_atr_raw"])
             if len(f) < 100:
                 continue
-            labels = triple_barrier_labels(
+            # PR 176 — get labels AND barrier-hit times so we can compute
+            # AFML Ch.4 sample-weight uniqueness. t1 is per-bar inside
+            # this symbol's local index.
+            labels, t1_local = triple_barrier_events(
                 close=sym_df.loc[f.index, "Close"].values,
                 atr=f["_atr_raw"].values,
                 cfg=tb_cfg,
             )
+            sym_weights = sample_weights_from_t1(t1_local, n=len(f))
             # Drop the last vbd rows where label is forced to 0 (no future)
             keep = slice(0, len(f) - VERTICAL_BARRIER_DAYS)
             f = f.iloc[keep]
             labels = labels[keep]
+            sym_weights = sym_weights[keep]
             fwd_ret = f["_fwd_return"].values
             mask = ~np.isnan(fwd_ret)
             f = f.loc[mask]
             labels = labels[mask]
+            sym_weights = sym_weights[mask]
             fwd_ret = fwd_ret[mask]
             if len(f) < 50:
                 continue
@@ -236,6 +251,7 @@ def _build_dataset() -> Tuple[pd.DataFrame, np.ndarray, np.ndarray, np.ndarray, 
                 [[sym], f.index], names=["symbol", "date"],
             )
             labs.append(labels.astype(np.int8))
+            weights.append(sym_weights.astype(np.float32))
             fwds.append(fwd_ret.astype(np.float32))
             syms.append(np.full(len(f), sym, dtype=object))
         except Exception as exc:  # noqa: BLE001
@@ -245,13 +261,15 @@ def _build_dataset() -> Tuple[pd.DataFrame, np.ndarray, np.ndarray, np.ndarray, 
         raise TrainerError("no symbols produced usable training data")
 
     X = pd.concat(feats, axis=0).sort_index(level="date")
-    # Align labels + fwd_returns + symbols to X's order
+    # Align labels + weights + fwd_returns + symbols to X's order
     full = pd.DataFrame({
         "label": np.concatenate(labs),
+        "weight": np.concatenate(weights),
         "fwd_return": np.concatenate(fwds),
         "symbol": np.concatenate(syms),
     }, index=pd.concat(feats, axis=0).index).loc[X.index]
     y = full["label"].values
+    sample_weight = full["weight"].values
     fwd_returns = full["fwd_return"].values
 
     # Nifty benchmark: same FWD_RETURN_DAYS on ^NSEI
@@ -265,7 +283,7 @@ def _build_dataset() -> Tuple[pd.DataFrame, np.ndarray, np.ndarray, np.ndarray, 
         logger.warning("Nifty benchmark download failed — proceeding without")
         nifty_fwd = pd.Series(dtype=float)
 
-    return X, y, fwd_returns, full["symbol"].values, nifty_fwd
+    return X, y, sample_weight, fwd_returns, full["symbol"].values, nifty_fwd
 
 
 # ============================================================================
@@ -300,19 +318,23 @@ def _unmap_to_signed_predictions(class_idx: np.ndarray) -> np.ndarray:
 
 
 def _train_one_fold(
-    X_tr: np.ndarray, y_tr: np.ndarray,
+    X_tr: np.ndarray, y_tr: np.ndarray, w_tr: np.ndarray,
     X_te: np.ndarray, y_te: np.ndarray,
     fwd_te: np.ndarray, bench_te: np.ndarray,
     params: Dict[str, Any],
 ) -> Tuple[Any, dict]:
-    """Train LGBM on one fold, return (model, metrics dict)."""
+    """Train LGBM on one fold, return (model, metrics dict).
+
+    PR 176 — pass AFML Ch.4 uniqueness weights via lgb's sample_weight
+    so overlapping triple-barrier labels don't double-count information.
+    """
     import lightgbm as lgb  # noqa: PLC0415
     from sklearn.metrics import accuracy_score  # noqa: PLC0415
 
     from ml.eval import BacktestEvalConfig, compute_backtest_metrics  # noqa: PLC0415
 
     model = lgb.LGBMClassifier(**params)
-    model.fit(X_tr, y_tr, eval_set=[(X_te, y_te)],
+    model.fit(X_tr, y_tr, sample_weight=w_tr, eval_set=[(X_te, y_te)],
               callbacks=[lgb.log_evaluation(period=0)])
     y_pred = model.predict(X_te)
     acc = float(accuracy_score(y_te, y_pred))
@@ -358,23 +380,20 @@ class LGBMSignalGateTrainer(Trainer):
             raise TrainerError(f"lightgbm required: {exc}")
 
         t0 = time.time()
-        X, y, fwd_returns, symbols, nifty_fwd = _build_dataset()
+        X, y, sample_weight, fwd_returns, symbols, nifty_fwd = _build_dataset()
         logger.info(
-            "lgbm_signal_gate: %d samples x %d features across %d symbols",
+            "lgbm_signal_gate: %d samples x %d features across %d symbols, "
+            "weight stats: mean=%.3f min=%.3f max=%.3f",
             len(X), X.shape[1], len(np.unique(symbols)),
+            float(sample_weight.mean()), float(sample_weight.min()), float(sample_weight.max()),
         )
 
         # Sort by date for proper WFCV. X has a MultiIndex (symbol, date);
         # we want global chronological order.
-        X_sorted = X.sort_index(level="date")
-        date_order = X_sorted.index.get_level_values("date").argsort()
-        # Already sorted by sort_index, but be explicit:
-        X_arr = X_sorted.values
-        y_remapped = _remap_labels_for_lgbm(y)
-        # Reorder labels + fwd to match the sorted X
         sort_idx = np.argsort(np.asarray(X.index.get_level_values("date").values))
         X_arr = X.iloc[sort_idx].values
         y_remapped = _remap_labels_for_lgbm(y[sort_idx])
+        weight_sorted = sample_weight[sort_idx]
         fwd_sorted = fwd_returns[sort_idx]
 
         # Build benchmark series aligned with sort order
@@ -397,7 +416,7 @@ class LGBMSignalGateTrainer(Trainer):
         for fold_idx, (tr_idx, te_idx) in enumerate(walk_forward_split(len(X_arr), cfg)):
             try:
                 _, m = _train_one_fold(
-                    X_arr[tr_idx], y_remapped[tr_idx],
+                    X_arr[tr_idx], y_remapped[tr_idx], weight_sorted[tr_idx],
                     X_arr[te_idx], y_remapped[te_idx],
                     fwd_sorted[te_idx], bench_arr[te_idx],
                     DEFAULT_LGBM_PARAMS,
@@ -417,7 +436,7 @@ class LGBMSignalGateTrainer(Trainer):
 
         # Final fit on all data → ship to production
         final_model = lgb.LGBMClassifier(**DEFAULT_LGBM_PARAMS)
-        final_model.fit(X_arr, y_remapped)
+        final_model.fit(X_arr, y_remapped, sample_weight=weight_sorted)
         artifact = out_dir / "lgbm_signal_gate.txt"
         final_model.booster_.save_model(str(artifact))
 
@@ -444,6 +463,7 @@ class LGBMSignalGateTrainer(Trainer):
             },
             notes=f"Triple-barrier labels (TP={PROFIT_TARGET_ATR}xATR, "
                   f"SL={STOP_LOSS_ATR}xATR, vbd={VERTICAL_BARRIER_DAYS}). "
+                  f"AFML Ch.4 sample-weight uniqueness applied. "
                   f"WFCV {WFCV_FOLDS}-fold rolling. "
                   f"{len(np.unique(symbols))} NSE liquid stocks, {DATA_PERIOD}.",
         )
