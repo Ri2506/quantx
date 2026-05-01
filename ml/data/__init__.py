@@ -36,6 +36,12 @@ from .quality_check import (
     QualityReport,
     run_quality_checks,
 )
+from .sentiment_history import (
+    SentimentFeatureConfig,
+    reindex_sentiment_to,
+    score_headlines_to_daily,
+    sentiment_features_for,
+)
 
 __all__ = [
     "BhavcopyError",
@@ -50,6 +56,7 @@ __all__ = [
     "DataQualityError",
     "QualityCheckConfig",
     "QualityReport",
+    "SentimentFeatureConfig",
     "actions_for",
     "adjust_batch",
     "adjust_volume_for_actions",
@@ -60,6 +67,9 @@ __all__ = [
     "historical_universe_extras",
     "liquid_universe",
     "reindex_flow_features_to",
+    "reindex_sentiment_to",
     "run_quality_checks",
+    "score_headlines_to_daily",
+    "sentiment_features_for",
     "was_listed_at",
 ]

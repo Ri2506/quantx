@@ -86,6 +86,9 @@ FEATURE_ORDER = [
     "stoch_k", "stoch_d",
     # PR 180 — institutional-flow features
     "fii_5d_sum", "dii_5d_sum", "fii_5d_z", "dii_5d_z",
+    # PR 183 — FinBERT-India sentiment features (zero-filled when
+    # cache is empty so model can train on either profile)
+    "sentiment_5d_mean", "sentiment_5d_count",
 ]
 
 
@@ -189,6 +192,10 @@ def _build_dataset() -> Tuple[pd.DataFrame, np.ndarray, np.ndarray, np.ndarray, 
         fii_dii_series,
         reindex_flow_features_to,
     )
+    from ml.data.sentiment_history import (  # noqa: PLC0415
+        reindex_sentiment_to,
+        sentiment_features_for,
+    )
     from ml.labeling import (  # noqa: PLC0415
         TripleBarrierConfig,
         sample_weights_from_t1,
@@ -274,6 +281,20 @@ def _build_dataset() -> Tuple[pd.DataFrame, np.ndarray, np.ndarray, np.ndarray, 
             "lgbm_signal_gate: FII/DII flow data unavailable — features will be zero-filled",
         )
 
+    # PR 183 — historical FinBERT-India sentiment features. Zero-filled
+    # when the cache is empty (early-launch case before the news
+    # ingestion pipeline backfills history).
+    sentiment_frame = sentiment_features_for(
+        symbols=universe, start=start_date.date(), end=end_date.date(),
+    )
+    if (
+        sentiment_frame.empty
+        or float(sentiment_frame["sentiment_5d_count"].sum()) == 0
+    ):
+        logger.warning(
+            "lgbm_signal_gate: sentiment cache empty — features will be zero-filled",
+        )
+
     tb_cfg = TripleBarrierConfig(
         profit_target_atr=PROFIT_TARGET_ATR,
         stop_loss_atr=STOP_LOSS_ATR,
@@ -301,6 +322,11 @@ def _build_dataset() -> Tuple[pd.DataFrame, np.ndarray, np.ndarray, np.ndarray, 
             flow_aligned = reindex_flow_features_to(flow_features, f.index)
             for col in ["fii_5d_sum", "dii_5d_sum", "fii_5d_z", "dii_5d_z"]:
                 f[col] = flow_aligned[col].values
+            # PR 183 — merge per-symbol sentiment features. Empty cache
+            # → zero-filled features so training proceeds.
+            sent_aligned = reindex_sentiment_to(sentiment_frame, sym, f.index)
+            f["sentiment_5d_mean"] = sent_aligned["sentiment_5d_mean"].values
+            f["sentiment_5d_count"] = sent_aligned["sentiment_5d_count"].values
             f = f.dropna(subset=FEATURE_ORDER + ["_atr_raw"])
             if len(f) < 100:
                 continue
