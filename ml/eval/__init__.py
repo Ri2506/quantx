@@ -20,6 +20,13 @@ from .backtest_eval import (
     metrics_from_returns,
     promote_gate_passes,
 )
+from .drift import (
+    DriftConfig,
+    feature_drift_report,
+    ks_drift,
+    psi,
+    summarize_report,
+)
 from .overfitting import (
     deflated_sharpe_ratio,
     dsr_pbo_from_fold_returns,
@@ -29,11 +36,16 @@ from .overfitting import (
 
 __all__ = [
     "BacktestEvalConfig",
+    "DriftConfig",
     "compute_backtest_metrics",
-    "metrics_from_returns",
-    "promote_gate_passes",
     "deflated_sharpe_ratio",
     "dsr_pbo_from_fold_returns",
     "expected_max_sharpe",
+    "feature_drift_report",
+    "ks_drift",
+    "metrics_from_returns",
     "probability_of_backtest_overfitting",
+    "promote_gate_passes",
+    "psi",
+    "summarize_report",
 ]
