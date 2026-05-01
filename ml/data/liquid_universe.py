@@ -39,12 +39,30 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from typing import List, Optional
+from datetime import date as Date, datetime, timedelta
+from typing import List, Optional, Union
 
 import numpy as np
 import pandas as pd
 
+from .delisted_registry import historical_universe_extras, was_listed_at
+
 logger = logging.getLogger(__name__)
+
+
+DateLike = Union[str, Date, pd.Timestamp, datetime]
+
+
+def _to_date(d: Optional[DateLike]) -> Optional[Date]:
+    if d is None:
+        return None
+    if isinstance(d, Date) and not isinstance(d, datetime):
+        return d
+    if isinstance(d, datetime):
+        return d.date()
+    if isinstance(d, pd.Timestamp):
+        return d.date()
+    return datetime.strptime(str(d), "%Y-%m-%d").date()
 
 
 # ============================================================================
@@ -139,6 +157,14 @@ class LiquidUniverseConfig:
         Where to draw the universe from. By default we start from the
         Nifty 200 fallback list and rank by ADV. To search wider,
         pass a custom pool (e.g. all NSE F&O stocks).
+
+    as_of_date:
+        Point-in-time anchor (PR 177). When set, the lookback window
+        ends at this date instead of today. Symbols delisted on or
+        before this date are excluded; symbols that were tradeable at
+        this date but have since delisted are reincluded — neutralizing
+        survivorship bias in historical backtests. Pass None for "use
+        today" (live trading / current-universe selection).
     """
 
     top_n: int = 200
@@ -146,6 +172,7 @@ class LiquidUniverseConfig:
     min_price: float = 10.0
     min_avg_volume: int = 100_000
     candidate_pool: Optional[List[str]] = None
+    as_of_date: Optional[DateLike] = None
 
 
 # Module-level cache. Key = (top_n, lookback_days, frozenset(candidate_pool)).
@@ -162,28 +189,48 @@ def liquid_universe(cfg: Optional[LiquidUniverseConfig] = None) -> List[str]:
     download fails or returns insufficient data.
     """
     cfg = cfg or LiquidUniverseConfig()
+    as_of = _to_date(cfg.as_of_date)
 
-    pool = list(cfg.candidate_pool or NIFTY_200_FALLBACK)
-    cache_key = (cfg.top_n, cfg.lookback_days, frozenset(pool))
+    base_pool = list(cfg.candidate_pool or NIFTY_200_FALLBACK)
+    # PR 177 — survivorship-tolerant pool. When as_of is set, drop
+    # symbols delisted by then; add back symbols that were tradeable
+    # then but have since delisted.
+    if as_of is not None:
+        base_pool = [s for s in base_pool if was_listed_at(s, as_of)]
+        for extra in historical_universe_extras(as_of):
+            if extra not in base_pool:
+                base_pool.append(extra)
+
+    pool = base_pool
+    cache_key = (cfg.top_n, cfg.lookback_days, frozenset(pool), as_of)
     if cache_key in _UNIVERSE_CACHE:
         return list(_UNIVERSE_CACHE[cache_key])
 
     try:
         import yfinance as yf  # noqa: PLC0415
     except ImportError:
-        logger.warning("yfinance unavailable; returning static NIFTY_200_FALLBACK")
+        logger.warning("yfinance unavailable; returning static fallback")
         result = pool[: cfg.top_n]
         _UNIVERSE_CACHE[cache_key] = result
         return list(result)
 
     tickers = [f"{s}.NS" for s in pool]
-    period = f"{max(cfg.lookback_days + 5, 35)}d"
+    lookback_window = max(cfg.lookback_days + 5, 35)
+    # PR 177 — when as_of is set, fetch a fixed end-anchored window so
+    # we measure liquidity AS OF that date (not as of today). Live use
+    # passes as_of=None and we use the period= API.
+    yf_kwargs: dict = dict(
+        progress=False, auto_adjust=True, group_by="ticker", threads=True,
+        interval="1d",
+    )
+    if as_of is not None:
+        yf_kwargs["end"] = (as_of + timedelta(days=1)).isoformat()
+        yf_kwargs["start"] = (as_of - timedelta(days=lookback_window + 7)).isoformat()
+    else:
+        yf_kwargs["period"] = f"{lookback_window}d"
+
     try:
-        data = yf.download(
-            tickers, period=period, interval="1d",
-            progress=False, auto_adjust=True, group_by="ticker",
-            threads=True,
-        )
+        data = yf.download(tickers, **yf_kwargs)
     except Exception as exc:  # noqa: BLE001
         logger.warning("yfinance batch download failed: %s — using fallback", exc)
         result = pool[: cfg.top_n]
@@ -196,8 +243,10 @@ def liquid_universe(cfg: Optional[LiquidUniverseConfig] = None) -> List[str]:
         _UNIVERSE_CACHE[cache_key] = result
         return list(result)
 
-    # Compute median ADV per symbol over the lookback window
+    # Compute median ADV per symbol over the lookback window. When as_of
+    # is set, we already fetched only data up to as_of_date.
     rows = []
+    delisted_with_data = 0
     for sym in pool:
         ticker = f"{sym}.NS"
         try:
@@ -205,8 +254,10 @@ def liquid_universe(cfg: Optional[LiquidUniverseConfig] = None) -> List[str]:
         except (KeyError, AttributeError):
             continue
         if len(sym_df) < cfg.lookback_days // 2:
+            # Not enough data — common for delisted symbols. Log and skip.
+            if as_of is not None and not was_listed_at(sym, as_of - timedelta(days=cfg.lookback_days)):
+                delisted_with_data += 1
             continue
-        # Use last lookback_days of data
         recent = sym_df.tail(cfg.lookback_days)
         median_close = float(recent["Close"].median())
         median_volume = float(recent["Volume"].median())
@@ -225,6 +276,11 @@ def liquid_universe(cfg: Optional[LiquidUniverseConfig] = None) -> List[str]:
 
     df = pd.DataFrame(rows).sort_values("adv", ascending=False)
     result = df["symbol"].head(cfg.top_n).tolist()
+    if as_of is not None and delisted_with_data:
+        logger.info(
+            "liquid_universe(as_of=%s): %d delisted symbols in pool had no usable data",
+            as_of, delisted_with_data,
+        )
 
     if len(result) < cfg.top_n:
         logger.info(
