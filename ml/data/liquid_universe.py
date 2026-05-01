@@ -167,7 +167,7 @@ class LiquidUniverseConfig:
         today" (live trading / current-universe selection).
     """
 
-    top_n: int = 200
+    top_n: int = 500
     lookback_days: int = 30
     min_price: float = 10.0
     min_avg_volume: int = 100_000
@@ -177,6 +177,43 @@ class LiquidUniverseConfig:
 
 # Module-level cache. Key = (top_n, lookback_days, frozenset(candidate_pool)).
 _UNIVERSE_CACHE: dict = {}
+
+
+def _load_tier_pool() -> Optional[list[str]]:
+    """PR 207 — load from data/nse_tiers/nifty500.txt (broadest tier).
+
+    Returns None if the tier file is missing so callers can fall back
+    to NIFTY_200_FALLBACK. Returns a deduplicated, uppercased list
+    when found.
+    """
+    from pathlib import Path  # noqa: PLC0415
+
+    repo_root = Path(__file__).resolve().parents[2]
+    candidates = [
+        repo_root / "data" / "nse_tiers" / "nse_all.txt",
+        repo_root / "data" / "nse_tiers" / "nifty500.txt",
+        repo_root / "data" / "nse_tiers" / "nifty250.txt",
+    ]
+    for path in candidates:
+        if not path.exists():
+            continue
+        try:
+            symbols: list[str] = []
+            seen = set()
+            for line in path.read_text().splitlines():
+                line = line.split("#", 1)[0].strip().upper()
+                if line and line not in seen:
+                    symbols.append(line)
+                    seen.add(line)
+            if symbols:
+                logger.info(
+                    "liquid_universe: loaded %d symbols from %s",
+                    len(symbols), path.name,
+                )
+                return symbols
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("tier file %s read failed: %s", path, exc)
+    return None
 
 
 def liquid_universe(cfg: Optional[LiquidUniverseConfig] = None) -> List[str]:
@@ -191,7 +228,13 @@ def liquid_universe(cfg: Optional[LiquidUniverseConfig] = None) -> List[str]:
     cfg = cfg or LiquidUniverseConfig()
     as_of = _to_date(cfg.as_of_date)
 
-    base_pool = list(cfg.candidate_pool or NIFTY_200_FALLBACK)
+    # PR 207 — broader candidate pool. Try the tier files first
+    # (Nifty 500 = ~500 names across all sectors), fall back to
+    # NIFTY_200_FALLBACK only if tier files are missing.
+    if cfg.candidate_pool is not None:
+        base_pool = list(cfg.candidate_pool)
+    else:
+        base_pool = _load_tier_pool() or list(NIFTY_200_FALLBACK)
     # PR 177 — survivorship-tolerant pool. When as_of is set, drop
     # symbols delisted by then; add back symbols that were tradeable
     # then but have since delisted.

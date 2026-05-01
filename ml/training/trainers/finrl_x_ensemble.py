@@ -34,16 +34,34 @@ from ..base import Trainer, TrainerError, TrainResult
 logger = logging.getLogger(__name__)
 
 
-# Default training universe: top 30 Nifty constituents. Smaller than the
-# inference universe to keep the action space tractable; the policy
-# generalises via the feature observation, not symbol identity.
-TRAIN_UNIVERSE = [
-    "RELIANCE", "TCS", "HDFCBANK", "INFY", "ICICIBANK", "HINDUNILVR",
-    "ITC", "SBIN", "BHARTIARTL", "KOTAKBANK", "LT", "AXISBANK",
-    "BAJFINANCE", "ASIANPAINT", "MARUTI", "WIPRO", "HCLTECH", "ULTRACEMCO",
-    "TITAN", "SUNPHARMA", "POWERGRID", "NTPC", "ADANIENT", "ONGC",
-    "TATAMOTORS", "JSWSTEEL", "GRASIM", "DIVISLAB", "TECHM", "DRREDDY",
-]
+# Default training universe: Nifty 50 large-caps. RL action space scales
+# with N (target weight per asset), so 50 is the sweet spot — enough
+# diversity to learn portfolio construction, small enough to converge
+# in 1M timesteps. PR 207 — sourced from data/nse_tiers/nifty50.txt
+# (canonical file) instead of a hand-typed subset.
+def _load_train_universe() -> list[str]:
+    from pathlib import Path  # noqa: PLC0415
+    p = Path(__file__).resolve().parents[3] / "data" / "nse_tiers" / "nifty50.txt"
+    if p.exists():
+        out: list[str] = []
+        seen = set()
+        for line in p.read_text().splitlines():
+            line = line.split("#", 1)[0].strip().upper()
+            if line and line not in seen:
+                out.append(line)
+                seen.add(line)
+        if out:
+            return out
+    return [
+        "RELIANCE", "TCS", "HDFCBANK", "INFY", "ICICIBANK", "HINDUNILVR",
+        "ITC", "SBIN", "BHARTIARTL", "KOTAKBANK", "LT", "AXISBANK",
+        "BAJFINANCE", "ASIANPAINT", "MARUTI", "WIPRO", "HCLTECH", "ULTRACEMCO",
+        "TITAN", "SUNPHARMA", "POWERGRID", "NTPC", "ADANIENT", "ONGC",
+        "TATAMOTORS", "JSWSTEEL", "GRASIM", "DIVISLAB", "TECHM", "DRREDDY",
+    ]
+
+
+TRAIN_UNIVERSE = _load_train_universe()
 
 TRAIN_TIMESTEPS = 1_000_000
 TRAIN_START = "2018-01-01"

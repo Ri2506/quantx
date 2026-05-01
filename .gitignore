@@ -89,8 +89,11 @@ ml/models/*.safetensors
 *.csv
 *.parquet
 *.feather
-/data/
+# PR 207 — exclude data/* contents but keep nse_tiers/ universe files
+/data/*
 !ml/data/
+!/data/nse_tiers/
+!/data/nse_tiers/**
 
 # Notebooks checkpoints
 .ipynb_checkpoints/

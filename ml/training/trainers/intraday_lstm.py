@@ -42,15 +42,35 @@ EPOCHS = 12
 BATCH_SIZE = 256
 LR = 1e-3
 
-# Training universe: Nifty 50 + BankNifty constituents (the only liquid
-# enough names for 5-min trading per the research doc). Pulled via
-# yfinance with `interval='5m'` - yfinance caps history at 60 days for
-# 5-min so we run on a rolling 60-day window.
-INTRADAY_UNIVERSE = [
-    "RELIANCE", "TCS", "HDFCBANK", "INFY", "ICICIBANK", "SBIN",
-    "BHARTIARTL", "KOTAKBANK", "AXISBANK", "LT", "ITC", "HINDUNILVR",
-    "HCLTECH", "WIPRO", "BAJFINANCE", "MARUTI", "NTPC", "ULTRACEMCO",
-]
+# Training universe: Nifty 100 (large-cap liquid for 5-min trading).
+# yfinance caps 5-min history at 60 days so we run on a rolling 60-day
+# window with 100 symbols × 75 bars/day × 60 days = 450k samples — enough
+# to train a non-trivial Bi-LSTM.
+def _load_intraday_universe() -> list[str]:
+    """PR 207 — load Nifty 100 from data/nse_tiers/nifty100.txt; fall back
+    to a 30-name large-cap list if file missing."""
+    from pathlib import Path  # noqa: PLC0415
+    p = Path(__file__).resolve().parents[3] / "data" / "nse_tiers" / "nifty100.txt"
+    if p.exists():
+        out: list[str] = []
+        seen = set()
+        for line in p.read_text().splitlines():
+            line = line.split("#", 1)[0].strip().upper()
+            if line and line not in seen:
+                out.append(line)
+                seen.add(line)
+        if out:
+            return out
+    return [
+        "RELIANCE", "TCS", "HDFCBANK", "INFY", "ICICIBANK", "SBIN",
+        "BHARTIARTL", "KOTAKBANK", "AXISBANK", "LT", "ITC", "HINDUNILVR",
+        "HCLTECH", "WIPRO", "BAJFINANCE", "MARUTI", "NTPC", "ULTRACEMCO",
+        "M&M", "TATAMOTORS", "SUNPHARMA", "TITAN", "POWERGRID", "ASIANPAINT",
+        "JSWSTEEL", "TATASTEEL", "ONGC", "ADANIENT", "BAJAJFINSV", "INDUSINDBK",
+    ]
+
+
+INTRADAY_UNIVERSE = _load_intraday_universe()
 
 
 def _torch():
