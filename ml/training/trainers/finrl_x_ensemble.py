@@ -481,7 +481,9 @@ class FinRLXPPOTrainer(_SB3AlgoTrainer):
 
     def _train_one(self, env, total_timesteps):
         from stable_baselines3 import PPO  # noqa: PLC0415
-        model = PPO("MlpPolicy", env, verbose=0, n_steps=2048, batch_size=128, learning_rate=3e-4)
+        # PR 206 — SB3 recommends device="cpu" for MlpPolicy: GPU overhead
+        # exceeds compute saved on small matrix mults. ~2x faster on CPU.
+        model = PPO("MlpPolicy", env, verbose=0, n_steps=2048, batch_size=128, learning_rate=3e-4, device="cpu")
         model.learn(total_timesteps=total_timesteps, progress_bar=False)
         return model
 
@@ -492,7 +494,7 @@ class FinRLXDDPGTrainer(_SB3AlgoTrainer):
 
     def _train_one(self, env, total_timesteps):
         from stable_baselines3 import DDPG  # noqa: PLC0415
-        model = DDPG("MlpPolicy", env, verbose=0, learning_rate=1e-3, buffer_size=200_000)
+        model = DDPG("MlpPolicy", env, verbose=0, learning_rate=1e-3, buffer_size=200_000, device="cpu")
         model.learn(total_timesteps=total_timesteps, progress_bar=False)
         return model
 
@@ -503,6 +505,6 @@ class FinRLXA2CTrainer(_SB3AlgoTrainer):
 
     def _train_one(self, env, total_timesteps):
         from stable_baselines3 import A2C  # noqa: PLC0415
-        model = A2C("MlpPolicy", env, verbose=0, learning_rate=7e-4, n_steps=8)
+        model = A2C("MlpPolicy", env, verbose=0, learning_rate=7e-4, n_steps=8, device="cpu")
         model.learn(total_timesteps=total_timesteps, progress_bar=False)
         return model

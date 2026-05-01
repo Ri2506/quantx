@@ -203,9 +203,11 @@ class OptionsRLTrainer(Trainer):
             return _GymWrap(make_cvar_wrapper(_OptionsEnv(), cvar_cfg))
         env = DummyVecEnv([_make])
 
+        # PR 206 — CPU per SB3 recommendation for MlpPolicy
         model = PPO(
             "MlpPolicy", env, verbose=0,
             n_steps=2048, batch_size=64, learning_rate=3e-4,
+            device="cpu",
         )
         model.learn(total_timesteps=TIMESTEPS, progress_bar=False)
 
