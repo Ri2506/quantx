@@ -31,6 +31,10 @@ from .liquid_universe import (
     NIFTY_50_FALLBACK,
     liquid_universe,
 )
+from .news_ingester import (
+    backfill_sentiment_cache,
+    fetch_headlines_for_symbol,
+)
 from .fundamentals_pit import (
     FUNDAMENTAL_FIELDS,
     FUNDAMENTALS_FEATURE_NAMES,
@@ -79,6 +83,8 @@ __all__ = [
     "adjust_volume_for_actions",
     "audit_feature_matrix",
     "backfill_from_jugaad",
+    "backfill_sentiment_cache",
+    "fetch_headlines_for_symbol",
     "bhavcopy_download",
     "bhavcopy_download_with_fallback",
     "compute_flow_features",
