@@ -206,7 +206,7 @@ def build_features_for(
     time — every input degrades to a default rather than raising."""
     if supabase_client is None:
         try:
-            from ...core.database import get_supabase_admin
+            from src.backend.core.database import get_supabase_admin
             supabase_client = get_supabase_admin()
         except Exception:
             supabase_client = None
@@ -254,7 +254,7 @@ def build_feature_frame(
     import pandas as pd
 
     if supabase_client is None:
-        from ...core.database import get_supabase_admin
+        from src.backend.core.database import get_supabase_admin
         supabase_client = get_supabase_admin()
 
     try:

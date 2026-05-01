@@ -121,7 +121,14 @@ def _try_autogluon_path(out_dir: Path, df: pd.DataFrame) -> Optional[Dict[str, A
 
     long_df = df.reset_index().rename(columns={"index": "timestamp", "Date": "timestamp"})
     long_df["item_id"] = "nifty"
-    long_df = long_df.rename(columns={"target": "target"})
+    # PR 205 — drop covariates from the AutoGluon path. AutoGluon's
+    # predict() requires `known_covariates` for FUTURE timestamps when
+    # the predictor was fit with known_covariates_names. We don't have
+    # future VIX / INR / FII flow values at predict time, only history.
+    # Solution: train univariate Chronos via AutoGluon (still uses the
+    # same Bolt-Base checkpoint), then post-condition on covariates at
+    # inference time inside services/regime_persistence.py.
+    long_df = long_df[["item_id", "timestamp", "target"]]
     ts_data = TimeSeriesDataFrame.from_data_frame(
         long_df, id_column="item_id", timestamp_column="timestamp",
     )
@@ -130,7 +137,6 @@ def _try_autogluon_path(out_dir: Path, df: pd.DataFrame) -> Optional[Dict[str, A
         prediction_length=HORIZON,
         path=str(predictor_path),
         target="target",
-        known_covariates_names=["vix", "inr_usd", "us10y", "fii_net"],
         eval_metric="WAPE",
         freq="B",
     )
@@ -144,6 +150,8 @@ def _try_autogluon_path(out_dir: Path, df: pd.DataFrame) -> Optional[Dict[str, A
         "predictor_dir": str(predictor_path),
         "forecast_columns": list(forecast.columns) if hasattr(forecast, "columns") else [],
         "n_train_obs": int(len(df)),
+        "covariates_mode": "univariate",
+        "note": "Covariates conditioned at inference, not training",
     }
 
 
