@@ -46,6 +46,7 @@ from .quality_check import (
     DataQualityError,
     QualityCheckConfig,
     QualityReport,
+    audit_feature_matrix,
     run_quality_checks,
 )
 from .sentiment_history import (
@@ -76,6 +77,7 @@ __all__ = [
     "actions_for",
     "adjust_batch",
     "adjust_volume_for_actions",
+    "audit_feature_matrix",
     "backfill_from_jugaad",
     "bhavcopy_download",
     "bhavcopy_download_with_fallback",

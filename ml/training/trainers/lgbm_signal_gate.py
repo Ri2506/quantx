@@ -530,6 +530,29 @@ class LGBMSignalGateTrainer(Trainer):
 
         t0 = time.time()
         X, y, sample_weight, fwd_returns, symbols, nifty_fwd, dq_report = _build_dataset()
+
+        # PR 189 — verify no feature is silently dead. Caches that
+        # didn't backfill (FII/DII, sentiment, fundamentals on a fresh
+        # repo) zero-fill their columns. The model still trains, the
+        # gate may even pass on live features alone, but the dead
+        # columns add nothing. Fail fast so the operator backfills.
+        from ml.data.quality_check import (  # noqa: PLC0415
+            DataQualityError as _DQError,
+            audit_feature_matrix,
+        )
+        feat_audit = audit_feature_matrix(X, feature_names=FEATURE_ORDER)
+        logger.info(
+            "lgbm_signal_gate: feature audit — %d/%d dead, dead=%s",
+            feat_audit["n_constant"], feat_audit["n_features"],
+            feat_audit["constant_features"],
+        )
+        if feat_audit["fatal"]:
+            raise _DQError(
+                f"feature audit failed: {feat_audit['n_constant']} dead features "
+                f"({feat_audit['constant_features']}). "
+                f"Backfill caches first: scripts/backfill_fundamentals.py + "
+                f"scripts/backfill_fii_dii.py"
+            )
         logger.info(
             "lgbm_signal_gate: %d samples x %d features across %d symbols, "
             "weight stats: mean=%.3f min=%.3f max=%.3f",

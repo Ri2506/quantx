@@ -91,8 +91,8 @@ class QualityCheckConfig:
     fatal_thresholds:
         Map issue-type → max number of issues across the universe
         before run_quality_checks raises DataQualityError. Default
-        treats only "negative_price" and "trading_window_violation" as
-        fatal.
+        treats only "negative_price", "trading_window_violation",
+        and a high "all_constant_feature" count as fatal.
 
     market_open_hhmm:
         Tuple (open, close) HHMM for the trading window. NSE: 0915-1530.
@@ -107,7 +107,8 @@ class QualityCheckConfig:
     fatal_thresholds: Dict[str, int] = field(default_factory=lambda: {
         "negative_price": 0,                # any → fatal
         "trading_window_violation": 0,      # any → fatal
-        "stale_run": 50,                    # > 50 stale runs across universe → fatal
+        "stale_run": 50,                    # > 50 stale runs → fatal
+        "all_constant_feature": 5,          # > 5 dead features → fatal (PR 189)
     })
     market_open_hhmm: tuple[int, int] = (915, 1530)
 
@@ -344,9 +345,74 @@ def run_quality_checks(
     return report
 
 
+def audit_feature_matrix(
+    X: pd.DataFrame | np.ndarray,
+    feature_names: Optional[List[str]] = None,
+    *,
+    constant_threshold: float = 1e-10,
+    fatal_max_constant: int = 5,
+) -> dict:
+    """PR 189 — detect dead/constant feature columns in a training matrix.
+
+    The audit catches the case where a feature is wired into FEATURE_ORDER
+    but its source data was never ingested (e.g. fii_5d_z is all 0
+    because the FII/DII parquet cache is empty). LightGBM/XGBoost don't
+    raise — they just train on noise — and the gate may still pass
+    because the live features carry the model. Result: model silently
+    underperforms in production.
+
+    Args:
+        X: feature matrix (rows = samples, cols = features).
+        feature_names: optional names. If X is a DataFrame, columns are
+                       used. Otherwise generic 'feat_0', 'feat_1', ...
+        constant_threshold: variance below this → feature is "dead".
+                            Captures floating-point fuzz around 0.
+        fatal_max_constant: report['fatal'] flips True when more than
+                            this many features are dead.
+
+    Returns:
+        {
+            "n_features": int,
+            "n_constant": int,
+            "constant_features": [name, ...],
+            "constant_fraction": float,
+            "fatal": bool,
+        }
+    """
+    if isinstance(X, pd.DataFrame):
+        names = list(X.columns) if feature_names is None else feature_names
+        arr = X.values
+    else:
+        arr = np.asarray(X)
+        names = (
+            feature_names
+            if feature_names is not None
+            else [f"feat_{i}" for i in range(arr.shape[1] if arr.ndim == 2 else 0)]
+        )
+
+    if arr.ndim != 2 or arr.size == 0:
+        return {
+            "n_features": 0, "n_constant": 0,
+            "constant_features": [], "constant_fraction": 0.0,
+            "fatal": False,
+        }
+
+    variances = np.nanvar(arr, axis=0)
+    dead = [names[i] for i, v in enumerate(variances) if v < constant_threshold]
+    n_features = arr.shape[1]
+    return {
+        "n_features": int(n_features),
+        "n_constant": int(len(dead)),
+        "constant_features": dead,
+        "constant_fraction": round(len(dead) / max(1, n_features), 4),
+        "fatal": len(dead) > fatal_max_constant,
+    }
+
+
 __all__ = [
     "DataQualityError",
     "QualityCheckConfig",
     "QualityReport",
+    "audit_feature_matrix",
     "run_quality_checks",
 ]
