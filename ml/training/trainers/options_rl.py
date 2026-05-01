@@ -187,8 +187,20 @@ class OptionsRLTrainer(Trainer):
         except ImportError as exc:
             raise TrainerError(f"missing RL dep: {exc}")
 
+        from ml.rl.cvar_reward import CVaRConfig, make_cvar_wrapper  # noqa: PLC0415
+
+        # PR 178 — CVaR Lagrangian shaping on the synthetic env. The
+        # shaped-reward range here is ±1, so target_cvar=-0.5 with
+        # lambda=1.0 means policies preferring iron condors that pay
+        # off in low-vol but lose -1.0 in vol spikes get a moderate
+        # penalty when those worst-5-percent episodes accumulate.
+        cvar_cfg = CVaRConfig(
+            alpha=0.05, target_cvar=-0.5,
+            penalty_lambda=1.0, rolling_window=100,
+        )
+
         def _make():
-            return _GymWrap(_OptionsEnv())
+            return _GymWrap(make_cvar_wrapper(_OptionsEnv(), cvar_cfg))
         env = DummyVecEnv([_make])
 
         model = PPO(

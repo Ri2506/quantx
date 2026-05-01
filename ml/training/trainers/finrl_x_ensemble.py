@@ -183,6 +183,7 @@ class _SB3AlgoTrainer(Trainer):
         except ImportError as exc:
             raise TrainerError(f"missing RL dep: {exc}")
 
+        from ml.rl.cvar_reward import CVaRConfig, make_cvar_wrapper  # noqa: PLC0415
         from ml.rl.env import EnvConfig, NSETradingEnv  # noqa: PLC0415
         (
             train_prices, train_features, train_regime, train_vix,
@@ -190,10 +191,23 @@ class _SB3AlgoTrainer(Trainer):
             nifty_returns,
         ) = _build_env_data()
 
+        # PR 178 — CVaR Lagrangian shaping. The env's reward is a daily
+        # log-return - cost. Targeting -2 percent CVaR_5% over a 100-step
+        # rolling window penalizes policies that allow worst-case daily
+        # drawdowns deeper than 2 percent. Penalty lambda 2.0 — moderate
+        # risk aversion. Holdout env runs raw rewards so the OOS Sharpe
+        # measures the policy's actual return profile, not the shaped
+        # reward.
+        cvar_cfg = CVaRConfig(
+            alpha=0.05, target_cvar=-0.02,
+            penalty_lambda=2.0, rolling_window=100,
+        )
+
         def _build_train_env():
-            return _GymWrapper(
-                NSETradingEnv(train_prices, train_features, train_regime, train_vix, EnvConfig()),
+            base = NSETradingEnv(
+                train_prices, train_features, train_regime, train_vix, EnvConfig(),
             )
+            return _GymWrapper(make_cvar_wrapper(base, cvar_cfg))
 
         def _build_holdout_env():
             return _GymWrapper(
