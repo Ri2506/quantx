@@ -38,12 +38,44 @@ from __future__ import annotations
 
 import logging
 from datetime import date as Date, datetime, timedelta
+from pathlib import Path
 from typing import Dict, List, Optional, Sequence
 
 import numpy as np
 import pandas as pd
 
 logger = logging.getLogger(__name__)
+
+
+# PR 190 — local parquet cache so 200 symbols × 8y don't pummel the
+# NSE archive on every training run. Cache is keyed by symbol; per-call
+# we slice the requested [start, end] window from the symbol parquet.
+CACHE_DIR = Path(__file__).resolve().parent / "cache" / "bhavcopy"
+CACHE_DIR.mkdir(parents=True, exist_ok=True)
+
+
+def _symbol_cache_path(symbol: str) -> Path:
+    return CACHE_DIR / f"{symbol}.parquet"
+
+
+def _load_symbol_cache(symbol: str) -> Optional[pd.DataFrame]:
+    p = _symbol_cache_path(symbol)
+    if not p.exists():
+        return None
+    try:
+        df = pd.read_parquet(p)
+        df.index = pd.to_datetime(df.index)
+        return df
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("bhavcopy cache read %s failed: %s", symbol, exc)
+        return None
+
+
+def _save_symbol_cache(symbol: str, df: pd.DataFrame) -> None:
+    try:
+        df.to_parquet(_symbol_cache_path(symbol))
+    except Exception as exc:  # noqa: BLE001
+        logger.debug("bhavcopy cache write %s failed: %s", symbol, exc)
 
 
 class BhavcopyError(RuntimeError):
@@ -101,13 +133,38 @@ def bhavcopy_download(
     per_sym: Dict[str, pd.DataFrame] = {}
     failed: List[str] = []
     for sym in symbols:
+        # PR 190 — try local cache first. If it covers [start_d, end_d]
+        # we skip the NSE round trip entirely. Otherwise fetch fresh +
+        # upsert into the cache for next time.
+        cached = _load_symbol_cache(sym)
+        cache_covers = (
+            cached is not None
+            and not cached.empty
+            and cached.index.min().date() <= start_d
+            and cached.index.max().date() >= end_d - timedelta(days=2)
+        )
+        if cache_covers:
+            sliced = cached.loc[
+                (cached.index >= pd.Timestamp(start_d))
+                & (cached.index <= pd.Timestamp(end_d))
+            ]
+            per_sym[sym] = sliced
+            continue
+
         try:
             df = stock_df(symbol=sym, from_date=start_d, to_date=end_d, series=series)
         except Exception as exc:  # noqa: BLE001
             logger.debug("bhavcopy %s failed: %s", sym, exc)
+            if cached is not None and not cached.empty:
+                # Network failed but we have partial cache — better than nothing.
+                per_sym[sym] = cached
+                continue
             failed.append(sym)
             continue
         if df is None or df.empty:
+            if cached is not None and not cached.empty:
+                per_sym[sym] = cached
+                continue
             failed.append(sym)
             continue
         # jugaad-data returns columns including DATE, OPEN, HIGH, LOW,
@@ -124,6 +181,18 @@ def bhavcopy_download(
         })
         df = df.set_index(pd.to_datetime(df["Date"])).sort_index()
         df = df[["Open", "High", "Low", "Close", "Volume"]].astype(float)
+        # PR 190 — merge with any prior cache + persist.
+        if cached is not None and not cached.empty:
+            merged = (
+                pd.concat([cached, df])
+                .reset_index()
+                .drop_duplicates(subset=["index"], keep="last")
+                .set_index("index")
+                .sort_index()
+            )
+            merged.index.name = None
+            df = merged
+        _save_symbol_cache(sym, df)
         per_sym[sym] = df
 
     if not per_sym:

@@ -220,6 +220,35 @@ def _build_env_data() -> Tuple[
 ]:
     """Single yfinance fetch covering train + holdout windows; split downstream."""
     full_close, full_high, full_low = _download_ohlc(TRAIN_UNIVERSE, TRAIN_START)
+
+    # PR 190 — quality audit on the universe before training. Pass a
+    # spot-check sample of the largest names; full universe audit would
+    # take minutes and FinRL's universe is fixed at 30 known liquid names
+    # so a 10-symbol sample catches the systemic rot patterns
+    # (negative prices, after-hours bars, gaps) without burning time.
+    from ml.data.quality_check import (  # noqa: PLC0415
+        DataQualityError as _DQError,
+        QualityCheckConfig,
+        run_quality_checks,
+    )
+    audit_universe = TRAIN_UNIVERSE[:10]
+    audit_frames = {}
+    for sym in audit_universe:
+        if sym in full_close.columns:
+            audit_frames[sym] = pd.DataFrame({
+                "Open": full_close[sym],
+                "High": full_high[sym] if sym in full_high.columns else full_close[sym],
+                "Low": full_low[sym] if sym in full_low.columns else full_close[sym],
+                "Close": full_close[sym],
+                "Volume": pd.Series(1.0, index=full_close.index),  # FinRL doesn't use volume
+            }).dropna()
+    audit_report = run_quality_checks(audit_frames, QualityCheckConfig())
+    logger.info("FinRL-X data quality — %s", audit_report.summary())
+    if audit_report.fatal_count > 0:
+        raise _DQError(
+            f"FinRL-X data quality fatal: {audit_report.fatal_reasons}"
+        )
+
     full_features = _build_features(full_close, highs=full_high, lows=full_low)
     full_prices = full_close
 
