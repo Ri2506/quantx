@@ -210,11 +210,19 @@ def run(
                         trainer.name, "; ".join(gate_reasons),
                     )
 
+            # PR 197 — compute per-model Kelly fraction from backtest
+            # win_rate + profit_factor. AutoPilot reads this at runtime
+            # to scale per-signal position size. Skip-gate trainers
+            # (regime_hmm, momentum_*, options_rl) emit Kelly=0.0
+            # because they aren't directional traders.
+            from ml.eval.kelly import kelly_from_metrics  # noqa: PLC0415
+            kelly = kelly_from_metrics({**train_result.metrics, **eval_metrics})
+
             row: Dict[str, object] = {}
             if not dry_run:
                 row = trainer.register(
                     train_result,
-                    eval_metrics,
+                    {**eval_metrics, "kelly_fraction": round(kelly, 4)},
                     trained_by=trained_by,
                     git_sha=git_sha,
                     promote=promote_for_this,
@@ -227,6 +235,7 @@ def run(
                     **eval_metrics,
                     "promote_gate_passed": len(gate_reasons) == 0,
                     "promote_gate_reasons": gate_reasons,
+                    "kelly_fraction": round(kelly, 4),
                 },
                 version=int(row.get("version")) if row.get("version") is not None else None,
                 promoted=bool(row.get("is_prod")) if row else False,

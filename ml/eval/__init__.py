@@ -34,6 +34,12 @@ from .impact_cost import (
     apply_impact_to_returns,
     impact_cost_bps,
 )
+from .kelly import (
+    DEFAULT_FRACTIONAL,
+    MAX_KELLY_FRACTION,
+    kelly_fraction,
+    kelly_from_metrics,
+)
 from .overfitting import (
     deflated_sharpe_ratio,
     dsr_pbo_from_fold_returns,
@@ -44,9 +50,11 @@ from .overfitting import (
 __all__ = [
     "BacktestEvalConfig",
     "DEFAULT_BASE_BPS",
+    "DEFAULT_FRACTIONAL",
     "DEFAULT_IMPACT_COEF",
     "DriftConfig",
     "ImpactCostConfig",
+    "MAX_KELLY_FRACTION",
     "apply_impact_to_returns",
     "compute_backtest_metrics",
     "deflated_sharpe_ratio",
@@ -54,6 +62,8 @@ __all__ = [
     "expected_max_sharpe",
     "feature_drift_report",
     "impact_cost_bps",
+    "kelly_fraction",
+    "kelly_from_metrics",
     "ks_drift",
     "metrics_from_returns",
     "probability_of_backtest_overfitting",
