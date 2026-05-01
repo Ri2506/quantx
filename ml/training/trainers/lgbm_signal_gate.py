@@ -239,6 +239,30 @@ def _build_dataset() -> Tuple[pd.DataFrame, np.ndarray, np.ndarray, np.ndarray, 
     from ml.data.corporate_actions import adjust_batch  # noqa: PLC0415
     raw = adjust_batch(raw)
 
+    # PR 182 — automated data-quality audit. Run BEFORE feature
+    # engineering so issues are caught up-front. Negative prices and
+    # trading-window violations are fatal; other rot (stale runs, vol
+    # spikes, gaps) is reported but allowed — trainers persist the
+    # report into model_versions.metrics for ops visibility.
+    from ml.data.quality_check import (  # noqa: PLC0415
+        DataQualityError,
+        QualityCheckConfig,
+        run_quality_checks,
+    )
+    per_symbol_for_audit = {}
+    for sym in universe[: min(len(universe), 50)]:   # spot-check first 50
+        ticker = f"{sym}.NS"
+        try:
+            per_symbol_for_audit[sym] = raw[ticker].dropna(how="all")
+        except (KeyError, AttributeError):
+            continue
+    audit_report = run_quality_checks(per_symbol_for_audit, QualityCheckConfig())
+    logger.info("lgbm_signal_gate: data quality — %s", audit_report.summary())
+    if audit_report.fatal_count > 0:
+        raise DataQualityError(
+            f"data-quality audit failed: {audit_report.fatal_reasons}"
+        )
+
     # PR 180 — fetch FII/DII flow series once and compute features over
     # the whole training window. Per-symbol feature frames will reindex
     # this market-wide series onto their own date axis.
@@ -339,7 +363,10 @@ def _build_dataset() -> Tuple[pd.DataFrame, np.ndarray, np.ndarray, np.ndarray, 
         logger.warning("Nifty benchmark download failed — proceeding without")
         nifty_fwd = pd.Series(dtype=float)
 
-    return X, y, sample_weight, fwd_returns, full["symbol"].values, nifty_fwd
+    return (
+        X, y, sample_weight, fwd_returns, full["symbol"].values, nifty_fwd,
+        audit_report.to_dict(),
+    )
 
 
 # ============================================================================
@@ -436,7 +463,7 @@ class LGBMSignalGateTrainer(Trainer):
             raise TrainerError(f"lightgbm required: {exc}")
 
         t0 = time.time()
-        X, y, sample_weight, fwd_returns, symbols, nifty_fwd = _build_dataset()
+        X, y, sample_weight, fwd_returns, symbols, nifty_fwd, dq_report = _build_dataset()
         logger.info(
             "lgbm_signal_gate: %d samples x %d features across %d symbols, "
             "weight stats: mean=%.3f min=%.3f max=%.3f",
@@ -513,6 +540,7 @@ class LGBMSignalGateTrainer(Trainer):
                 "n_features": int(X_arr.shape[1]),
                 "n_universe_symbols": int(len(np.unique(symbols))),
                 "class_distribution": class_dist,
+                "data_quality_report": dq_report,
                 "fit_seconds": round(time.time() - t0, 2),
                 "n_folds_succeeded": len(fold_metrics),
                 **agg,
