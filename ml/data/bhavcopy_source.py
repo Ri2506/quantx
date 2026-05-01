@@ -183,14 +183,8 @@ def bhavcopy_download(
         df = df[["Open", "High", "Low", "Close", "Volume"]].astype(float)
         # PR 190 — merge with any prior cache + persist.
         if cached is not None and not cached.empty:
-            merged = (
-                pd.concat([cached, df])
-                .reset_index()
-                .drop_duplicates(subset=["index"], keep="last")
-                .set_index("index")
-                .sort_index()
-            )
-            merged.index.name = None
+            merged = pd.concat([cached, df])
+            merged = merged[~merged.index.duplicated(keep="last")].sort_index()
             df = merged
         _save_symbol_cache(sym, df)
         per_sym[sym] = df

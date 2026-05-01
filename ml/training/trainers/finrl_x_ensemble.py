@@ -448,21 +448,28 @@ class _SB3AlgoTrainer(Trainer):
         return m
 
 
-class _GymWrapper:
-    """Adapts NSETradingEnv to the gym API SB3 still expects (4-tuple step)."""
+try:
+    import gymnasium as _gymnasium
+    _GYM_BASE = _gymnasium.Env
+except ImportError:
+    _GYM_BASE = object
+
+
+class _GymWrapper(_GYM_BASE):
+    """Adapts NSETradingEnv to Gymnasium 5-tuple step API for SB3."""
+    metadata = {"render_modes": []}
+
     def __init__(self, env):
+        super().__init__()
         self._env = env
         self.action_space = env.action_space
         self.observation_space = env.observation_space
 
-    def reset(self, **kwargs):
-        obs, info = self._env.reset(**kwargs)
-        return obs
+    def reset(self, *, seed=None, options=None, **kwargs):
+        return self._env.reset(seed=seed, options=options, **kwargs)
 
     def step(self, action):
-        obs, reward, terminated, truncated, info = self._env.step(action)
-        done = bool(terminated or truncated)
-        return obs, float(reward), done, info
+        return self._env.step(action)
 
     def render(self, *args, **kwargs):  # pragma: no cover
         return None

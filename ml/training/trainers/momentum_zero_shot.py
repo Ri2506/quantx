@@ -204,11 +204,19 @@ class MomentumChronosTrainer(Trainer):
             except ImportError as exc:
                 raise TrainerError("PyTorch required for Chronos") from exc
             ctx = torch.tensor(history.tolist(), dtype=torch.float32)
-            quantiles, mean = pipeline.predict_quantiles(
-                context=ctx,
-                prediction_length=horizon,
-                quantile_levels=[0.1, 0.5, 0.9],
-            )
+            # Chronos library renamed `context=` → `inputs=` in v2.x
+            try:
+                quantiles, mean = pipeline.predict_quantiles(
+                    inputs=ctx,
+                    prediction_length=horizon,
+                    quantile_levels=[0.1, 0.5, 0.9],
+                )
+            except TypeError:
+                quantiles, mean = pipeline.predict_quantiles(
+                    context=ctx,
+                    prediction_length=horizon,
+                    quantile_levels=[0.1, 0.5, 0.9],
+                )
             return np.asarray(mean[0])[:horizon]
 
         metrics = _calibration_metrics("chronos", _forecast)

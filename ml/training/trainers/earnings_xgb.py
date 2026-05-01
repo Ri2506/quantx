@@ -66,8 +66,14 @@ class EarningsXGBTrainer(Trainer):
                 )
                 # Empty TrainResult signals "skipped" to the runner;
                 # primary_metric is None so it never passes the gate.
+                # Single placeholder file so register() doesn't reject empty list.
+                placeholder = out_dir / "skipped.txt"
+                out_dir.mkdir(parents=True, exist_ok=True)
+                placeholder.write_text(
+                    "Skipped: Supabase earnings_predictions has <50 labeled rows.\n"
+                )
                 return TrainResult(
-                    artifacts=[],
+                    artifacts=[placeholder],
                     metrics={
                         "skipped": True,
                         "skip_reason": "insufficient_supabase_data",
@@ -86,8 +92,11 @@ class EarningsXGBTrainer(Trainer):
             logger.warning(
                 "earnings_xgb: only %d rows — skipping (need >= 30)", len(X),
             )
+            placeholder = out_dir / "skipped.txt"
+            out_dir.mkdir(parents=True, exist_ok=True)
+            placeholder.write_text(f"Skipped: only {len(X)} labeled rows.\n")
             return TrainResult(
-                artifacts=[],
+                artifacts=[placeholder],
                 metrics={
                     "skipped": True,
                     "skip_reason": "below_min_rows",

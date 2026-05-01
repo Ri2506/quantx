@@ -132,9 +132,10 @@ def _try_autogluon_path(out_dir: Path, df: pd.DataFrame) -> Optional[Dict[str, A
         target="target",
         known_covariates_names=["vix", "inr_usd", "us10y", "fii_net"],
         eval_metric="WAPE",
+        freq="B",
     )
     predictor.fit(
-        ts_data, presets="chronos_bolt_base",
+        ts_data, presets="bolt_base",
         time_limit=300, verbosity=1,
     )
     forecast = predictor.predict(ts_data)

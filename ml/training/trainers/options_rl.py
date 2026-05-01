@@ -244,20 +244,28 @@ class OptionsRLTrainer(Trainer):
         return m
 
 
-class _GymWrap:
-    """4-tuple step adapter so SB3 can consume the env."""
+try:
+    import gymnasium as _gymnasium
+    _GYM_BASE = _gymnasium.Env
+except ImportError:
+    _GYM_BASE = object
+
+
+class _GymWrap(_GYM_BASE):
+    """Gymnasium-compatible adapter for SB3."""
+    metadata = {"render_modes": []}
+
     def __init__(self, env):
+        super().__init__()
         self._env = env
         self.action_space = env.action_space
         self.observation_space = env.observation_space
 
-    def reset(self, **kwargs):
-        obs, _ = self._env.reset(**kwargs)
-        return obs
+    def reset(self, *, seed=None, options=None, **kwargs):
+        return self._env.reset(seed=seed, options=options, **kwargs)
 
     def step(self, action):
-        obs, reward, terminated, truncated, info = self._env.step(action)
-        return obs, float(reward), bool(terminated or truncated), info
+        return self._env.step(action)
 
     def render(self, *args, **kwargs):  # pragma: no cover
         return None
