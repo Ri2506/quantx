@@ -149,6 +149,99 @@ def _fetch_from_nse(start: Date, end: Date) -> pd.DataFrame:
     ]
 
 
+def backfill_from_jugaad(
+    start: str | Date,
+    end: str | Date,
+    *,
+    persist: bool = True,
+) -> pd.DataFrame:
+    """Backfill the FII/DII parquet cache via jugaad-data NSE archives.
+
+    NSE publishes daily FII/DII reports as PDFs/CSVs in the corporate
+    archive. ``jugaad-data`` exposes a helper that scrapes them. This
+    function walks the date range one day at a time, accumulates rows,
+    and upserts them into the parquet cache. Idempotent — re-runs are
+    safe.
+
+    Failure modes:
+        - jugaad-data not installed → returns empty frame, logs warning.
+        - NSE archive blocked / 403 → individual days are skipped.
+        - Holidays / weekends → naturally absent.
+
+    Args:
+        start, end: ISO date strings or date objects (inclusive).
+        persist: write merged result to the parquet cache.
+
+    Returns:
+        DataFrame indexed by date with fii_net + dii_net columns covering
+        whatever subset of the request range was retrievable.
+    """
+    try:
+        from jugaad_data.nse import NSELive  # noqa: PLC0415, F401
+    except ImportError:
+        logger.warning(
+            "jugaad-data not installed — skipping FII/DII archive backfill",
+        )
+        return _empty_flow_frame()
+
+    start_d = pd.to_datetime(start).date()
+    end_d = pd.to_datetime(end).date()
+
+    rows: list[dict] = []
+    cur = start_d
+    while cur <= end_d:
+        if cur.weekday() < 5:   # skip weekends
+            try:
+                # jugaad-data fii_dii_money is the archival CSV reader.
+                # Falls back to the live API for the most-recent day.
+                from jugaad_data.nse import fii_dii_money  # noqa: PLC0415
+                day_data = fii_dii_money(cur)
+            except Exception as exc:  # noqa: BLE001
+                logger.debug("fii_dii_money %s failed: %s", cur, exc)
+                cur = cur + timedelta(days=1)
+                continue
+            if day_data:
+                fii_net = 0.0
+                dii_net = 0.0
+                for entry in day_data:
+                    cat = (entry.get("category") or "").upper()
+                    net = float(entry.get("netValue") or entry.get("net") or 0.0)
+                    if "FII" in cat or "FPI" in cat:
+                        fii_net = net
+                    elif "DII" in cat:
+                        dii_net = net
+                rows.append({
+                    "date": pd.Timestamp(cur),
+                    "fii_net": fii_net,
+                    "dii_net": dii_net,
+                })
+        cur = cur + timedelta(days=1)
+
+    if not rows:
+        logger.warning(
+            "FII/DII backfill returned 0 rows for %s..%s — NSE archive may be blocked",
+            start_d, end_d,
+        )
+        return _empty_flow_frame()
+
+    fresh = pd.DataFrame(rows).set_index("date").sort_index()
+    fresh = fresh[["fii_net", "dii_net"]]
+
+    if persist:
+        cache = _load_cache()
+        merged = (
+            pd.concat([cache, fresh])
+            .reset_index()
+            .drop_duplicates(subset=["index"], keep="last")
+            .set_index("index")
+            .sort_index()
+        )
+        merged.index.name = None
+        _save_cache(merged)
+        logger.info("FII/DII backfill: %d rows merged → cache", len(fresh))
+    return fresh
+
+
 def fii_dii_series(
     start: str | Date,
     end: str | Date,
@@ -296,6 +389,7 @@ def reindex_flow_features_to(
 
 __all__ = [
     "FlowFeatureConfig",
+    "backfill_from_jugaad",
     "compute_flow_features",
     "fii_dii_series",
     "reindex_flow_features_to",

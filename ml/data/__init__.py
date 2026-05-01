@@ -20,6 +20,7 @@ from .delisted_registry import (
 )
 from .fii_dii_history import (
     FlowFeatureConfig,
+    backfill_from_jugaad,
     compute_flow_features,
     fii_dii_series,
     reindex_flow_features_to,
@@ -75,6 +76,7 @@ __all__ = [
     "actions_for",
     "adjust_batch",
     "adjust_volume_for_actions",
+    "backfill_from_jugaad",
     "bhavcopy_download",
     "bhavcopy_download_with_fallback",
     "compute_flow_features",
