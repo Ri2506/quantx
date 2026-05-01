@@ -271,6 +271,42 @@ class IntradayLSTMTrainer(Trainer):
             raise TrainerError(f"missing PyTorch piece: {exc}")
 
         df = _download_5min(INTRADAY_UNIVERSE, days=55)
+
+        # PR 192 — quality audit on intraday data BEFORE feature build.
+        # Catches trading-window violations (extended-hours bars), stale
+        # repeated bars from broker outages, and gap days. Negative-price
+        # check is fatal; window-violation tolerance lifted because
+        # yfinance occasionally returns pre-open snapshots.
+        from ml.data.quality_check import (  # noqa: PLC0415
+            DataQualityError as _DQError,
+            QualityCheckConfig,
+            run_quality_checks,
+        )
+        intraday_audit = {}
+        for sym in INTRADAY_UNIVERSE:
+            ticker = f"{sym}.NS"
+            try:
+                sub = df[ticker].dropna(how="all")
+                if not sub.empty:
+                    intraday_audit[sym] = sub
+            except (KeyError, AttributeError):
+                continue
+        # 5-min bars: be more lenient than daily on stale_run + window
+        # violations (NSE 5-min lunch dips can produce repeated bars).
+        intraday_cfg = QualityCheckConfig(
+            max_stale_run=10, max_dup_run=5, max_gap_days=14,
+            fatal_thresholds={"negative_price": 0, "stale_run": 200},
+        )
+        intraday_report = run_quality_checks(intraday_audit, intraday_cfg)
+        logger.info(
+            "intraday_lstm data quality — %s", intraday_report.summary(),
+        )
+        if intraday_report.fatal_count > 0:
+            raise _DQError(
+                f"intraday_lstm data quality fatal: "
+                f"{intraday_report.fatal_reasons}"
+            )
+
         all_X, all_y, all_fwd, all_w = [], [], [], []
         for sym in INTRADAY_UNIVERSE:
             ticker = f"{sym}.NS"

@@ -94,6 +94,20 @@ class RegimeHMMTrainer(Trainer):
         if len(df) < 500:
             raise TrainerError(f"insufficient HMM training data: {len(df)} rows")
 
+        # PR 192 — quality audit on the macro feature frame. Detect
+        # negative VIX values (yfinance occasionally returns 0 or
+        # negative on bad scrape days), stale runs (^INDIAVIX has
+        # weeks where Yahoo returns repeated values), and outliers.
+        from ml.data.quality_check import (  # noqa: PLC0415
+            audit_feature_matrix,
+        )
+        feat_audit = audit_feature_matrix(df, feature_names=list(df.columns))
+        logger.info(
+            "regime_hmm feature audit — %d/%d dead, dead=%s",
+            feat_audit["n_constant"], feat_audit["n_features"],
+            feat_audit["constant_features"],
+        )
+
         # 5-fold rolling WFCV. With ~3700 days of data, fold sizes are:
         # 3-year train (756 days) + 5-day embargo + 1-year test (252).
         # Rolling (not expanding) so each fold tests on a distinct
