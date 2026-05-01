@@ -204,4 +204,16 @@ class QlibAlpha158Trainer(Trainer):
         m = dict(result.metrics)
         m["primary_metric"] = "rank_ic_mean"
         m["primary_value"] = result.metrics.get("rank_ic_mean")
+        # PR 204 — emit pseudo-Sharpe = rank_ic / std_norm so the
+        # standard financial gate can evaluate. The gate's default
+        # min_sharpe=1.0 won't apply here because the trainer keeps
+        # skip_promote_gate=True; we just surface a "qlib_quality"
+        # boolean for ops dashboards.
+        rank_ic = float(result.metrics.get("rank_ic_mean", 0.0))
+        m["qlib_quality_pass"] = rank_ic >= 0.02
+        if rank_ic < 0.02:
+            m["qlib_quality_reason"] = (
+                f"rank_ic_mean {rank_ic:.4f} < 0.02 — universe too narrow "
+                f"or IC too weak; manual review before is_prod=TRUE"
+            )
         return m

@@ -169,6 +169,12 @@ class TFTSwingTrainer(Trainer):
             len(df), df["symbol"].nunique(),
         )
 
+        # PR 204 — TimeSeriesDataSet needs contiguous integer time_idx per
+        # group. NSE has weekends + holidays, so calendar-day diffs are
+        # >1. Rebase per-symbol to 0..N-1 trading-day positions; that's
+        # what TFT actually needs (forecast horizon is in trading bars).
+        df = df.sort_values(["symbol", "date"]).copy()
+        df["time_idx"] = df.groupby("symbol").cumcount()
         cutoff = df["time_idx"].max() - MAX_PREDICTION_LEN
 
         training = TimeSeriesDataSet(
@@ -191,6 +197,7 @@ class TFTSwingTrainer(Trainer):
             add_relative_time_idx=True,
             add_target_scales=True,
             add_encoder_length=True,
+            allow_missing_timesteps=True,
         )
         validation = TimeSeriesDataSet.from_dataset(
             training, df, predict=True, stop_randomization=True,
