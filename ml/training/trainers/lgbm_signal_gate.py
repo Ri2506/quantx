@@ -68,8 +68,13 @@ WFCV_EMBARGO = VERTICAL_BARRIER_DAYS + 2  # purge labeling-window leakage
 # Feature engineering
 # ============================================================================
 
-# 15 OHLCV-derived features matching what LGBMGate expects at inference.
-# Mirrors scripts/train_lgbm.py:FEATURE_ORDER for backwards compatibility.
+# 15 OHLCV-derived features + 4 FII/DII flow features (PR 180).
+# FII/DII flows are market-wide signals (same value across all symbols
+# for a given date) — they capture the regime shift in NSE ownership
+# (DII > FII first time ever in 2025) that the original 15-feature set
+# was blind to. Mirrors scripts/train_lgbm.py:FEATURE_ORDER for the
+# OHLCV block; new features appended at the end so legacy LGBM models
+# without flow features can still load.
 FEATURE_ORDER = [
     "ret_1d", "ret_5d", "ret_10d", "ret_20d",
     "rsi_14", "macd_diff",
@@ -79,6 +84,8 @@ FEATURE_ORDER = [
     "bb_percent",
     "high_52w_dist", "low_52w_dist",
     "stoch_k", "stoch_d",
+    # PR 180 — institutional-flow features
+    "fii_5d_sum", "dii_5d_sum", "fii_5d_z", "dii_5d_z",
 ]
 
 
@@ -177,6 +184,11 @@ def _build_dataset() -> Tuple[pd.DataFrame, np.ndarray, np.ndarray, np.ndarray, 
     """
     from ml.data import LiquidUniverseConfig, liquid_universe  # noqa: PLC0415
     from ml.data.bhavcopy_source import bhavcopy_download_with_fallback  # noqa: PLC0415
+    from ml.data.fii_dii_history import (  # noqa: PLC0415
+        compute_flow_features,
+        fii_dii_series,
+        reindex_flow_features_to,
+    )
     from ml.labeling import (  # noqa: PLC0415
         TripleBarrierConfig,
         sample_weights_from_t1,
@@ -220,6 +232,17 @@ def _build_dataset() -> Tuple[pd.DataFrame, np.ndarray, np.ndarray, np.ndarray, 
         )
         raw = raw.sort_index(axis=1)
 
+    # PR 180 — fetch FII/DII flow series once and compute features over
+    # the whole training window. Per-symbol feature frames will reindex
+    # this market-wide series onto their own date axis.
+    flow_features = compute_flow_features(
+        fii_dii_series(start_date.date(), end_date.date()),
+    )
+    if flow_features.empty:
+        logger.warning(
+            "lgbm_signal_gate: FII/DII flow data unavailable — features will be zero-filled",
+        )
+
     tb_cfg = TripleBarrierConfig(
         profit_target_atr=PROFIT_TARGET_ATR,
         stop_loss_atr=STOP_LOSS_ATR,
@@ -240,7 +263,14 @@ def _build_dataset() -> Tuple[pd.DataFrame, np.ndarray, np.ndarray, np.ndarray, 
         if len(sym_df) < 300:
             continue
         try:
-            f = _compute_features(sym_df).dropna(subset=FEATURE_ORDER + ["_atr_raw"])
+            f = _compute_features(sym_df)
+            # PR 180 — merge market-wide FII/DII flow features by date.
+            # reindex_flow_features_to ffills 1 day + zero-fills gaps so
+            # the feature set is dense even when NSE archive has holes.
+            flow_aligned = reindex_flow_features_to(flow_features, f.index)
+            for col in ["fii_5d_sum", "dii_5d_sum", "fii_5d_z", "dii_5d_z"]:
+                f[col] = flow_aligned[col].values
+            f = f.dropna(subset=FEATURE_ORDER + ["_atr_raw"])
             if len(f) < 100:
                 continue
             # PR 176 — get labels AND barrier-hit times so we can compute
