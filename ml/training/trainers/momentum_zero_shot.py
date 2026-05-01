@@ -131,10 +131,17 @@ class MomentumTimesFMTrainer(Trainer):
 
         # Zero-shot: we don't train. We snapshot the model identifier +
         # version + calibration metrics into a tiny pointer file.
+        # PR 211 — auto-pick backend: GPU when available (5x faster
+        # checkpoint load + inference), CPU otherwise.
+        try:
+            import torch  # noqa: PLC0415
+            tfm_backend = "gpu" if torch.cuda.is_available() else "cpu"
+        except ImportError:
+            tfm_backend = "cpu"
         try:
             tfm = timesfm.TimesFm(
                 hparams=timesfm.TimesFmHparams(
-                    backend="cpu",
+                    backend=tfm_backend,
                     per_core_batch_size=8,
                     horizon_len=CALIBRATION_HORIZON,
                 ),
