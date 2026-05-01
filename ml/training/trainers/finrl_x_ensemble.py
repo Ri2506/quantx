@@ -54,6 +54,18 @@ NIFTY_TICKER = "^NSEI"
 
 def _download_prices(symbols: List[str], start: str, end: str | None = None) -> pd.DataFrame:
     """yfinance batch download → date × symbol Close DataFrame."""
+    close, _, _ = _download_ohlc(symbols, start, end)
+    return close
+
+
+def _download_ohlc(
+    symbols: List[str], start: str, end: str | None = None,
+) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
+    """yfinance batch download → (Close, High, Low) DataFrames per symbol.
+
+    PR 188 — real OHLC so true-range ATR can be computed. Replaces the
+    Close-only fetch that previously forced a |diff| proxy ATR.
+    """
     try:
         import yfinance as yf  # noqa: PLC0415
     except ImportError as exc:
@@ -63,14 +75,76 @@ def _download_prices(symbols: List[str], start: str, end: str | None = None) -> 
     df = yf.download(tickers, start=start, end=end, progress=False, auto_adjust=False)
     if df is None or df.empty:
         raise TrainerError("yfinance returned empty price frame")
-    if "Close" in df.columns.get_level_values(0):
-        close = df["Close"]
-    else:
-        close = df
-    if isinstance(close.columns, pd.MultiIndex):
-        close.columns = [c[0] for c in close.columns]
-    close.columns = [c.replace(".NS", "") for c in close.columns]
-    return close.dropna(how="all")
+
+    def _slice(field: str) -> pd.DataFrame:
+        if field in df.columns.get_level_values(0):
+            sub = df[field]
+        else:
+            sub = df
+        if isinstance(sub.columns, pd.MultiIndex):
+            sub.columns = [c[0] for c in sub.columns]
+        sub.columns = [c.replace(".NS", "") for c in sub.columns]
+        return sub.dropna(how="all")
+
+    return _slice("Close"), _slice("High"), _slice("Low")
+
+
+def _download_vix(start: str, end: str | None = None) -> pd.Series:
+    """India VIX daily close, aligned for FinRL env covariate."""
+    try:
+        import yfinance as yf  # noqa: PLC0415
+    except ImportError as exc:
+        raise TrainerError("yfinance required") from exc
+    vix = yf.download("^INDIAVIX", start=start, end=end, progress=False, auto_adjust=False)
+    if vix is None or vix.empty:
+        return pd.Series(dtype=float)
+    if isinstance(vix.columns, pd.MultiIndex):
+        vix.columns = [c[0] for c in vix.columns]
+    return vix["Close"].astype(float)
+
+
+def _hmm_regime_series(
+    prices: pd.DataFrame,
+    vix: pd.Series,
+) -> pd.Series:
+    """Predict per-day regime label using the trained MarketRegimeDetector.
+
+    Trains an HMM on the same feature schema MarketRegimeDetector
+    expects (ret_5d, ret_20d, realized_vol_10d, vix_level, vix_5d_change),
+    then runs predict on every day. Returns int Series in {0, 1, 2}
+    aligned with prices.index. Falls back to constant 1 (sideways) if
+    HMM training fails — env tolerates that gracefully.
+    """
+    try:
+        from ml.regime_detector import MarketRegimeDetector  # noqa: PLC0415
+    except ImportError as exc:
+        logger.warning("MarketRegimeDetector unavailable (%s); using constant regime", exc)
+        return pd.Series(1, index=prices.index)
+
+    # Use Nifty proxy = mean of train universe close. Reasonable when
+    # universe is the top-30 large caps (high overlap with Nifty 50).
+    nifty_proxy = prices.mean(axis=1).dropna()
+    df = pd.DataFrame(index=nifty_proxy.index)
+    df["ret_5d"] = nifty_proxy.pct_change(5)
+    df["ret_20d"] = nifty_proxy.pct_change(20)
+    df["realized_vol_10d"] = nifty_proxy.pct_change().rolling(10).std() * np.sqrt(252)
+    df["vix_level"] = vix.reindex(df.index).ffill().fillna(15.0)
+    df["vix_5d_change"] = df["vix_level"].pct_change(5)
+    df = df.dropna()
+
+    if len(df) < 500:
+        logger.warning("insufficient data for HMM regime training; constant fallback")
+        return pd.Series(1, index=prices.index)
+
+    try:
+        det = MarketRegimeDetector()
+        det.train(df, n_components=3, n_iter=200)
+        states = det.model.predict(det.scaler.transform(df.values))
+        out = pd.Series(states.astype(int), index=df.index)
+        return out.reindex(prices.index, method="ffill").fillna(1).astype(int)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("HMM regime training failed (%s); constant fallback", exc)
+        return pd.Series(1, index=prices.index)
 
 
 def _download_nifty(start: str, end: str | None = None) -> pd.Series:
@@ -87,8 +161,17 @@ def _download_nifty(start: str, end: str | None = None) -> pd.Series:
     return df["Close"].astype(float)
 
 
-def _build_features(prices: pd.DataFrame) -> Dict[str, pd.DataFrame]:
-    """Per-symbol features the env's observation reader expects."""
+def _build_features(
+    prices: pd.DataFrame,
+    highs: pd.DataFrame | None = None,
+    lows: pd.DataFrame | None = None,
+) -> Dict[str, pd.DataFrame]:
+    """Per-symbol features the env's observation reader expects.
+
+    PR 188 — true-range ATR when High/Low are available. Falls back to
+    the prior |Close-diff| proxy only when OHLC isn't fetched (which
+    no longer happens after PR 188's _download_ohlc).
+    """
     ret_5d = prices.pct_change(5)
     ret_20d = prices.pct_change(20)
     # RSI(14) — Wilder's smoothing approximation.
@@ -97,9 +180,21 @@ def _build_features(prices: pd.DataFrame) -> Dict[str, pd.DataFrame]:
     loss = (-delta.clip(upper=0)).rolling(14).mean().replace(0, np.nan)
     rs = gain / loss
     rsi = (100 - 100 / (1 + rs)).fillna(50)
-    # ATR-as-pct: range / close 14-day mean.
-    high_low = prices.diff().abs()  # crude proxy without H/L; refined in PR 132
-    atr_pct = (high_low.rolling(14).mean() / prices).fillna(0)
+
+    # ATR — true range when OHLC available, else |Close diff| proxy.
+    if highs is not None and lows is not None:
+        prev_close = prices.shift(1)
+        tr1 = (highs - lows).abs()
+        tr2 = (highs - prev_close).abs()
+        tr3 = (lows - prev_close).abs()
+        true_range = pd.concat([tr1, tr2, tr3], axis=0, keys=range(3)).groupby(level=1).max()
+        # Reindex to original column order
+        true_range = true_range.reindex(columns=prices.columns)
+        atr = true_range.rolling(14).mean()
+        atr_pct = (atr / prices).fillna(0)
+    else:
+        high_low = prices.diff().abs()
+        atr_pct = (high_low.rolling(14).mean() / prices).fillna(0)
     return {
         "ret_5d": ret_5d.fillna(0),
         "ret_20d": ret_20d.fillna(0),
@@ -124,8 +219,9 @@ def _build_env_data() -> Tuple[
     pd.Series,              # nifty_holdout_returns
 ]:
     """Single yfinance fetch covering train + holdout windows; split downstream."""
-    full_prices = _download_prices(TRAIN_UNIVERSE, TRAIN_START)
-    full_features = _build_features(full_prices)
+    full_close, full_high, full_low = _download_ohlc(TRAIN_UNIVERSE, TRAIN_START)
+    full_features = _build_features(full_close, highs=full_high, lows=full_low)
+    full_prices = full_close
 
     train_prices = full_prices.loc[:TRAIN_END]
     holdout_prices = full_prices.loc[HOLDOUT_START:]
@@ -135,14 +231,24 @@ def _build_env_data() -> Tuple[
             f"(need at least 60 for stable Sharpe)",
         )
 
-    # Stub regime + VIX timeseries: regime defaults to sideways(1) until
-    # PR 132 wires the trained HMM in. That's acceptable here because
-    # the env tolerates these defaults and the policies still learn the
-    # weight-mapping behavior.
-    train_regime = pd.Series(1, index=train_prices.index)
-    train_vix = pd.Series(15.0, index=train_prices.index)
-    holdout_regime = pd.Series(1, index=holdout_prices.index)
-    holdout_vix = pd.Series(15.0, index=holdout_prices.index)
+    # PR 186 — real VIX series + HMM-derived regime labels.
+    full_vix = _download_vix(TRAIN_START)
+    if full_vix.empty:
+        full_vix = pd.Series(15.0, index=full_prices.index)
+        logger.warning("VIX unavailable; using constant 15.0")
+    full_regime = _hmm_regime_series(full_prices, full_vix)
+
+    train_regime = full_regime.reindex(train_prices.index).ffill().fillna(1).astype(int)
+    train_vix = full_vix.reindex(train_prices.index).ffill().fillna(15.0)
+    holdout_regime = full_regime.reindex(holdout_prices.index).ffill().fillna(1).astype(int)
+    holdout_vix = full_vix.reindex(holdout_prices.index).ffill().fillna(15.0)
+
+    logger.info(
+        "FinRL-X regime distribution (train): bull=%d sideways=%d bear=%d",
+        int((train_regime == 0).sum()),
+        int((train_regime == 1).sum()),
+        int((train_regime == 2).sum()),
+    )
 
     nifty = _download_nifty(HOLDOUT_START)
     nifty_returns = nifty.pct_change().dropna().reindex(holdout_prices.index).fillna(0.0)
