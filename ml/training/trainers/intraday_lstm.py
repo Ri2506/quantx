@@ -155,10 +155,11 @@ def _features_for(df) -> Tuple[np.ndarray, np.ndarray, np.ndarray]:
         vwap.values,
         obv.values,
     ], axis=1).astype(np.float32)
-    mean = feat.mean(axis=0, keepdims=True)
-    std = feat.std(axis=0, keepdims=True) + 1e-6
-    z = (feat - mean) / std
-    return z, close.values.astype(np.float32), atr.values.astype(np.float32)
+    # PR 187 — RAW features returned. Z-score normalization is now
+    # applied PER WINDOW inside _windowed_dataset using each window's
+    # own mean/std, so train and test splits are normalized identically
+    # without the future-leakage that full-series stats produce.
+    return feat, close.values.astype(np.float32), atr.values.astype(np.float32)
 
 
 def _windowed_dataset(
@@ -211,16 +212,21 @@ def _windowed_dataset(
 
     xs, ys, fwds, ws = [], [], [], []
     for i in range(WINDOW, len(features) - cfg.vertical_barrier_days):
+        # PR 187 — per-window z-score using ONLY this window's own
+        # mean/std. No look-ahead leakage; matches inference-time
+        # normalization (where we'd only have the prior 60 bars).
         window = features[i - WINDOW: i]
-        # Map -1/0/+1 -> 0/1/2 for cross-entropy
+        w_mean = window.mean(axis=0, keepdims=True)
+        w_std = window.std(axis=0, keepdims=True) + 1e-6
+        window_z = (window - w_mean) / w_std
+
         y_signed = int(labels_signed[i])
-        y_class = y_signed + 1
-        # Forward 12-bar return (price-space) for backtest eval
+        y_class = y_signed + 1   # map -1/0/+1 -> 0/1/2 for cross-entropy
         if i + cfg.vertical_barrier_days < len(raw_close):
             fwd = float(raw_close[i + cfg.vertical_barrier_days] / raw_close[i] - 1.0)
         else:
             fwd = 0.0
-        xs.append(window)
+        xs.append(window_z)
         ys.append(y_class)
         fwds.append(fwd)
         ws.append(float(obs_weights[i]))
