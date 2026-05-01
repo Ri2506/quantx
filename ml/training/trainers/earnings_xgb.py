@@ -47,12 +47,54 @@ class EarningsXGBTrainer(Trainer):
         # announcements + 10-year price history. The builder pulls from
         # Supabase (announcements + holdings_history snapshots) when
         # available and falls back to a yfinance/MoneyControl scrape.
+        # PR 191 — graceful skip: when Supabase tables are empty (fresh
+        # repo / pre-launch), build_feature_frame raises ValueError. We
+        # catch that and emit a no-op TrainResult marked as skipped so
+        # the unified runner doesn't abort the entire batch. The
+        # registered model_version row (if --promote) records the
+        # "needs Supabase data" reason in notes for ops visibility.
         try:
             X, y = build_feature_frame()
+        except ValueError as exc:
+            # Distinguish "not enough data yet" from other failures.
+            msg = str(exc).lower()
+            if "not enough" in msg or "insufficient" in msg or "empty" in msg:
+                logger.warning(
+                    "earnings_xgb: Supabase tables not yet populated (%s) — "
+                    "skipping training. Run after the prediction pipeline "
+                    "has accumulated >=50 labeled rows.", exc,
+                )
+                # Empty TrainResult signals "skipped" to the runner;
+                # primary_metric is None so it never passes the gate.
+                return TrainResult(
+                    artifacts=[],
+                    metrics={
+                        "skipped": True,
+                        "skip_reason": "insufficient_supabase_data",
+                        "n_samples": 0,
+                    },
+                    notes=(
+                        "Skipped: Supabase earnings_predictions table has "
+                        "<50 labeled rows. Run after live prediction pipeline "
+                        "has accumulated outcomes."
+                    ),
+                )
+            raise TrainerError(f"earnings feature build failed: {exc}") from exc
         except Exception as exc:
-            raise TrainerError(f"earnings feature build failed: {exc}")
+            raise TrainerError(f"earnings feature build failed: {exc}") from exc
         if len(X) < 30:
-            raise TrainerError(f"insufficient earnings rows: {len(X)}")
+            logger.warning(
+                "earnings_xgb: only %d rows — skipping (need >= 30)", len(X),
+            )
+            return TrainResult(
+                artifacts=[],
+                metrics={
+                    "skipped": True,
+                    "skip_reason": "below_min_rows",
+                    "n_samples": int(len(X)),
+                },
+                notes=f"Skipped: only {len(X)} labeled rows (need >= 30).",
+            )
 
         result = train_and_save(X, y, out_dir=out_dir)
 
@@ -85,6 +127,12 @@ class EarningsXGBTrainer(Trainer):
 
     def evaluate(self, result: TrainResult) -> Dict[str, Any]:
         m = dict(result.metrics)
+        # PR 191 — skipped runs surface a sentinel so the runner records
+        # the reason without trying to flip is_prod=TRUE on no model.
+        if m.get("skipped"):
+            m["primary_metric"] = "skipped"
+            m["primary_value"] = None
+            return m
         # PR 172 — primary metric is ROC AUC for the binary beat/miss
         # classifier. PR AUC is also recorded as a secondary signal
         # because earnings classes can be imbalanced in narrow universes
