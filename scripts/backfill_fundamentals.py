@@ -37,8 +37,8 @@ logger = logging.getLogger("backfill_fundamentals")
 
 def main(argv: List[str] | None = None) -> int:
     p = argparse.ArgumentParser(description="Backfill PIT fundamentals cache")
-    p.add_argument("--top-n", type=int, default=200,
-                   help="Top-N liquid NSE symbols to ingest (default 200)")
+    p.add_argument("--top-n", type=int, default=500,
+                   help="Top-N liquid NSE symbols to ingest (default 500)")
     p.add_argument("--symbols", type=str, default=None,
                    help="Comma-separated symbol list, overrides --top-n")
     p.add_argument("--lag-days", type=int, default=60,

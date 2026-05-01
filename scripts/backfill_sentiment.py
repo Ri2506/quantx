@@ -32,8 +32,8 @@ logger = logging.getLogger("backfill_sentiment")
 
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description="Backfill sentiment parquet cache")
-    p.add_argument("--top-n", type=int, default=200,
-                   help="Top-N liquid NSE symbols to ingest (default 200)")
+    p.add_argument("--top-n", type=int, default=500,
+                   help="Top-N liquid NSE symbols to ingest (default 500)")
     p.add_argument("--symbols", type=str, default=None,
                    help="Comma-separated symbol list, overrides --top-n")
     p.add_argument("--rate-limit", type=float, default=1.5,
