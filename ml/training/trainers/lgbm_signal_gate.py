@@ -89,6 +89,12 @@ FEATURE_ORDER = [
     # PR 183 — FinBERT-India sentiment features (zero-filled when
     # cache is empty so model can train on either profile)
     "sentiment_5d_mean", "sentiment_5d_count",
+    # PR 184 — PIT fundamentals features. EPS / revenue / margin
+    # trajectory + holding deltas. Zero-filled when fundamentals
+    # ingestion hasn't backfilled the symbol yet.
+    "eps_yoy_growth", "revenue_yoy_growth", "margin_trend_4q",
+    "promoter_delta_4q", "fii_delta_4q", "debt_to_equity",
+    "book_value_yoy", "fundamentals_age_days",
 ]
 
 
@@ -196,6 +202,12 @@ def _build_dataset() -> Tuple[pd.DataFrame, np.ndarray, np.ndarray, np.ndarray, 
         reindex_sentiment_to,
         sentiment_features_for,
     )
+    from ml.data.fundamentals_pit import (  # noqa: PLC0415
+        FUNDAMENTALS_FEATURE_NAMES,
+        compute_fundamentals_features,
+        get_pit_fundamentals,
+        reindex_fundamentals_to,
+    )
     from ml.labeling import (  # noqa: PLC0415
         TripleBarrierConfig,
         sample_weights_from_t1,
@@ -295,6 +307,23 @@ def _build_dataset() -> Tuple[pd.DataFrame, np.ndarray, np.ndarray, np.ndarray, 
             "lgbm_signal_gate: sentiment cache empty — features will be zero-filled",
         )
 
+    # PR 184 — PIT fundamentals snapshot anchored at end_date. For v1
+    # we broadcast the latest PIT-published snapshot across the symbol's
+    # date axis. A per-bar PIT lookup is the next iteration; the
+    # broadcast variant is a defensible approximation for swing-horizon
+    # features that change quarterly.
+    fundamentals_pit = get_pit_fundamentals(
+        symbols=universe, as_of=end_date.date(),
+    )
+    fundamentals_features = compute_fundamentals_features(
+        fundamentals_pit, as_of=end_date.date(),
+    )
+    if fundamentals_features.empty:
+        logger.warning(
+            "lgbm_signal_gate: fundamentals cache empty — "
+            "run ingest_yfinance_fundamentals first; features zero-filled",
+        )
+
     tb_cfg = TripleBarrierConfig(
         profit_target_atr=PROFIT_TARGET_ATR,
         stop_loss_atr=STOP_LOSS_ATR,
@@ -327,6 +356,17 @@ def _build_dataset() -> Tuple[pd.DataFrame, np.ndarray, np.ndarray, np.ndarray, 
             sent_aligned = reindex_sentiment_to(sentiment_frame, sym, f.index)
             f["sentiment_5d_mean"] = sent_aligned["sentiment_5d_mean"].values
             f["sentiment_5d_count"] = sent_aligned["sentiment_5d_count"].values
+            # PR 184 — broadcast PIT fundamentals snapshot. Quarterly
+            # cadence so a single snapshot per symbol is a reasonable
+            # approximation for swing-horizon features.
+            sym_fund = (
+                fundamentals_features.loc[sym]
+                if (not fundamentals_features.empty and sym in fundamentals_features.index)
+                else None
+            )
+            fund_aligned = reindex_fundamentals_to(sym_fund, f.index)
+            for col in FUNDAMENTALS_FEATURE_NAMES:
+                f[col] = fund_aligned[col].values
             f = f.dropna(subset=FEATURE_ORDER + ["_atr_raw"])
             if len(f) < 100:
                 continue
