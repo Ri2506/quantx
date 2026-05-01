@@ -232,6 +232,13 @@ def _build_dataset() -> Tuple[pd.DataFrame, np.ndarray, np.ndarray, np.ndarray, 
         )
         raw = raw.sort_index(axis=1)
 
+    # PR 181 — retroactively adjust volume for splits/bonuses. yfinance
+    # auto_adjust handles price but leaves volume raw, distorting
+    # volume_ratio_10d after corporate actions. Bhavcopy gives raw
+    # volume too. The registry has the verified adjustment factors.
+    from ml.data.corporate_actions import adjust_batch  # noqa: PLC0415
+    raw = adjust_batch(raw)
+
     # PR 180 — fetch FII/DII flow series once and compute features over
     # the whole training window. Per-symbol feature frames will reindex
     # this market-wide series onto their own date axis.
