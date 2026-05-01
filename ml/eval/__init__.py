@@ -40,6 +40,10 @@ from .kelly import (
     kelly_fraction,
     kelly_from_metrics,
 )
+from .spa import (
+    family_wise_t_correction,
+    hansen_spa_test,
+)
 from .overfitting import (
     deflated_sharpe_ratio,
     dsr_pbo_from_fold_returns,
@@ -60,7 +64,9 @@ __all__ = [
     "deflated_sharpe_ratio",
     "dsr_pbo_from_fold_returns",
     "expected_max_sharpe",
+    "family_wise_t_correction",
     "feature_drift_report",
+    "hansen_spa_test",
     "impact_cost_bps",
     "kelly_fraction",
     "kelly_from_metrics",
