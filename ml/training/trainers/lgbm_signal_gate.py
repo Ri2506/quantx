@@ -95,6 +95,11 @@ FEATURE_ORDER = [
     "eps_yoy_growth", "revenue_yoy_growth", "margin_trend_4q",
     "promoter_delta_4q", "fii_delta_4q", "debt_to_equity",
     "book_value_yoy", "fundamentals_age_days",
+    # PR 193 — fractionally-differentiated log-close. AFML Ch.5: the
+    # smallest d that yields a stationary series while preserving
+    # maximum memory. Defaults to d=0.4 — log close needs partial
+    # differencing to be stationary on most NSE names.
+    "log_close_ffd_04",
 ]
 
 
@@ -169,6 +174,15 @@ def _compute_features(df: pd.DataFrame) -> pd.DataFrame:
     stoch_k = 100 * (close - lowest_low) / (highest_high - lowest_low).replace(0, np.nan)
     out["stoch_k"] = stoch_k
     out["stoch_d"] = stoch_k.rolling(3).mean()
+
+    # PR 193 — fractionally-differentiated log close. d=0.4 is the
+    # AFML default starting point for partial memory; ADF-stationary
+    # on most NSE swing symbols. Drops the first ~40 rows (kernel width)
+    # which is fine because the existing rolling-window features (52w,
+    # macd) already eat 252+ rows of warmup.
+    from ml.features.frac_diff import frac_diff_ffd  # noqa: PLC0415
+    log_close = np.log(close.replace(0, np.nan))
+    out["log_close_ffd_04"] = frac_diff_ffd(log_close, d=0.4, thresh=1e-3)
 
     # Realized fwd return for backtest (target side)
     out["_fwd_return"] = close.pct_change(FWD_RETURN_DAYS).shift(-FWD_RETURN_DAYS)
