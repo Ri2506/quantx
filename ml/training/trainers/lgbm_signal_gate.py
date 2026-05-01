@@ -175,12 +175,8 @@ def _build_dataset() -> Tuple[pd.DataFrame, np.ndarray, np.ndarray, np.ndarray, 
         nifty_returns: pd.Series indexed by date — Nifty 50 fwd return for
                        benchmark eval (already aligned to features.date)
     """
-    try:
-        import yfinance as yf  # noqa: PLC0415
-    except ImportError as exc:
-        raise TrainerError("yfinance required") from exc
-
     from ml.data import LiquidUniverseConfig, liquid_universe  # noqa: PLC0415
+    from ml.data.bhavcopy_source import bhavcopy_download_with_fallback  # noqa: PLC0415
     from ml.labeling import (  # noqa: PLC0415
         TripleBarrierConfig,
         sample_weights_from_t1,
@@ -192,14 +188,37 @@ def _build_dataset() -> Tuple[pd.DataFrame, np.ndarray, np.ndarray, np.ndarray, 
         raise TrainerError("liquid_universe returned 0 symbols")
     logger.info("lgbm_signal_gate: universe size=%d", len(universe))
 
-    # Download per-symbol; group_by='ticker' so we can iterate cleanly.
-    tickers = [f"{s}.NS" for s in universe]
-    raw = yf.download(
-        tickers, period=DATA_PERIOD, interval=DATA_INTERVAL,
-        progress=False, auto_adjust=True, group_by="ticker", threads=True,
-    )
+    # PR 179 — primary source: NSE bhavcopy via jugaad-data. yfinance is
+    # the documented fallback when jugaad-data import fails or NSE
+    # rate-limits us. Source choice is logged so the metrics row records
+    # which feed the model trained on.
+    end_date = pd.Timestamp.today().normalize()
+    # DATA_PERIOD is "8y" — convert to a start date for the fallback API
+    start_date = end_date - pd.DateOffset(years=8)
+    try:
+        raw, source = bhavcopy_download_with_fallback(
+            symbols=universe,
+            start=start_date.date(),
+            end=end_date.date(),
+            yfinance_kwargs={"interval": DATA_INTERVAL, "group_by": "ticker", "threads": True},
+        )
+        logger.info("lgbm_signal_gate: data source = %s", source)
+    except Exception as exc:
+        raise TrainerError(f"data download failed: {exc}") from exc
+
     if raw is None or raw.empty:
-        raise TrainerError("yfinance batch download failed")
+        raise TrainerError("data download returned empty frame")
+
+    # bhavcopy returns (field, symbol); yfinance with group_by="ticker"
+    # returns (ticker, field). Normalize to yfinance shape so the
+    # downstream `raw[ticker]` lookups work without branching.
+    if source == "bhavcopy":
+        # Swap MultiIndex levels and rebrand symbol -> "{symbol}.NS"
+        raw = raw.swaplevel(0, 1, axis=1)
+        raw.columns = pd.MultiIndex.from_tuples(
+            [(f"{sym}.NS", field) for sym, field in raw.columns]
+        )
+        raw = raw.sort_index(axis=1)
 
     tb_cfg = TripleBarrierConfig(
         profit_target_atr=PROFIT_TARGET_ATR,
