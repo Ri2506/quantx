@@ -75,40 +75,58 @@ export PYTHONPATH="/workspace/quantx:\${PYTHONPATH:-}"
 EOF
 chmod 600 /workspace/.envrc
 
-# ── 4. Install — clean order, no --ignore-installed ────────────────────────
+# ── 4. Install — clean order, dependency-safe ─────────────────────────────
 echo "=== Phase 4: install upstream libraries ==="
-pip install --quiet --upgrade pip wheel
 
-# Don't try to upgrade system blinker — it's distutils-installed
-# Just make sure our deps don't try to either.
-pip install --quiet --no-cache-dir --break-system-packages \
-    --upgrade --force-reinstall \
-    "torch==2.4.1" "torchvision==0.19.1" "torchaudio==2.4.1" \
-    --index-url https://download.pytorch.org/whl/cu124 \
-    || pip install --quiet \
+# Skip if already installed AND torch can import cleanly
+if python -c "import torch, qlib, pytorch_forecasting, lightning, timesfm, ml.data; assert torch.cuda.is_available()" 2>/dev/null; then
+    echo "all libs already installed and torch.cuda works — skipping install phase"
+else
+    pip install --quiet --upgrade pip wheel
+
+    # 4a. Torch trio — the foundation. Must be installed FIRST with full
+    # dependency graph (no --ignore-installed, no --no-deps).
+    echo "  installing torch 2.4.1 + matched CUDA libs..."
+    pip install --quiet --force-reinstall \
         "torch==2.4.1" "torchvision==0.19.1" "torchaudio==2.4.1" \
         --index-url https://download.pytorch.org/whl/cu124
 
-# Verify torch BEFORE proceeding
-python -c "import torch; assert torch.cuda.is_available(), 'CUDA not available'; print('torch:', torch.__version__, '| CUDA:', torch.cuda.is_available(), '|', torch.cuda.get_device_name(0))"
+    # Verify CUDA libs land + torch can import. If not, abort — every
+    # downstream dep depends on this working.
+    python -c "
+import torch, torch.onnx
+assert torch.cuda.is_available(), 'CUDA not available'
+print('  torch:', torch.__version__, '| CUDA:', torch.cuda.is_available(), '|', torch.cuda.get_device_name(0))
+"
 
-# Install ML libs in dependency-safe order
-pip install --quiet "lightning>=2.0,<2.5"
-pip install --quiet pytorch-forecasting
-pip install --quiet "timesfm[torch]==1.2.7"
-pip install --quiet pyqlib
-pip install --quiet chronos-forecasting jugaad-data statsmodels lightgbm xgboost
+    # 4b. ML libraries — order matters for dep resolution
+    echo "  installing pytorch-forecasting + lightning..."
+    pip install --quiet "lightning>=2.0,<2.5"
+    pip install --quiet pytorch-forecasting
 
-# Backend deps
-[ -f requirements-train.txt ] && pip install --quiet -r requirements-train.txt --no-deps || true
-pip install --quiet supabase httpx pandas pyarrow yfinance b2sdk hmmlearn \
-    transformers stable-baselines3 gymnasium scikit-learn
+    echo "  installing timesfm (Google) + chronos-forecasting (Amazon)..."
+    pip install --quiet "timesfm[torch]==1.2.7"
+    pip install --quiet chronos-forecasting
 
-# autogluon (optional, ~3GB) — if disk allows
-df -h / | head -2
-pip install --quiet "autogluon.timeseries>=1.1.0" 2>&1 | tail -3 || echo "autogluon skipped (disk/dep issue) — chronos2_macro will use direct fallback"
+    echo "  installing pyqlib (Microsoft)..."
+    pip install --quiet pyqlib
 
-# Final verify
+    echo "  installing remaining ML deps..."
+    pip install --quiet jugaad-data statsmodels lightgbm xgboost \
+        supabase httpx pandas pyarrow yfinance b2sdk hmmlearn \
+        transformers stable-baselines3 gymnasium scikit-learn \
+        optuna optuna-integration
+
+    # 4c. Backend repo deps (best effort; optional)
+    [ -f requirements-train.txt ] && pip install --quiet -r requirements-train.txt --no-deps 2>&1 | tail -3 || true
+
+    # 4d. autogluon optional — chronos2_macro falls back to direct chronos
+    df -h / | head -2
+    pip install --quiet "autogluon.timeseries>=1.1.0" 2>&1 | tail -3 \
+        || echo "  autogluon skipped (chronos2_macro will use direct fallback)"
+fi
+
+# Final verify — abort if anything is still broken
 python -c "
 import torch, qlib, pytorch_forecasting, lightning, timesfm
 import ml.data
@@ -122,27 +140,87 @@ echo "install OK"
 echo "=== Phase 5: trainer discovery ==="
 python -c "from ml.training.discovery import discover_sorted; t=discover_sorted(); print(f'{len(t)} trainers'); [print(' ', x.name) for x in t]"
 
-# ── 6. Smoke test ──────────────────────────────────────────────────────────
+# ── 6. Smoke test — verifies B2 + Supabase + GPU all working end-to-end ───
 echo "=== Phase 6: smoke test (regime_hmm only, ~10s) ==="
+
+# Pre-check B2 auth so we fail fast with a clear message
+python -c "
+from b2sdk.v2 import InMemoryAccountInfo, B2Api
+import os
+info = InMemoryAccountInfo()
+api = B2Api(info)
+api.authorize_account('production', os.environ['B2_APPLICATION_KEY_ID'], os.environ['B2_APPLICATION_KEY'])
+print('  B2 auth OK')
+"
+
+# Pre-check Supabase connectivity
+python -c "
+from src.backend.core.config import settings
+print('  Supabase URL ok:', 'abraylc' in (settings.SUPABASE_URL or ''))
+print('  Supabase keys present:', bool(settings.SUPABASE_ANON_KEY) and bool(settings.SUPABASE_SERVICE_KEY))
+"
+
 python -m ml.training.runner --only regime_hmm --promote 2>&1 | tee /workspace/quantx/smoke.log
-if ! grep -q "ok=1" smoke.log; then
+if ! grep -q "ok=1" /workspace/quantx/smoke.log; then
     echo "SMOKE FAILED — review smoke.log before proceeding"
     exit 1
 fi
-echo "smoke OK"
+echo "smoke OK — regime_hmm promoted, B2 + Supabase wired"
 
-# ── 7. Backfills ───────────────────────────────────────────────────────────
-echo "=== Phase 7: backfills (~30 min total) ==="
-python scripts/backfill_fundamentals.py 2>&1 | tee /workspace/quantx/backfill_fund.log
-python scripts/backfill_sentiment.py    2>&1 | tee /workspace/quantx/backfill_sent.log
+# ── 7. Backfills (idempotent — skip if cache already populated) ───────────
+echo "=== Phase 7: backfills (~30 min total, idempotent) ==="
 
-# Skip FII/DII if jugaad-data archive unreachable (graceful — already handled)
+# Fundamentals — skip if cache already has >= 1500 rows
+if python -c "
+import pandas as pd
+from pathlib import Path
+p = Path('/workspace/quantx/ml/data/cache/fundamentals_pit.parquet')
+if p.exists():
+    df = pd.read_parquet(p)
+    assert len(df) >= 1500, f'only {len(df)} rows'
+    print(f'  fundamentals already cached: {len(df)} rows / {df.symbol.nunique()} syms — skip')
+else:
+    raise SystemExit(1)
+" 2>/dev/null; then
+    echo "  fundamentals backfill SKIP (cache populated)"
+else
+    python scripts/backfill_fundamentals.py 2>&1 | tee /workspace/quantx/backfill_fund.log
+fi
+
+# Sentiment — skip if cache has >= 300 unique symbols today
+if python -c "
+import pandas as pd
+from pathlib import Path
+from datetime import date
+p = Path('/workspace/quantx/ml/data/cache/sentiment_history.parquet')
+if p.exists():
+    df = pd.read_parquet(p)
+    today = pd.Timestamp(date.today())
+    today_rows = df[df['date'] == today]
+    assert today_rows['symbol'].nunique() >= 300, f'only {today_rows[\"symbol\"].nunique()} today'
+    print(f'  sentiment already cached: {len(df)} rows total, {today_rows[\"symbol\"].nunique()} today — skip')
+else:
+    raise SystemExit(1)
+" 2>/dev/null; then
+    echo "  sentiment backfill SKIP (cache populated today)"
+else
+    python scripts/backfill_sentiment.py 2>&1 | tee /workspace/quantx/backfill_sent.log
+fi
+
+# FII/DII (best-effort — NSE archive often blocks; safe to fail)
 python scripts/backfill_fii_dii.py 2>&1 | tee /workspace/quantx/backfill_fii.log || true
 
-# ── 8. Qlib provider ───────────────────────────────────────────────────────
+# ── 8. Qlib provider build (idempotent) ───────────────────────────────────
 echo "=== Phase 8: Qlib NSE provider build (~15 min) ==="
-rm -rf /root/.qlib/qlib_data/nse_data
-python scripts/ingest_nse_to_qlib.py 2>&1 | tee /workspace/quantx/qlib_ingest.log
+
+# Skip if provider already has 200+ symbols
+qlib_sym_count=$(ls /root/.qlib/qlib_data/nse_data/features/ 2>/dev/null | wc -l)
+if [ "$qlib_sym_count" -ge 200 ]; then
+    echo "  Qlib provider has $qlib_sym_count symbols — skip rebuild"
+else
+    rm -rf /root/.qlib/qlib_data/nse_data
+    python scripts/ingest_nse_to_qlib.py 2>&1 | tee /workspace/quantx/qlib_ingest.log
+fi
 
 # ── 9. Full training ───────────────────────────────────────────────────────
 echo "=== Phase 9: full --all training run (~5-6 hours) ==="
