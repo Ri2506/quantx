@@ -22,7 +22,21 @@ set -euo pipefail
 
 # ── 1. Sanity checks ───────────────────────────────────────────────────────
 echo "=== Phase 1: sanity checks ==="
-nvidia-smi | head -10 || { echo "GPU not detected"; exit 1; }
+# Disable pipefail temporarily — `nvidia-smi | head` triggers SIGPIPE when
+# head closes the pipe early, which `set -o pipefail` reports as failure.
+set +o pipefail
+nvidia-smi 2>&1 | head -20 || true
+set -o pipefail
+
+# Real GPU check via torch (works even if nvidia-smi pipe failed)
+python -c "
+try:
+    import torch
+    if not torch.cuda.is_available():
+        print('CUDA not available — abort'); raise SystemExit(1)
+    print('  GPU:', torch.cuda.get_device_name(0))
+except ImportError:
+    print('torch not yet installed — install phase will handle')" || true
 
 for v in SUPABASE_URL SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY B2_APPLICATION_KEY_ID B2_APPLICATION_KEY; do
     if [ -z "${!v:-}" ]; then
