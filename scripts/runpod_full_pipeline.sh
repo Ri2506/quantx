@@ -265,7 +265,7 @@ fi
 
 # ── 9. Full training ───────────────────────────────────────────────────────
 echo "=== Phase 9: full --all training run (~5-6 hours) ==="
-python -m ml.training.runner --all --promote --json 2>&1 | tee /workspace/quantx/runner.log
+python -m ml.training.runner --promote --json 2>&1 | tee /workspace/quantx/runner.log
 
 # ── 10. Summary ────────────────────────────────────────────────────────────
 echo "=== Phase 10: summary ==="
