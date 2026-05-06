@@ -145,7 +145,8 @@ print('  torch:', torch.__version__, '| CUDA:', torch.cuda.is_available(), '|', 
     pip install --quiet jugaad-data statsmodels lightgbm xgboost \
         supabase httpx pyarrow yfinance b2sdk hmmlearn \
         stable-baselines3 gymnasium scikit-learn \
-        optuna optuna-integration
+        optuna optuna-integration \
+        pandas-market-calendars korean-lunar-calendar exchange-calendars
 
     # 4h. Backend repo deps (best effort; --no-deps so they don't disturb torch)
     [ -f requirements-train.txt ] && pip install --quiet --no-deps -r requirements-train.txt 2>&1 | tail -3 || true
