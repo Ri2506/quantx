@@ -87,6 +87,29 @@ class EarningsXGBTrainer(Trainer):
                 )
             raise TrainerError(f"earnings feature build failed: {exc}") from exc
         except Exception as exc:
+            # PR 218 — broaden skip handling. Any error from build_feature_frame
+            # when Supabase has no data (config issues, empty tables, network)
+            # should be treated as a clean skip, not a fatal trainer failure.
+            # Other trainers depend on this not aborting the unified runner.
+            err_msg = str(exc).lower()
+            if any(s in err_msg for s in ("supabase_url", "supabase_key", "no module named", "earnings", "not enough", "insufficient")):
+                logger.warning(
+                    "earnings_xgb: build_feature_frame error (%s) — skipping. "
+                    "Run after Supabase has earnings outcomes.", exc,
+                )
+                placeholder = out_dir / "skipped.txt"
+                out_dir.mkdir(parents=True, exist_ok=True)
+                placeholder.write_text(f"Skipped: feature build failed: {exc}\n")
+                return TrainResult(
+                    artifacts=[placeholder],
+                    metrics={
+                        "skipped": True,
+                        "skip_reason": "feature_build_error",
+                        "n_samples": 0,
+                        "error": str(exc)[:200],
+                    },
+                    notes=f"Skipped: {exc}",
+                )
             raise TrainerError(f"earnings feature build failed: {exc}") from exc
         if len(X) < 30:
             logger.warning(
