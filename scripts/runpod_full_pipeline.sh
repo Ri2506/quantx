@@ -98,51 +98,77 @@ if python -c "import torch, qlib, pytorch_forecasting, lightning, timesfm, ml.da
 else
     pip install --quiet --upgrade pip wheel
 
-    # 4a. Torch trio — the foundation. Must be installed FIRST with full
-    # dependency graph (no --ignore-installed, no --no-deps).
+    # 4a. Pre-emptively reinstall blinker so subsequent installs don't try
+    # to uninstall the distutils-installed system version (which always fails).
+    echo "  pre-installing blinker (clears distutils block)..."
+    pip install --quiet --ignore-installed blinker
+
+    # 4b. Torch trio — the foundation. Pinned versions; force-reinstall to
+    # ensure all CUDA libs land at the matching version.
     echo "  installing torch 2.4.1 + matched CUDA libs..."
     pip install --quiet --force-reinstall \
         "torch==2.4.1" "torchvision==0.19.1" "torchaudio==2.4.1" \
         --index-url https://download.pytorch.org/whl/cu124
 
-    # Verify CUDA libs land + torch can import. If not, abort — every
-    # downstream dep depends on this working.
     python -c "
 import torch, torch.onnx
 assert torch.cuda.is_available(), 'CUDA not available'
 print('  torch:', torch.__version__, '| CUDA:', torch.cuda.is_available(), '|', torch.cuda.get_device_name(0))
 "
 
-    # 4b. ML libraries — order matters for dep resolution
+    # 4c. Lightning + pytorch-forecasting (won't touch torch).
     echo "  installing pytorch-forecasting + lightning..."
     pip install --quiet "lightning>=2.0,<2.5"
     pip install --quiet pytorch-forecasting
 
-    echo "  installing timesfm (Google) + chronos-forecasting (Amazon)..."
-    pip install --quiet "timesfm[torch]==1.2.7"
-    pip install --quiet chronos-forecasting
+    # 4d. TimesFM with --no-deps to prevent torch 2.11 upgrade. Then
+    # manually install its non-torch dependencies.
+    echo "  installing timesfm (Google) — no-deps to preserve torch 2.4..."
+    pip install --quiet --no-deps "timesfm[torch]==1.2.7"
+    pip install --quiet einshape utilsforecast jax jaxlib praxis paxml \
+        2>&1 | tail -3 || true
+    # The above are timesfm's runtime deps minus torch; some may be optional.
 
+    # 4e. chronos-forecasting — also --no-deps to preserve torch
+    echo "  installing chronos-forecasting (Amazon) — no-deps..."
+    pip install --quiet --no-deps chronos-forecasting
+    pip install --quiet "transformers>=4.30" accelerate "huggingface-hub<1.0"
+
+    # 4f. pyqlib — may try to uninstall packages; use --no-deps + manual deps
     echo "  installing pyqlib (Microsoft)..."
-    pip install --quiet pyqlib
+    pip install --quiet --no-deps pyqlib
+    pip install --quiet pyyaml gym fire ruamel.yaml mlflow plotly redis-py-cluster \
+        2>&1 | tail -3 || true
 
+    # 4g. Other ML deps — these are well-behaved, can use full deps.
     echo "  installing remaining ML deps..."
     pip install --quiet jugaad-data statsmodels lightgbm xgboost \
-        supabase httpx pandas pyarrow yfinance b2sdk hmmlearn \
-        transformers stable-baselines3 gymnasium scikit-learn \
+        supabase httpx pyarrow yfinance b2sdk hmmlearn \
+        stable-baselines3 gymnasium scikit-learn \
         optuna optuna-integration
 
-    # 4c. Backend repo deps (best effort; optional)
-    [ -f requirements-train.txt ] && pip install --quiet -r requirements-train.txt --no-deps 2>&1 | tail -3 || true
+    # 4h. Backend repo deps (best effort; --no-deps so they don't disturb torch)
+    [ -f requirements-train.txt ] && pip install --quiet --no-deps -r requirements-train.txt 2>&1 | tail -3 || true
 
-    # 4d. autogluon optional — chronos2_macro falls back to direct chronos
+    # 4i. autogluon optional — chronos2_macro falls back to direct chronos.
     df -h / | head -2
     pip install --quiet "autogluon.timeseries>=1.1.0" 2>&1 | tail -3 \
         || echo "  autogluon skipped (chronos2_macro will use direct fallback)"
+
+    # 4j. CRITICAL: re-pin torch trio at the end. Some upstream package
+    # (autogluon or transformers) may have upgraded torch. Force back to
+    # 2.4.1 with --no-deps so we don't disturb the ecosystem.
+    echo "  re-pinning torch trio to 2.4.1 (some deps may have upgraded it)..."
+    pip install --quiet --force-reinstall --no-deps \
+        "torch==2.4.1" "torchvision==0.19.1" "torchaudio==2.4.1" \
+        --index-url https://download.pytorch.org/whl/cu124
 fi
 
 # Final verify — abort if anything is still broken
 python -c "
-import torch, qlib, pytorch_forecasting, lightning, timesfm
+import torch, torch.onnx
+assert torch.cuda.is_available(), 'CUDA not available'
+import qlib, pytorch_forecasting, lightning, timesfm
 import ml.data
 print('all imports OK')
 print('torch:', torch.__version__, '| CUDA:', torch.cuda.is_available(), '|', torch.cuda.get_device_name(0))
